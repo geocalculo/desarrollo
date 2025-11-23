@@ -1,1 +1,382 @@
-<html><body>info.html placeholder</body></html>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>GeoIPT – Resultado de consulta IPT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Omnivore para leer KML -->
+  <script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
+
+  <!-- Turf para point-in-polygon -->
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, sans-serif;
+      background-color: #050914;
+      color: #f5f5f5;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #050914;
+      border-bottom: 1px solid #161b2b;
+      padding: 8px 16px;
+    }
+
+    .titulo {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .subtitulo {
+      font-size: 11px;
+      color: #d0d4e6;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 8px 12px;
+      gap: 8px;
+    }
+
+    #map {
+      width: 100%;
+      height: 320px;
+      border-radius: 4px;
+      border: 1px solid #161b2b;
+    }
+
+    .panel {
+      background: #090f25;
+      border-radius: 4px;
+      border: 1px solid #161b2b;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+
+    .panel h2 {
+      margin: 0 0 6px 0;
+      font-size: 13px;
+    }
+
+    .panel table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .panel th, .panel td {
+      border: 1px solid #252b44;
+      padding: 4px 6px;
+      vertical-align: top;
+    }
+
+    .panel th {
+      background: #101426;
+      text-align: left;
+      color: #f5f5f5;
+    }
+
+    .panel td.key {
+      font-weight: 600;
+      width: 35%;
+      color: #d0d4e6;
+    }
+
+    .coords {
+      font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+        Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 11px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #101a3a;
+      border: 1px solid #27325a;
+      font-size: 11px;
+      margin-right: 4px;
+    }
+
+    .alerta {
+      color: #ffbaba;
+    }
+
+    footer {
+      background: #050914;
+      border-top: 1px solid #161b2b;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: #d0d4e6;
+      text-align: right;
+    }
+
+    @media (max-width: 768px) {
+      #map { height: 260px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="titulo">GeoIPT – Resultado de consulta IPT</div>
+    <div class="subtitulo" id="subtitulo">
+      Cargando información de la consulta…
+    </div>
+  </header>
+
+  <main>
+    <div id="map"></div>
+
+    <div class="panel" id="panelResumen">
+      <h2>Resumen de la consulta</h2>
+      <div id="resumenContenido">
+        Leyendo parámetros de la URL…
+      </div>
+    </div>
+
+    <div class="panel" id="panelDetalle" style="display:none;">
+      <h2>Detalle del polígono coincidente</h2>
+      <div id="detalleContenido"></div>
+    </div>
+  </main>
+
+  <footer>
+    GeoIPT – Consulta generada automáticamente desde el mapa principal.
+  </footer>
+
+  <script>
+    // Leer parámetros desde la URL
+    const params = new URLSearchParams(window.location.search);
+    const lat = parseFloat(params.get("lat"));
+    const lon = parseFloat(params.get("lon"));
+    const region = params.get("region") || "";
+    const instrumento = params.get("instrumento") || "";
+
+    const subtitulo = document.getElementById("subtitulo");
+    const resumenDiv = document.getElementById("resumenContenido");
+    const detalleDiv = document.getElementById("detalleContenido");
+    const panelDetalle = document.getElementById("panelDetalle");
+
+    if (isNaN(lat) || isNaN(lon)) {
+      resumenDiv.innerHTML =
+        '<span class="alerta">No se recibieron coordenadas válidas en la URL.</span>';
+      subtitulo.textContent = "Error en la consulta: coordenadas inválidas.";
+    } else if (!instrumento) {
+      resumenDiv.innerHTML =
+        '<span class="alerta">No se recibió el instrumento de planificación en la URL.</span><br>' +
+        "Vuelva al mapa principal, seleccione un instrumento y haga clic nuevamente.";
+      subtitulo.textContent = "Faltan datos para completar la consulta.";
+    } else {
+      // Mostrar resumen básico
+      const regionTexto =
+        region === "02"
+          ? "02 – Antofagasta"
+          : region === "03"
+          ? "03 – Atacama"
+          : region || "No especificada";
+
+      resumenDiv.innerHTML = `
+        <p>
+          <span class="badge">Región</span> ${regionTexto}<br>
+          <span class="badge">Instrumento</span> ${instrumento}<br>
+          <span class="badge">Coordenadas</span>
+          <span class="coords">
+            Lat: ${lat.toFixed(6)} &nbsp; Lon: ${lon.toFixed(6)}
+          </span>
+        </p>
+        <p>Se cargará el archivo KML correspondiente y se buscará el polígono que contenga el punto seleccionado.</p>
+      `;
+      subtitulo.textContent = "Buscando polígono coincidente en el instrumento seleccionado…";
+
+      iniciarMapaYConsulta();
+    }
+
+    function iniciarMapaYConsulta() {
+      if (typeof L === "undefined") {
+        subtitulo.textContent = "Error: no se pudo cargar Leaflet.";
+        resumenDiv.innerHTML +=
+          '<p class="alerta">No fue posible inicializar el mapa (L indefinido).</p>';
+        return;
+      }
+
+      const map = L.map("map").setView([lat, lon], 11);
+
+      const baseOSM = L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap contributors"
+        }
+      ).addTo(map);
+
+      const baseSatelite = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        {
+          maxZoom: 19,
+          attribution: "Tiles &copy; Esri"
+        }
+      );
+
+      L.control
+        .layers(
+          {
+            "Mapa de calles": baseOSM,
+            "Imagen satelital": baseSatelite
+          },
+          {},
+          { position: "topleft" }
+        )
+        .addTo(map);
+
+      // Marcar el punto consultado
+      const punto = L.marker([lat, lon]).addTo(map);
+      punto.bindPopup("Punto consultado").openPopup();
+
+      // Determinar carpeta según región
+      let carpeta = "capas/";
+      if (region === "02") carpeta = "capas/capas_02/";
+      else if (region === "03") carpeta = "capas/capas_03/";
+
+      const kmlUrl = carpeta + instrumento;
+
+      // Cargar KML con omnivore
+      const kmlLayerGroup = L.layerGroup().addTo(map);
+
+      omnivore.kml(kmlUrl, null, kmlLayerGroup)
+        .on("ready", function (e) {
+          const capa = e.target; // layerGroup con todas las features
+          procesarKml(map, capa, [lon, lat]);
+        })
+        .on("error", function () {
+          subtitulo.textContent = "Error al cargar el archivo KML.";
+          resumenDiv.innerHTML +=
+            '<p class="alerta">No fue posible leer el archivo KML: ' +
+            kmlUrl +
+            "</p>";
+        });
+    }
+
+    function procesarKml(map, layerGroup, coordLonLat) {
+      const puntoTurf = turf.point(coordLonLat); // [lon, lat]
+      const capas = [];
+
+      layerGroup.eachLayer(function (layer) {
+        // Cada layer puede ser un FeatureGroup u otro tipo
+        if (typeof layer.toGeoJSON === "function") {
+          const gj = layer.toGeoJSON();
+          // Algunos KML se convierten en FeatureCollection
+          if (gj.type === "FeatureCollection" && gj.features) {
+            gj.features.forEach((f) => capas.push({ feature: f, layer: layer }));
+          } else if (gj.type === "Feature") {
+            capas.push({ feature: gj, layer: layer });
+          }
+        }
+      });
+
+      const encontrados = [];
+      capas.forEach((obj) => {
+        const geom = obj.feature.geometry;
+        if (!geom) return;
+        try {
+          const dentro = turf.booleanPointInPolygon(puntoTurf, geom);
+          if (dentro) {
+            encontrados.push(obj);
+          }
+        } catch (e) {
+          // Ignorar geometrías no poligonales
+        }
+      });
+
+      if (!encontrados.length) {
+        subtitulo.textContent =
+          "No se encontró un polígono que contenga el punto en este instrumento.";
+        detalleDiv.innerHTML =
+          '<p class="alerta">El punto consultado no cae dentro de ningún polígono del archivo KML seleccionado.</p>' +
+          "<p>Verifique si el instrumento es el correcto, o pruebe con otro instrumento disponible para esta región.</p>";
+        panelDetalle.style.display = "block";
+        return;
+      }
+
+      // Resaltar los polígonos encontrados
+      const highlightStyle = {
+        color: "#00aaff",
+        weight: 3,
+        opacity: 0.9,
+        fillColor: "#00aaff",
+        fillOpacity: 0.25
+      };
+
+      const bounds = [];
+      encontrados.forEach((obj) => {
+        const l = L.geoJSON(obj.feature, { style: highlightStyle }).addTo(map);
+        bounds.push(l.getBounds());
+      });
+
+      // Unir bounds
+      if (bounds.length) {
+        let union = bounds[0];
+        for (let i = 1; i < bounds.length; i++) {
+          union = union.extend(bounds[i]);
+        }
+        map.fitBounds(union, { padding: [20, 20] });
+      }
+
+      // Mostrar atributos (si hay varios, los listamos todos)
+      let html = "";
+      encontrados.forEach((obj, idx) => {
+        const props = obj.feature.properties || {};
+        const tituloItem =
+          props.NOMBRE ||
+          props.ZONA ||
+          props.LOCALIDAD ||
+          props.COM ||
+          "Polígono " + (idx + 1);
+
+        html += `<h3>${idx + 1}. ${tituloItem}</h3>`;
+        html += '<table>';
+        Object.keys(props).forEach((key) => {
+          const val = props[key];
+          html += `
+            <tr>
+              <td class="key">${key}</td>
+              <td>${val}</td>
+            </tr>
+          `;
+        });
+        html += "</table><br/>";
+      });
+
+      detalleDiv.innerHTML = html;
+      panelDetalle.style.display = "block";
+      subtitulo.textContent =
+        "Se encontró " +
+        encontrados.length +
+        " polígono(s) que contienen el punto en el instrumento seleccionado.";
+    }
+  </script>
+</body>
+</html>
