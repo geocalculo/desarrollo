@@ -1,13 +1,347 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<title>GeoIPT - Mapa de consulta IPT</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <meta charset="UTF-8" />
+  <title>GeoIPT - Mapa de consulta IPT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Leaflet (sin integrity/crossorigin para evitar bloqueo) -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  ></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, sans-serif;
+      background-color: #050914;
+      color: #f5f5f5;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      background: #050914;
+      color: #f5f5f5;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #161b2b;
+      gap: 12px;
+      z-index: 1000;
+    }
+
+    .topbar-left {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: #d0d4e6;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .topbar-label {
+      font-size: 12px;
+      color: #d0d4e6;
+      margin-right: 4px;
+      white-space: nowrap;
+    }
+
+    .topbar-select {
+      background-color: #101426;
+      color: #f5f5f5;
+      border-radius: 4px;
+      border: 1px solid #292f4a;
+      padding: 4px 8px;
+      font-size: 12px;
+      min-width: 180px;
+    }
+
+    .topbar-select:disabled {
+      opacity: 0.6;
+    }
+
+    .topbar-help {
+      font-size: 11px;
+      color: #b4b8d4;
+      white-space: nowrap;
+    }
+
+    #map {
+      flex: 1;
+      width: 100%;
+    }
+
+    .bottom-panel {
+      background: #050914;
+      border-top: 1px solid #161b2b;
+      padding: 4px 10px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #d0d4e6;
+    }
+
+    .coords {
+      display: flex;
+      gap: 16px;
+    }
+
+    .coords span {
+      font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+        Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    @media (max-width: 768px) {
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .topbar-right {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .topbar-select {
+        min-width: 150px;
+      }
+      .bottom-panel {
+        flex-direction: column;
+        gap: 4px;
+      }
+    }
+  </style>
 </head>
 <body>
-REEMPLAZAR CONTENIDO AQUI (usar index entregado)
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="brand-title">GeoIPT - Mapa de consulta IPT</div>
+      <div class="brand-subtitle">
+        Mapa limpio. Clic en cualquier punto para abrir el detalle en una pestaña
+        nueva.
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div>
+        <span class="topbar-label">Región:</span>
+        <select id="regionSelect" class="topbar-select">
+          <option value="02">02 - Antofagasta</option>
+          <option value="03" selected>03 - Atacama</option>
+        </select>
+      </div>
+
+      <div>
+        <span class="topbar-label">Instrumento:</span>
+        <select id="instrumentSelect" class="topbar-select" disabled>
+          <option value="">Seleccione región…</option>
+        </select>
+      </div>
+
+      <div class="topbar-help">
+        Selecciona región e instrumento. Luego haz clic en el mapa para consultar.
+      </div>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="bottom-panel">
+    <div class="coords">
+      <div><strong>Coordenadas seleccionadas</strong></div>
+      <div><span id="latSpan">Lat: -</span></div>
+      <div><span id="lonSpan">Lon: -</span></div>
+    </div>
+    <div id="estadoTexto">
+      Haz clic en el mapa para elegir un punto de consulta.
+    </div>
+  </div>
+
+  <script>
+    const REGIONES = {
+      "02": {
+        nombre: "Antofagasta",
+        listadoUrl: "capas/capas_02/listado.json"
+      },
+      "03": {
+        nombre: "Atacama",
+        listadoUrl: "capas/capas_03/listado.json"
+      }
+    };
+
+    const regionSelect = document.getElementById("regionSelect");
+    const instrumentSelect = document.getElementById("instrumentSelect");
+    const latSpan = document.getElementById("latSpan");
+    const lonSpan = document.getElementById("lonSpan");
+    const estadoTexto = document.getElementById("estadoTexto");
+
+    let selectedLat = null;
+    let selectedLon = null;
+    let marker = null;
+
+    // Crear mapa
+    const map = L.map("map").setView([-27.37, -70.32], 8);
+
+    const baseOSM = L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+      }
+    ).addTo(map);
+
+    const baseSatelite = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      {
+        maxZoom: 19,
+        attribution: "Tiles &copy; Esri"
+      }
+    );
+
+    L.control
+      .layers(
+        {
+          "Mapa de calles": baseOSM,
+          "Imagen satelital": baseSatelite
+        },
+        {},
+        { position: "topleft" }
+      )
+      .addTo(map);
+
+    async function cargarInstrumentos(codRegion) {
+      instrumentSelect.innerHTML = "";
+      instrumentSelect.disabled = true;
+      estadoTexto.textContent =
+        "Cargando instrumentos para región " + codRegion + "...";
+
+      const cfg = REGIONES[codRegion];
+      if (!cfg) {
+        instrumentSelect.innerHTML =
+          '<option value="">Región no configurada</option>';
+        estadoTexto.textContent =
+          "La región seleccionada no está configurada en REGIONES.";
+        return;
+      }
+
+      try {
+        const resp = await fetch(cfg.listadoUrl + "?_=" + Date.now());
+        if (!resp.ok) throw new Error("No se pudo leer listado.json");
+        const data = await resp.json();
+        const lista = data.kml || [];
+
+        if (!lista.length) {
+          instrumentSelect.innerHTML =
+            '<option value="">Sin instrumentos definidos</option>';
+          estadoTexto.textContent =
+            "No se encontraron instrumentos en listado.json para " + cfg.nombre;
+          return;
+        }
+
+        const opt0 = document.createElement("option");
+        opt0.value = "";
+        opt0.textContent = "— Selecciona PRC/SCC —";
+        instrumentSelect.appendChild(opt0);
+
+        lista.forEach((archivo) => {
+          const opt = document.createElement("option");
+          opt.value = archivo;
+          opt.textContent = formatearNombreInstrumento(archivo);
+          instrumentSelect.appendChild(opt);
+        });
+
+        instrumentSelect.disabled = false;
+        estadoTexto.textContent =
+          "Selecciona un instrumento y haz clic en el mapa para consultar.";
+      } catch (err) {
+        console.error(err);
+        instrumentSelect.innerHTML =
+          '<option value="">Error al cargar listado.json</option>';
+        estadoTexto.textContent =
+          "Error al cargar los instrumentos. Revisa la consola del navegador.";
+      }
+    }
+
+    function formatearNombreInstrumento(nombre) {
+      let base = nombre.replace(/\.kml$/i, "");
+      base = base.replace(/_/g, " ");
+      return base;
+    }
+
+    regionSelect.addEventListener("change", () => {
+      cargarInstrumentos(regionSelect.value);
+    });
+
+    instrumentSelect.addEventListener("change", () => {
+      if (instrumentSelect.value) {
+        estadoTexto.textContent =
+          "Instrumento seleccionado: " +
+          instrumentSelect.options[instrumentSelect.selectedIndex].text +
+          ". Haz clic en el mapa para consultar.";
+      } else {
+        estadoTexto.textContent =
+          "Selecciona un instrumento y haz clic en el mapa para consultar.";
+      }
+    });
+
+    map.on("click", (e) => {
+      selectedLat = e.latlng.lat;
+      selectedLon = e.latlng.lng;
+
+      if (marker) {
+        marker.setLatLng(e.latlng);
+      } else {
+        marker = L.marker(e.latlng).addTo(map);
+      }
+
+      latSpan.textContent = "Lat: " + selectedLat.toFixed(6);
+      lonSpan.textContent = "Lon: " + selectedLon.toFixed(6);
+
+      const region = regionSelect.value || "";
+      const instrumento = instrumentSelect.value || "";
+
+      const params = new URLSearchParams({
+        lat: selectedLat,
+        lon: selectedLon,
+        region: region,
+        instrumento: instrumento
+      });
+
+      window.open("info.html?" + params.toString(), "_blank");
+    });
+
+    // Inicializar región por defecto (03)
+    cargarInstrumentos(regionSelect.value);
+  </script>
 </body>
 </html>
