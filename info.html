@@ -130,6 +130,30 @@
     }
 
   </style>
+
+  <!-- Librería para generar PDF desde HTML -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<style>
+  #btnPDF {
+      background-color: #1e88e5;
+      color: white;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 20px;
+  }
+
+  #btnPDF:hover {
+      background-color: #0d47a1;
+  }
+</style>
+
+
+
+  
 </head>
 <body>
   <div class="card">
@@ -459,5 +483,29 @@
         '<section><h3>Consulta PRC / SCC</h3><p>No se recibieron coordenadas válidas.</p></section>';
     }
   </script>
+
+  <!-- Botón para descargar todo el contenido de la pestaña como PDF -->
+<button id="btnPDF" onclick="descargarPDF()">📄 Descargar PDF</button>
+
+<script>
+  function descargarPDF() {
+      // Usamos todo el body para que el PDF incluya la página completa
+      const elemento = document.body;
+
+      const opciones = {
+          margin:       10,
+          filename:     'GeoIPT_reporte_consulta.pdf',
+          html2canvas:  { scale: 2 },
+          jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' }
+      };
+
+      html2pdf().set(opciones).from(elemento).save();
+  }
+</script>
+
+
+
+
+  
 </body>
 </html>
