@@ -11,6 +11,13 @@
     crossorigin=""
   />
   <style>
+
+    /* Eliminar márgenes del body durante la captura del PDF */
+body.pdf-mode {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
     * { box-sizing: border-box; }
     body {
       margin: 0;
@@ -488,20 +495,29 @@
 <button id="btnPDF" onclick="descargarPDF()">📄 Descargar PDF</button>
 
 <script>
-  function descargarPDF() {
-      // Usamos todo el body para que el PDF incluya la página completa
-      const elemento = document.body;
+function descargarPDF() {
 
-      const opciones = {
-          margin:       10,
-          filename:     'GeoIPT_reporte_consulta.pdf',
-          html2canvas:  { scale: 2 },
-          jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' }
-      };
+    // Activar modo PDF (quita márgenes visuales antes de capturar)
+    document.body.classList.add("pdf-mode");
 
-      html2pdf().set(opciones).from(elemento).save();
-  }
+    const opt = {
+        margin:       0,        // margen cero para evitar espacios arriba
+        filename:     "GeoIPT_reporte_consulta.pdf",
+        html2canvas:  { scale: 2, scrollY: 0 },
+        jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' }
+    };
+
+    html2pdf()
+        .set(opt)
+        .from(document.body)
+        .save()
+        .then(() => {
+            // Sacar modo PDF (para volver a ver la página normal)
+            document.body.classList.remove("pdf-mode");
+        });
+}
 </script>
+
 
 
 
