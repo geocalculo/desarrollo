@@ -5,15 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GeoIPT - Reporte del punto consultado</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-
 <style>
 body { font-family: Arial, sans-serif; margin:20px; }
-body.pdf-mode { margin:0 !important; padding:0 !important; background:#ffffff !important; }
-body.pdf-mode #pdf-content { margin:0 !important; padding-top:0 !important; box-shadow:none !important; }
-
-#mapaConsulta { width:100%; height:350px; margin-bottom:20px; }
-
+body.pdf-mode {
+    margin:0 !important;
+    padding:0 !important;
+    background:#ffffff !important;
+}
+body.pdf-mode #pdf-content {
+    margin:0 !important;
+    padding-top:0 !important;
+    box-shadow:none !important;
+}
 #btnPDF {
     background-color:#1e88e5;
     color:white;
@@ -27,20 +30,19 @@ body.pdf-mode #pdf-content { margin:0 !important; padding-top:0 !important; box-
 #btnPDF:hover { background-color:#0d47a1; }
 </style>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
 </head>
 <body>
 
 <div id="pdf-content">
 <h2>GeoIPT - Reporte del punto consultado</h2>
-
 <p><strong>Coordenadas WGS84</strong></p>
 <p id="coords"></p>
 
 <h3>Mapa de referencia</h3>
-<div id="mapaConsulta"></div>
+<div id="mapa">
+    <p>Mapa cargando...</p>
+</div>
 
 <div id="resultado"></div>
 </div>
@@ -48,37 +50,14 @@ body.pdf-mode #pdf-content { margin:0 !important; padding-top:0 !important; box-
 <button id="btnPDF" onclick="descargarPDF()">📄 Descargar PDF</button>
 
 <script>
-// Obtener parámetros
-const urlParams = new URLSearchParams(window.location.search);
-const lat = parseFloat(urlParams.get("lat"));
-const lon = parseFloat(urlParams.get("lon"));
-
-document.getElementById("coords").innerHTML =
-    `Lat: ${lat}<br>Lon: ${lon}`;
-
-// Crear mapa Leaflet con CORS
-const mapaConsulta = L.map('mapaConsulta').setView([lat, lon], 17);
-
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    crossOrigin: true,
-    maxZoom: 19
-}).addTo(mapaConsulta);
-
-L.marker([lat, lon]).addTo(mapaConsulta)
-    .bindPopup("Punto consultado<br>Lat: "+lat+"<br>Lon: "+lon)
-    .openPopup();
-
-// PDF
 function descargarPDF() {
     document.body.classList.add('pdf-mode');
-    mapaConsulta.invalidateSize();
-
     const elemento = document.getElementById('pdf-content');
 
     const opciones = {
         margin:0,
         filename:'GeoIPT_reporte_consulta.pdf',
-        html2canvas:{ scale:2, scrollY:0, useCORS:true },
+        html2canvas:{ scale:2, scrollY:0 },
         jsPDF:{ unit:'mm', format:'letter', orientation:'portrait' }
     };
 
