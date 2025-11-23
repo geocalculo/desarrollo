@@ -1,224 +1,31 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <title>GeoIPT - Reporte del punto consultado</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+map.on("click", (e) => {
+  selectedLat = e.latlng.lat;
+  selectedLon = e.latlng.lng;
 
-  <!-- Leaflet -->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
-  />
-  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  if (marker) {
+    marker.setLatLng(e.latlng);
+  } else {
+    marker = L.marker(e.latlng).addTo(map);
+  }
 
-  <!-- Omnivore (KML) -->
-  <script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
+  latSpan.textContent = "Lat: " + selectedLat.toFixed(6);
+  lonSpan.textContent = "Lon: " + selectedLon.toFixed(6);
 
-  <!-- Turf (point in polygon, multipolígonos, cóncavos) -->
-  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  const region = regionSelect.value || "";
+  const instrumento = instrumentSelect.value || "";
 
-  <!-- Proj4 para convertir a UTM 19S -->
-  <script src="https://cdn.jsdelivr.net/npm/proj4@2.9.0/dist/proj4.js"></script>
+  if (!instrumento) {
+    estadoTexto.textContent =
+      "Debe seleccionar un instrumento antes de hacer clic en el mapa.";
+    return;
+  }
 
-  <style>
-    * { box-sizing: border-box; }
+  const params = new URLSearchParams({
+    lat: selectedLat,
+    lon: selectedLon,
+    region: region,
+    instrumento: instrumento
+  });
 
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-        Roboto, sans-serif;
-      background-color: #f3f4f7;
-      color: #111827;
-    }
-
-    body {
-      display: flex;
-      justify-content: flex-start;
-      align-items: stretch;
-    }
-
-    .wrapper {
-      width: 100%;
-      max-width: 1024px;
-      margin: 16px auto;
-      padding: 0 8px;
-    }
-
-    .card {
-      background: #ffffff;
-      border-radius: 18px;
-      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
-      padding: 24px 28px 28px 28px;
-    }
-
-    header {
-      margin-bottom: 12px;
-    }
-
-    header h1 {
-      margin: 0 0 8px 0;
-      font-size: 24px;
-      font-weight: 700;
-      color: #111827;
-    }
-
-    .coord-blocks {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 24px;
-      font-size: 13px;
-      margin-bottom: 8px;
-    }
-
-    .coord-block-title {
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-
-    .coords-line {
-      font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
-        Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 12px;
-    }
-
-    .section-title {
-      margin-top: 18px;
-      margin-bottom: 6px;
-      font-size: 16px;
-      font-weight: 600;
-    }
-
-    .section-tip {
-      font-size: 12px;
-      color: #6b7280;
-      margin-bottom: 4px;
-    }
-
-    #map {
-      width: 100%;
-      height: 360px;
-      border-radius: 14px;
-      border: 1px solid #e5e7eb;
-      overflow: hidden;
-    }
-
-    .text-block {
-      font-size: 13px;
-      color: #374151;
-      margin-top: 12px;
-      line-height: 1.5;
-    }
-
-    .subsection-title {
-      margin-top: 14px;
-      margin-bottom: 4px;
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .resultado-resumen {
-      font-size: 13px;
-      margin: 6px 0;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: #e0f2fe;
-      color: #0f172a;
-      border: 1px solid #bae6fd;
-      font-size: 11px;
-      margin-right: 4px;
-    }
-
-    .alerta {
-      color: #b91c1c;
-      font-weight: 500;
-    }
-
-    table.detalle {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-      margin-top: 8px;
-    }
-
-    table.detalle th,
-    table.detalle td {
-      border: 1px solid #e5e7eb;
-      padding: 4px 6px;
-      vertical-align: top;
-    }
-
-    table.detalle th {
-      background: #f3f4f6;
-      text-align: left;
-    }
-
-    table.detalle td.key {
-      width: 30%;
-      font-weight: 600;
-      color: #374151;
-    }
-
-    footer {
-      margin-top: 10px;
-      font-size: 11px;
-      color: #6b7280;
-      text-align: right;
-    }
-
-    @media (max-width: 768px) {
-      .card {
-        padding: 18px 16px 20px 16px;
-      }
-      #map { height: 280px; }
-    }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="card">
-      <header>
-        <h1>GeoIPT - Reporte del punto consultado</h1>
-
-        <div class="coord-blocks">
-          <div>
-            <div class="coord-block-title">Coordenadas WGS84</div>
-            <div class="coords-line" id="wgsLine">Lat: - &nbsp; Lon: -</div>
-          </div>
-          <div>
-            <div class="coord-block-title">
-              Coordenadas UTM 19S (EPSG:32719)
-            </div>
-            <div class="coords-line" id="utmLine">
-              Este: - &nbsp;&nbsp; Norte: -
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div class="section-title">Mapa de referencia</div>
-      <div class="section-tip">
-        Tip: puedes hacer clic nuevamente en este mapa para abrir un
-        <strong>nuevo reporte</strong> sobre un nuevo punto (se abrirá en una pestaña adicional).
-      </div>
-      <div id="map"></div>
-
-      <div class="section-title" style="margin-top:18px;">
-        Consulta PRC / SCC (punto sobre polígonos)
-      </div>
-      <div class="text-block">
-        Evaluación del punto sobre los polígonos de los instrumentos comunales e
-        intercomunales de la región. El algoritmo considera geometrías cóncavas,
-        multipolígonos y una lógica robusta para bordes.
-      </div>
-
-      <div class="subsection-title">Resultado de la consulta</div>
-      <div class="resultado-resumen" id="resultadoResumen">
-        Procesando consult
+  window.open("info.html?" + params.toString(), "_blank");
+});
