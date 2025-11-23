@@ -9,6 +9,8 @@
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
   />
 
   <style>
@@ -22,408 +24,668 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
         Roboto, Helvetica, Arial, sans-serif;
       background: #e5e7eb;
-      color: #111827;
+      color: #0f172a;
       min-height: 100vh;
-      padding: 16px;
       display: flex;
       justify-content: center;
+      align-items: flex-start;
+      padding: 2rem 0.5rem;
     }
 
     .page {
       width: 100%;
-      max-width: 900px;
+      max-width: 1000px;
+    }
+
+    #report-wrapper {
       background: #f9fafb;
-      border-radius: 16px;
-      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
-      padding: 24px;
-    }
-
-    h1 {
-      font-size: 22px;
-      margin-bottom: 8px;
-    }
-
-    .coords {
-      font-size: 13px;
-      margin-bottom: 16px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px 24px;
-    }
-
-    .coords span {
-      font-weight: 500;
-    }
-
-    .section-title {
-      font-size: 16px;
-      font-weight: 600;
-      margin: 18px 0 8px;
-    }
-
-    .section-sub {
-      font-size: 12px;
-      color: #6b7280;
-      margin-bottom: 10px;
-    }
-
-    #map-ref {
-      width: 100%;
-      height: 320px;
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 16px;
-    }
-
-    .result {
-      font-size: 14px;
-      margin-top: 8px;
-    }
-
-    .result strong {
-      font-weight: 600;
-    }
-
-    .result.ok {
-      color: #166534;
-    }
-
-    .result.none {
-      color: #b91c1c;
-    }
-
-    .result-list {
-      margin-top: 8px;
-      font-size: 13px;
-      padding-left: 18px;
-    }
-
-    .footer-actions {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 24px;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    button {
-      border: none;
-      border-radius: 999px;
-      padding: 8px 16px;
-      font-size: 13px;
-      cursor: pointer;
-      background: #111827;
-      color: #f9fafb;
-    }
-
-    button:hover {
-      background: #020617;
+      border-radius: 1.5rem;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+      padding: 2rem 2.5rem;
     }
 
     @media (max-width: 640px) {
-      .page {
-        padding: 16px;
-        border-radius: 12px;
+      #report-wrapper {
+        padding: 1.5rem 1.25rem;
+        border-radius: 0.75rem;
       }
     }
 
-    /* Ajustes para impresión (Descargar PDF) */
-    @media print {
-      body {
-        background: #ffffff;
-        padding: 0;
-      }
-      .page {
-        max-width: none;
-        box-shadow: none;
-        border-radius: 0;
-      }
-      .footer-actions {
-        display: none;
-      }
-      @page {
-        margin: 10mm;
-      }
+    h1 {
+      font-size: 1.6rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .coords-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      font-size: 0.9rem;
+      color: #4b5563;
+      margin-bottom: 1.5rem;
+    }
+
+    .coords-block strong {
+      display: block;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6b7280;
+      margin-bottom: 0.25rem;
+    }
+
+    .coords-block span {
+      display: inline-block;
+      margin-right: 0.35rem;
+    }
+
+    h2 {
+      font-size: 1.1rem;
+      margin: 1.25rem 0 0.35rem;
+    }
+
+    .tip {
+      font-size: 0.75rem;
+      color: #6b7280;
+      margin-bottom: 0.5rem;
+    }
+
+    #map {
+      width: 100%;
+      height: 380px;
+      border-radius: 1rem;
+      overflow: hidden;
+      border: 1px solid #d1d5db;
+      margin-bottom: 1.75rem;
+    }
+
+    .section {
+      margin-top: 1rem;
+    }
+
+    .section p {
+      font-size: 0.9rem;
+      line-height: 1.45;
+      color: #4b5563;
+    }
+
+    .section strong {
+      color: #111827;
+    }
+
+    .resultado-ok {
+      color: #059669;
+      font-weight: 600;
+    }
+
+    .resultado-nok {
+      color: #b91c1c;
+      font-weight: 600;
+    }
+
+    ul.coincidencias {
+      margin-top: 0.35rem;
+      margin-left: 1rem;
+      font-size: 0.9rem;
+      color: #374151;
+    }
+
+    ul.coincidencias li {
+      margin-bottom: 0.15rem;
+    }
+
+    /* Tabla de atributos */
+    #detalle-atributos-prc {
+      margin-top: 0.75rem;
+    }
+
+    .atributos-item h4 {
+      font-size: 0.98rem;
+      margin-bottom: 0.4rem;
+      color: #111827;
+    }
+
+    table.tabla-atributos {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    table.tabla-atributos th,
+    table.tabla-atributos td {
+      border: 1px solid #e5e7eb;
+      padding: 0.35rem 0.55rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    table.tabla-atributos th {
+      width: 28%;
+      background: #f3f4f6;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    table.tabla-atributos tr:nth-child(even) td {
+      background: #f9fafb;
+    }
+
+    /* Botón descargar PDF */
+    .actions-row {
+      margin-top: 2rem;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    button#btn-descargar-pdf {
+      border: none;
+      border-radius: 999px;
+      padding: 0.7rem 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: #020617;
+      color: #f9fafb;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    button#btn-descargar-pdf:hover {
+      opacity: 0.94;
+      transform: translateY(-0.5px);
+    }
+
+    button#btn-descargar-pdf:active {
+      transform: translateY(0);
+      opacity: 0.88;
+    }
+
+    button#btn-descargar-pdf svg {
+      width: 16px;
+      height: 16px;
     }
   </style>
 </head>
 <body>
   <div class="page">
-    <h1>GeoIPT - Reporte del punto consultado</h1>
+    <div id="report-wrapper">
+      <header>
+        <h1>GeoIPT - Reporte del punto consultado</h1>
+        <div class="coords-row">
+          <div class="coords-block">
+            <strong>Coordenadas WGS84</strong>
+            <span>Lat: <span id="lat-display">-</span></span>
+            <span>Lon: <span id="lon-display">-</span></span>
+          </div>
+          <div class="coords-block">
+            <strong>Coordenadas UTM 19S (EPSG:32719)</strong>
+            <span>Este: <span id="utm-e-display">-</span></span>
+            <span>Norte: <span id="utm-n-display">-</span></span>
+          </div>
+          <div class="coords-block">
+            <strong>Región</strong>
+            <span id="region-display">-</span>
+          </div>
+          <div class="coords-block">
+            <strong>Instrumento seleccionado para zoom</strong>
+            <span id="instrumento-display">-</span>
+          </div>
+        </div>
+      </header>
 
-    <div class="coords" id="coords-block">
-      <!-- aquí se rellenan las coordenadas -->
-    </div>
+      <section>
+        <h2>Mapa de referencia</h2>
+        <p class="tip">
+          Tip: puedes hacer clic nuevamente en este mapa para abrir un nuevo reporte sobre un nuevo punto (se abrirá en una pestaña adicional).
+        </p>
+        <div id="map"></div>
+      </section>
 
-    <div>
-      <div class="section-title">Mapa de referencia</div>
-      <div class="section-sub">
-        Tip: puedes hacer clic nuevamente en este mapa para abrir un nuevo reporte
-        sobre un nuevo punto (se abrirá en una pestaña adicional).
-      </div>
-      <div id="map-ref"></div>
-    </div>
+      <section class="section">
+        <h2>Consulta PRC / SCC (punto sobre polígonos de toda la región)</h2>
+        <p>
+          Evaluación del punto sobre todos los polígonos de los instrumentos PRC/SCC de la región seleccionada. El combo del mapa principal se usa solo para zoom
+          óptico; aquí se revisan <strong>todos los KML declarados en el listado.json de la región</strong>.
+        </p>
+        <div id="resultado-prc" style="margin-top:0.5rem; font-size:0.95rem;"></div>
+        <ul id="lista-coincidencias" class="coincidencias"></ul>
 
-    <div>
-      <div class="section-title">
-        Consulta PRC / SCC (punto sobre polígonos de toda la región)
-      </div>
-      <div class="section-sub">
-        Evaluación del punto sobre todos los polígonos de los instrumentos PRC/SCC
-        de la región seleccionada. El combo del mapa principal se usa solo para zoom
-        óptico; aquí se revisan <strong>todos los KML declarados en el listado.json de la región</strong>.
-      </div>
-      <div id="resultado-poligono" class="result">
-        Cargando información de zonificación PRC/SCC de la región...
-      </div>
-      <ul id="lista-coincidencias" class="result-list"></ul>
-    </div>
+        <h3 style="margin-top: 1.5rem;">Detalle de atributos del/los polígono(s)</h3>
+        <div id="detalle-atributos-prc"></div>
+      </section>
 
-    <div class="footer-actions">
-      <button type="button" onclick="window.print()">Descargar PDF</button>
+      <div class="actions-row">
+        <button id="btn-descargar-pdf" type="button">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Descargar PDF
+        </button>
+      </div>
     </div>
   </div>
 
-  <!-- JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
-  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+  <!-- Scripts -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <!-- Proj4 para coordenadas UTM -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.1/proj4.js" integrity="sha512-bVmL59OstkCfyhMDnwUdIBcyKyxM/oZhIu7lq+SIURMi5A+tg1mzRi51gfYWS+ytfV/6s5wx2cgHBw0tSmyYVQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <!-- html2pdf (html2canvas + jsPDF) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-YcsIP0Yq4T0mN3GExlYtGWRqlhK/SXxPxq8np5xpoE2mR7BncpsbR9f7DmqDveoxu48UUfG9U0mH0DkR3h3K0A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
   <script>
-    // Configuración de regiones (coincidir con index.html)
-    const REGIONES = {
-      "02": {
-        nombre: "Antofagasta",
-        listadoUrl: "capas/capas_02/listado.json",
-        carpeta: "capas/capas_02/"
-      },
-      "03": {
-        nombre: "Atacama",
-        listadoUrl: "capas/capas_03/listado.json",
-        carpeta: "capas/capas_03/"
-      }
-    };
-
-    // Leer parámetros de la URL
-    const params = new URLSearchParams(window.location.search);
-    const lat = parseFloat(params.get("lat"));
-    const lon = parseFloat(params.get("lon"));
-    const region = params.get("region") || "";
-    const instrumentoSeleccionado = params.get("instrumento") || "";
-
-    const coordsBlock = document.getElementById("coords-block");
-    const resultadoPoligono = document.getElementById("resultado-poligono");
-    const listaCoincidencias = document.getElementById("lista-coincidencias");
-
-    // Mostrar coordenadas y datos básicos
-    coordsBlock.innerHTML = `
-      <div>
-        <span>Coordenadas WGS84</span><br />
-        Lat: ${isFinite(lat) ? lat.toFixed(6) : "-"} &nbsp;&nbsp;
-        Lon: ${isFinite(lon) ? lon.toFixed(6) : "-"}
-      </div>
-      <div>
-        <span>Región</span><br />
-        ${region || "-"} ${REGIONES[region] ? " - " + REGIONES[region].nombre : ""}
-      </div>
-      <div>
-        <span>Instrumento seleccionado para zoom</span><br />
-        ${instrumentoSeleccionado || "— (no condiciona la evaluación)"}
-      </div>
-    `;
-
-    // Mapa de referencia
-    const mapRef = L.map("map-ref").setView(
-      [isFinite(lat) ? lat : -27.36, isFinite(lon) ? lon : -70.31],
-      17
-    );
-
-    const capaBase = L.tileLayer(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      {
-        maxZoom: 19,
-        attribution: "&copy; OpenStreetMap contributors"
-      }
-    ).addTo(mapRef);
-
-    const capaSatelital = L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      {
-        maxZoom: 19,
-        attribution: "Imagery © Esri"
-      }
-    );
-
-    L.control.layers(
-      { "Mapa": capaBase, "Satelital": capaSatelital },
-      null,
-      { position: "topright" }
-    ).addTo(mapRef);
-
-    // Marker del punto consultado
-    if (isFinite(lat) && isFinite(lon)) {
-      const marker = L.marker([lat, lon]).addTo(mapRef);
-      marker.bindPopup(
-        `Punto consultado<br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}`
-      ).openPopup();
+    function getParam(name) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(name);
     }
 
-    // Permitir clic en el mapa para nuevo reporte
-    mapRef.on("click", function (e) {
-      const newLat = e.latlng.lat;
-      const newLon = e.latlng.lng;
+    function escapeHtml(text) {
+      if (text == null) return "";
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
 
-      const newParams = new URLSearchParams({
-        lat: newLat,
-        lon: newLon,
-        region: region,
-        instrumento: instrumentoSeleccionado
+    // Extrae TODOS los atributos desde un Placemark KML
+    function getAttributesFromPlacemark(placemarkEl) {
+      const attrs = {};
+
+      // ExtendedData/Data
+      placemarkEl.querySelectorAll("ExtendedData Data").forEach((data) => {
+        const name =
+          data.getAttribute("name") ||
+          (data.querySelector("displayName") &&
+            data.querySelector("displayName").textContent.trim());
+        const value =
+          (data.querySelector("value") &&
+            data.querySelector("value").textContent.trim()) ||
+          "";
+        if (name) attrs[name] = value;
       });
-      window.open("info.html?" + newParams.toString(), "_blank");
-    });
 
-    // Grupo de capas para los polígonos que hacen match
-    const matchGroup = L.featureGroup().addTo(mapRef);
+      // ExtendedData/SimpleData
+      placemarkEl.querySelectorAll("ExtendedData SimpleData").forEach((sd) => {
+        const name = sd.getAttribute("name");
+        const value = sd.textContent.trim();
+        if (name) attrs[name] = value;
+      });
 
-    // Función auxiliar: envolver omnivore.kml en una Promise
-    function evaluarKmlEnPunto(kmlUrl, nombreArchivo, punto) {
-      return new Promise((resolve) => {
-        let loader;
-        try {
-          loader = omnivore.kml(kmlUrl);
-        } catch (err) {
-          console.warn("Error creando loader KML:", kmlUrl, err);
-          resolve(null);
-          return;
+      // name del Placemark
+      const nameEl = placemarkEl.querySelector("name");
+      if (nameEl) {
+        const val = nameEl.textContent.trim();
+        if (val && !attrs["NAME"]) {
+          attrs["NAME"] = val;
         }
+      }
 
-        loader.on("ready", function () {
-          try {
-            const geojson = loader.toGeoJSON();
-            let featureMatch = null;
+      // description del Placemark (sin HTML)
+      const descEl = placemarkEl.querySelector("description");
+      if (descEl && descEl.textContent.trim()) {
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = descEl.textContent;
+        const plainText = tempDiv.textContent || tempDiv.innerText || "";
+        if (plainText.trim()) {
+          attrs["DESCRIPTION"] = plainText.trim();
+        }
+      }
 
-            turf.flattenEach(geojson, function (feature) {
-              if (featureMatch) return;
-              // Pequeño buffer en grados para cubrir bordes
-              const buffered = turf.buffer(feature, 0.00001, { units: "degrees" });
-              if (turf.booleanPointInPolygon(punto, buffered)) {
-                featureMatch = feature;
-              }
-            });
-
-            if (featureMatch) {
-              const layer = L.geoJSON(featureMatch, {
-                style: {
-                  color: "#2563eb",
-                  weight: 2,
-                  fillColor: "#60a5fa",
-                  fillOpacity: 0.3
-                }
-              }).addTo(matchGroup);
-
-              resolve({
-                archivo: nombreArchivo,
-                feature: featureMatch,
-                bounds: layer.getBounds()
-              });
-            } else {
-              resolve(null);
-            }
-          } catch (err) {
-            console.error("Error evaluando punto en", kmlUrl, err);
-            resolve(null);
-          } finally {
-            try {
-              mapRef.removeLayer(loader);
-            } catch (e) {}
-          }
-        });
-
-        loader.on("error", function (err) {
-          console.warn("Error cargando KML:", kmlUrl, err);
-          resolve(null);
-        });
-
-        loader.addTo(mapRef); // dispara la carga
-      });
+      return attrs;
     }
 
-    // Buscar coincidencias en TODOS los KML de la región
-    async function buscarCoincidenciasEnRegion() {
-      if (!REGIONES[region]) {
-        resultadoPoligono.textContent =
-          "La región indicada no está configurada en el sistema.";
-        resultadoPoligono.className = "result none";
+    function renderAttributesTable(placemarkEl, index) {
+      const attrs = getAttributesFromPlacemark(placemarkEl);
+      const keys = Object.keys(attrs);
+
+      if (!keys.length) {
+        return `
+          <div class="atributos-item">
+            <h4>Polígono ${index + 1}</h4>
+            <p>No se encontraron atributos en el KML para este polígono.</p>
+          </div>
+        `;
+      }
+
+      const rows = keys
+        .map(
+          (key) => `
+          <tr>
+            <th>${escapeHtml(key)}</th>
+            <td>${escapeHtml(attrs[key])}</td>
+          </tr>
+        `
+        )
+        .join("");
+
+      return `
+        <div class="atributos-item" style="margin-top: 1rem;">
+          <h4>Polígono ${index + 1}</h4>
+          <table class="tabla-atributos">
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function actualizarAtributosPRC(matchingPlacemarks) {
+      const container = document.getElementById("detalle-atributos-prc");
+      if (!container) return;
+
+      if (!matchingPlacemarks || !matchingPlacemarks.length) {
+        container.innerHTML =
+          "<p>No hay atributos que mostrar porque el punto no se encontró dentro de ningún polígono.</p>";
         return;
       }
 
-      const cfg = REGIONES[region];
+      container.innerHTML = matchingPlacemarks
+        .map((plc, idx) => renderAttributesTable(plc, idx))
+        .join("");
+    }
 
+    // Conversión WGS84 -> UTM 19S (EPSG:32719) usando proj4
+    function actualizarUTM(lat, lon) {
       try {
-        const resp = await fetch(cfg.listadoUrl + "?_=" + Date.now());
-        if (!resp.ok) throw new Error("No se pudo leer listado.json");
-        const data = await resp.json();
-        const lista = data.kml || [];
-
-        if (!lista.length) {
-          resultadoPoligono.textContent =
-            "No se encontraron instrumentos PRC/SCC en el listado de la región.";
-          resultadoPoligono.className = "result none";
-          return;
+        // Definición rápida de EPSG:32719
+        if (!proj4.defs["EPSG:32719"]) {
+          proj4.defs(
+            "EPSG:32719",
+            "+proj=utm +zone=19 +south +datum=WGS84 +units=m +no_defs"
+          );
         }
-
-        const punto = turf.point([lon, lat]);
-        const coincidencias = [];
-
-        for (const archivo of lista) {
-          const kmlUrl = cfg.carpeta + archivo;
-          const res = await evaluarKmlEnPunto(kmlUrl, archivo, punto);
-          if (res) {
-            coincidencias.push(res);
-          }
-        }
-
-        if (coincidencias.length) {
-          resultadoPoligono.innerHTML =
-            "<strong>Resultado:</strong> El punto consultado " +
-            "<strong>se encuentra dentro de uno o más polígonos</strong> " +
-            "de los instrumentos PRC/SCC de la región.";
-          resultadoPoligono.className = "result ok";
-
-          listaCoincidencias.innerHTML = "";
-          coincidencias.forEach((c) => {
-            const li = document.createElement("li");
-            li.textContent = "Coincidencia en archivo: " + c.archivo;
-            listaCoincidencias.appendChild(li);
-          });
-
-          try {
-            mapRef.fitBounds(matchGroup.getBounds(), { padding: [20, 20] });
-          } catch (e) {}
-        } else {
-          resultadoPoligono.innerHTML =
-            "<strong>Resultado:</strong> El punto consultado " +
-            "<strong>no se encuentra dentro de ningún polígono</strong> " +
-            "de los instrumentos PRC/SCC cargados para esta región.";
-          resultadoPoligono.className = "result none";
-          listaCoincidencias.innerHTML = "";
-        }
-      } catch (err) {
-        console.error(err);
-        resultadoPoligono.textContent =
-          "Ocurrió un error al evaluar el punto en los instrumentos PRC/SCC de la región.";
-        resultadoPoligono.className = "result none";
+        const utm = proj4("EPSG:4326", "EPSG:32719", [lon, lat]); // [x, y]
+        document.getElementById("utm-e-display").textContent = utm[0]
+          .toFixed(3)
+          .replace(".", ",");
+        document.getElementById("utm-n-display").textContent = utm[1]
+          .toFixed(3)
+          .replace(".", ",");
+      } catch (e) {
+        console.error("Error UTM:", e);
       }
     }
 
-    // Disparar búsqueda de coincidencias
-    if (isFinite(lat) && isFinite(lon)) {
-      buscarCoincidenciasEnRegion();
-    } else {
-      resultadoPoligono.textContent =
-        "No se recibieron coordenadas válidas para evaluar el punto.";
-      resultadoPoligono.className = "result none";
+    // Punto en polígono (Ray casting)
+    function pointInPolygon(lat, lon, polygonLatLngs) {
+      let inside = false;
+      const x = lon;
+      const y = lat;
+
+      for (let i = 0, j = polygonLatLngs.length - 1; i < polygonLatLngs.length; j = i++) {
+        const xi = polygonLatLngs[i].lng,
+          yi = polygonLatLngs[i].lat;
+        const xj = polygonLatLngs[j].lng,
+          yj = polygonLatLngs[j].lat;
+
+        const intersect =
+          yi > y !== yj > y &&
+          x < ((xj - xi) * (y - yi)) / (yj - yi + 1e-12) + xi;
+        if (intersect) inside = !inside;
+      }
+      return inside;
     }
+
+    function parseKmlPolygons(kmlText) {
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(kmlText, "application/xml");
+      const placemarks = Array.from(xml.getElementsByTagName("Placemark"));
+      const results = [];
+
+      placemarks.forEach((pm) => {
+        const polygons = [];
+
+        // Polygons directos
+        pm.querySelectorAll("Polygon").forEach((poly) => {
+          const coordsEl = poly.querySelector("outerBoundaryIs coordinates, outerBoundaryIs>LinearRing>coordinates, coordinates");
+          if (!coordsEl) return;
+          const coordsText = coordsEl.textContent.trim();
+          if (!coordsText) return;
+
+          const coords = coordsText
+            .split(/\s+/)
+            .map((pair) => {
+              const parts = pair.split(",");
+              const lon = parseFloat(parts[0]);
+              const lat = parseFloat(parts[1]);
+              if (isNaN(lat) || isNaN(lon)) return null;
+              return L.latLng(lat, lon);
+            })
+            .filter(Boolean);
+
+          if (coords.length >= 3) {
+            polygons.push(coords);
+          }
+        });
+
+        // MultiGeometry -> Polygon
+        pm.querySelectorAll("MultiGeometry Polygon").forEach((poly) => {
+          const coordsEl = poly.querySelector("outerBoundaryIs coordinates, outerBoundaryIs>LinearRing>coordinates, coordinates");
+          if (!coordsEl) return;
+          const coordsText = coordsEl.textContent.trim();
+          if (!coordsText) return;
+
+          const coords = coordsText
+            .split(/\s+/)
+            .map((pair) => {
+              const parts = pair.split(",");
+              const lon = parseFloat(parts[0]);
+              const lat = parseFloat(parts[1]);
+              if (isNaN(lat) || isNaN(lon)) return null;
+              return L.latLng(lat, lon);
+            })
+            .filter(Boolean);
+
+          if (coords.length >= 3) {
+            polygons.push(coords);
+          }
+        });
+
+        if (polygons.length) {
+          results.push({
+            placemarkEl: pm,
+            polygons,
+          });
+        }
+      });
+
+      return results;
+    }
+
+    async function evaluarPRC(lat, lon, regionCode) {
+      const resultadoDiv = document.getElementById("resultado-prc");
+      const listaUl = document.getElementById("lista-coincidencias");
+
+      resultadoDiv.textContent = "Evaluando polígonos PRC/SCC de la región...";
+      listaUl.innerHTML = "";
+
+      const matchingPlacemarks = [];
+      const coincidenciasArchivos = new Map();
+      const drawnLayers = [];
+
+      // Ruta genérica: ajusta según tu estructura real de carpetas
+      const basePath = `capas/region_${regionCode}/`;
+      const listadoUrl = `${basePath}listado.json`;
+
+      try {
+        const listadoResp = await fetch(listadoUrl);
+        if (!listadoResp.ok) {
+          throw new Error("No se pudo leer listado.json de la región " + regionCode);
+        }
+        const listado = await listadoResp.json();
+
+        for (const item of listado) {
+          const archivo = item.archivo || item.kml || item.nombre || "";
+          if (!archivo) continue;
+
+          const kmlUrl = basePath + archivo;
+
+          try {
+            const kmlResp = await fetch(kmlUrl);
+            if (!kmlResp.ok) {
+              console.warn("No se pudo leer KML:", kmlUrl);
+              continue;
+            }
+            const kmlText = await kmlResp.text();
+            const features = parseKmlPolygons(kmlText);
+
+            features.forEach((feat) => {
+              let contiene = false;
+              feat.polygons.forEach((polyCoords) => {
+                if (pointInPolygon(lat, lon, polyCoords)) {
+                  contiene = true;
+                  // Dibujar polígono en el mapa
+                  const polyLayer = L.polygon(polyCoords, {
+                    color: "#2563eb",
+                    weight: 2,
+                    fillColor: "#3b82f6",
+                    fillOpacity: 0.15,
+                  }).addTo(window._geoiptMap);
+                  drawnLayers.push(polyLayer);
+                }
+              });
+
+              if (contiene) {
+                matchingPlacemarks.push(feat.placemarkEl);
+
+                const key = archivo;
+                if (!coincidenciasArchivos.has(key)) {
+                  coincidenciasArchivos.set(key, {
+                    archivo,
+                    nombreInstrumento: item.nombre || archivo,
+                  });
+                }
+              }
+            });
+          } catch (errKml) {
+            console.warn("Error procesando KML", kmlUrl, errKml);
+          }
+        }
+
+        if (matchingPlacemarks.length > 0) {
+          resultadoDiv.innerHTML =
+            '<span class="resultado-ok">Resultado:</span> El punto consultado se encuentra dentro de uno o más polígonos de los instrumentos PRC/SCC de la región.';
+          listaUl.innerHTML = "";
+
+          coincidenciasArchivos.forEach((obj) => {
+            const li = document.createElement("li");
+            li.textContent = `Coincidencia en archivo: ${obj.archivo}`;
+            listaUl.appendChild(li);
+          });
+
+          actualizarAtributosPRC(matchingPlacemarks);
+
+          // Ajustar vista del mapa a los polígonos dibujados
+          if (drawnLayers.length) {
+            const group = L.featureGroup(drawnLayers);
+            window._geoiptMap.fitBounds(group.getBounds().pad(0.2));
+          }
+        } else {
+          resultadoDiv.innerHTML =
+            '<span class="resultado-nok">Resultado:</span> El punto consultado no se encuentra dentro de ningún polígono de los archivos PRC/SCC cargados.';
+          listaUl.innerHTML = "";
+          actualizarAtributosPRC([]);
+        }
+      } catch (err) {
+        console.error(err);
+        resultadoDiv.innerHTML =
+          '<span class="resultado-nok">Resultado:</span> No fue posible evaluar los polígonos PRC/SCC de la región (revisa listado.json y la ruta de los KML).';
+        listaUl.innerHTML = "";
+        actualizarAtributosPRC([]);
+      }
+    }
+
+    function initMap(lat, lon) {
+      const map = L.map("map").setView([lat, lon], 15);
+      window._geoiptMap = map;
+
+      const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+      }).addTo(map);
+
+      const esriSat = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        {
+          maxZoom: 19,
+          attribution: "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, and the GIS User Community",
+        }
+      );
+
+      L.control.layers(
+        { "Mapa calle": osm, Satélite: esriSat },
+        {},
+        { position: "topright" }
+      ).addTo(map);
+
+      const marker = L.marker([lat, lon]).addTo(map);
+      marker.bindPopup(
+        `Punto consultado<br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}`
+      ).openPopup();
+
+      // Al hacer clic en el mapa, abrir nueva pestaña con nuevo punto
+      map.on("click", (e) => {
+        const url = new URL(window.location.href);
+        url.searchParams.set("lat", e.latlng.lat.toString());
+        url.searchParams.set("lon", e.latlng.lng.toString());
+        window.open(url.toString(), "_blank");
+      });
+    }
+
+    function initPdfButton() {
+      const btn = document.getElementById("btn-descargar-pdf");
+      if (!btn) return;
+
+      btn.addEventListener("click", () => {
+        const element = document.getElementById("report-wrapper");
+        const opt = {
+          margin: [10, 10, 10, 10],
+          filename: "GeoIPT_reporte_punto.pdf",
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            scrollX: 0,
+            scrollY: -window.scrollY || 0,
+          },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        };
+
+        html2pdf().set(opt).from(element).save();
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const latParam = parseFloat(getParam("lat") || "-27.0");
+      const lonParam = parseFloat(getParam("lon") || "-70.0");
+      const regionCode = getParam("region") || "--";
+      const instrumento = getParam("instrumento") || "-";
+
+      document.getElementById("lat-display").textContent = latParam.toFixed(6);
+      document.getElementById("lon-display").textContent = lonParam.toFixed(6);
+      document.getElementById("region-display").textContent = regionCode;
+      document.getElementById("instrumento-display").textContent = instrumento;
+
+      actualizarUTM(latParam, lonParam);
+      initMap(latParam, lonParam);
+      initPdfButton();
+
+      if (regionCode && regionCode !== "--") {
+        evaluarPRC(latParam, lonParam, regionCode);
+      } else {
+        document.getElementById("resultado-prc").innerHTML =
+          '<span class="resultado-nok">Resultado:</span> No se indicó código de región en la URL.';
+      }
+    });
   </script>
 </body>
 </html>
