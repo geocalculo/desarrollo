@@ -24,7 +24,7 @@
         }
 
         #btnPDF {
-            display: none; /* se mostrará solo si hubo match */
+            display: none;
             background-color: #1e88e5;
             color: white;
             padding: 12px 18px;
@@ -38,9 +38,14 @@
         #btnPDF:hover {
             background-color: #0d47a1;
         }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+        }
     </style>
 
-    <!-- Librería para generar PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 </head>
@@ -54,16 +59,12 @@
 
         <hr>
 
-        <div id="resultado">
-            <!-- Aquí se llenará con los polígonos encontrados -->
-        </div>
+        <div id="resultado"></div>
     </div>
 
-    <!-- Botón PDF: aparece solo si hubo match -->
-    <button id="btnPDF" onclick="generarPDF()">📄 Compartir / Descargar PDF</button>
+    <button id="btnPDF" class="no-print" onclick="generarPDF()">📄 Compartir / Descargar PDF</button>
 
     <script>
-        // ------- 1) Recibir datos desde index.html --------
         const urlParams = new URLSearchParams(window.location.search);
         const lat = urlParams.get("lat");
         const lon = urlParams.get("lon");
@@ -72,7 +73,6 @@
         document.getElementById("coords").innerHTML =
             `Lat: ${lat}<br>Lon: ${lon}`;
 
-        // ------- 2) Mostrar resultados --------
         const cont = document.getElementById("resultado");
 
         if (matches.length === 0) {
@@ -90,20 +90,17 @@
             });
 
             cont.innerHTML = html;
-
-            // Si hubo match → mostrar botón PDF
-            document.getElementById("btnPDF").style.display = "block";
+            document.getElementById("btnPDF").style.display = "inline-block";
         }
 
-        // ------- 3) Función para generar PDF --------
         function generarPDF() {
-            const elemento = document.getElementById("reporte");
+            const elemento = document.body;
 
             const opciones = {
-                margin: 10,
-                filename: `GeoIPT_consulta_${lat}_${lon}.pdf`,
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' }
+                margin:       10,
+                filename:     `GeoIPT_consulta_${lat}_${lon}.pdf`,
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' }
             };
 
             html2pdf().from(elemento).set(opciones).save();
