@@ -1,527 +1,71 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <title>GeoIPT - Reporte del punto consultado (PRC Atacama)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    crossorigin=""
-  />
-  <style>
-
-    /* Eliminar márgenes del body durante la captura del PDF */
-body.pdf-mode {
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 24px;
-      background: #f4f5f7;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-                   Roboto, Helvetica, Arial, sans-serif;
-    }
-    .card {
-      max-width: 1100px;
-      margin: 0 auto;
-      background: #ffffff;
-      border-radius: 16px;
-      padding: 24px 32px 32px;
-      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
-    }
-    h1 { margin: 0 0 4px; font-size: 24px; }
-    .subtitle {
-      margin: 0 0 24px;
-      font-size: 14px;
-      color: #6b7280;
-    }
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-    .stat-box {
-      background: #f9fafb;
-      border-radius: 12px;
-      padding: 10px 14px;
-    }
-    .stat-label {
-      font-size: 11px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: #9ca3af;
-      margin-bottom: 4px;
-    }
-    .stat-value {
-      font-size: 16px;
-      font-weight: 600;
-      color: #111827;
-    }
-    h2 { font-size: 18px; margin: 20px 0 6px; }
-    .section-text {
-      font-size: 13px;
-      color: #6b7280;
-      margin: 0 0 12px;
-    }
-    #map {
-      width: 100%;
-      height: 360px;
-      border-radius: 14px;
-      overflow: hidden;
-      margin-bottom: 24px;
-    }
-    #prc-container {
-      margin-top: 8px;
-      font-size: 14px;
-    }
-    #prc-container table {
-      border-collapse: collapse;
-      width: 100%;
-      margin-top: 6px;
-    }
-    #prc-container th,
-    #prc-container td {
-      border: 1px solid #e5e7eb;
-      padding: 4px 6px;
-      font-size: 12px;
-    }
-    #prc-container th {
-      background: #f3f4f6;
-    }
-    .hint-click {
-      font-size: 11px;
-      color: #9ca3af;
-      margin-top: -4px;
-      margin-bottom: 10px;
-    }
-  
-    .coords {
-      margin-bottom: 16px;
-      font-size: 12px;
-    }
-    .coords-table {
-      border-collapse: collapse;
-      margin-right: 12px;
-      margin-bottom: 4px;
-      display: inline-block;
-    }
-    .coords-table th {
-      text-align: left;
-      font-size: 11px;
-      color: #6b7280;
-      padding: 2px 4px;
-    }
-    .coords-table td {
-      font-size: 12px;
-      padding: 2px 4px;
-      white-space: nowrap;
-    }
-    .coord-label {
-      font-weight: 600;
-      margin-right: 4px;
-    }
-    @media (max-width: 640px) {
-      .coords {
-        font-size: 11px;
-      }
-      .coords-table {
-        display: block;
-        margin-right: 0;
-      }
-    }
-
-  </style>
-
-  <!-- Librería para generar PDF desde HTML -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoIPT - Reporte del punto consultado</title>
 
 <style>
-  #btnPDF {
-      background-color: #1e88e5;
-      color: white;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      margin-top: 20px;
-  }
-
-  #btnPDF:hover {
-      background-color: #0d47a1;
-  }
+body { font-family: Arial, sans-serif; margin:20px; }
+body.pdf-mode {
+    margin:0 !important;
+    padding:0 !important;
+    background:#ffffff !important;
+}
+body.pdf-mode #pdf-content {
+    margin:0 !important;
+    padding-top:0 !important;
+    box-shadow:none !important;
+}
+#btnPDF {
+    background-color:#1e88e5;
+    color:white;
+    padding:10px 16px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    font-size:14px;
+    margin-top:20px;
+}
+#btnPDF:hover { background-color:#0d47a1; }
 </style>
 
-
-
-  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
-  <div class="card">
-    <h1>GeoIPT  - Reporte del punto consultado</h1>
 
+<div id="pdf-content">
+<h2>GeoIPT - Reporte del punto consultado</h2>
+<p><strong>Coordenadas WGS84</strong></p>
+<p id="coords"></p>
 
-    <div class="coords">
-      <table class="coords-table">
-        <thead>
-          <tr><th colspan="2">Coordenadas WGS84</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><span class="coord-label">Lat:</span> <span id="lat-wgs84">-</span></td>
-            <td><span class="coord-label">Lon:</span> <span id="lon-wgs84">-</span></td>
-          </tr>
-        </tbody>
-      </table>
-      <table class="coords-table">
-        <thead>
-          <tr><th colspan="2">Coordenadas UTM 19S (EPSG:32719)</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><span class="coord-label">Este:</span> <span id="utm-e">-</span></td>
-            <td><span class="coord-label">Norte:</span> <span id="utm-n">-</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+<h3>Mapa de referencia</h3>
+<div id="mapa">
+    <p>Mapa cargando...</p>
+</div>
 
+<div id="resultado"></div>
+</div>
 
-
-    <h2>Mapa de referencia</h2>
-
-    <p class="hint-click">
-      Tip: puedes hacer clic nuevamente en este mapa para abrir un <strong>nuevo reporte</strong>
-      sobre un nuevo punto (se abrirá en una pestaña adicional).
-    </p>
-    <div id="map"></div>
-
-    <h2>Consulta PRC / SCC (punto sobre polígonos)</h2>
-    <p class="section-text">
-      Evaluación del punto sobre los polígonos de los archivos comunales e intercomunales
-      de la Región de Atacama. El algoritmo es robusto para polígonos cóncavos y considera
-      además una pequeña tolerancia alrededor del punto para bordes.
-    </p>
-    <div id="prc-container">
-      Cargando consulta PRC/SCC...
-    </div>
-  </div>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="https://cdn.jsdelivr.net/npm/proj4@2.9.1/dist/proj4.js"></script>
-  <script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
-  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
-
-  <script>
-    function getParam(name) {
-      const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get(name);
-    }
-
-    const lat = parseFloat(getParam('lat'));
-    const lon = parseFloat(getParam('lon'));
-
-    if (!isNaN(lat) && !isNaN(lon)) {
-      document.getElementById('lat-wgs84').textContent = lat.toFixed(6);
-      document.getElementById('lon-wgs84').textContent = lon.toFixed(6);
-    }
-
-    proj4.defs('EPSG:32719',
-      '+proj=utm +zone=19 +south +datum=WGS84 +units=m +no_defs'
-    );
-
-    if (!isNaN(lat) && !isNaN(lon)) {
-      const utm = proj4('EPSG:4326', 'EPSG:32719', [lon, lat]);
-      const este = utm[0];
-      const norte = utm[1];
-      document.getElementById('utm-e').textContent = este.toFixed(3);
-      document.getElementById('utm-n').textContent = norte.toFixed(3);
-    }
-
-    // --- Mapa overview con selector de mapa base (Mapa / Satelital) ---
-    var map = L.map('map').setView(
-      [!isNaN(lat) ? lat : -27.37, !isNaN(lon) ? lon : -70.33],
-      !isNaN(lat) && !isNaN(lon) ? 17 : 13
-    );
-
-    var capaMapa = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    });
-
-    var capaSatelite = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      {
-        maxZoom: 19,
-        attribution: 'Imagery © Esri'
-      }
-    );
-
-    // Leer preferencia de mapa base desde localStorage (heredar del visor principal)
-    var baseChoice = null;
-    try {
-      baseChoice = localStorage.getItem('geoia_baseLayer');
-    } catch (e) {
-      baseChoice = null;
-    }
-
-    if (baseChoice === 'satelital') {
-      capaSatelite.addTo(map);
-    } else {
-      capaMapa.addTo(map);
-    }
-
-    // Control de capas (Mapa / Satelital)
-    L.control.layers(
-      { 'Mapa': capaMapa, 'Satelital': capaSatelite },
-      null,
-      { position: 'topright' }
-    ).addTo(map);
-
-    // Si el usuario cambia el mapa base aquí, también actualizamos la preferencia global
-    map.on('baselayerchange', function (e) {
-      try {
-        if (e.name === 'Mapa') {
-          localStorage.setItem('geoia_baseLayer', 'mapa');
-        } else if (e.name === 'Satelital') {
-          localStorage.setItem('geoia_baseLayer', 'satelital');
-        }
-      } catch (err) {
-        console.warn('No se pudo guardar la preferencia de mapa base (overview):', err);
-      }
-    });
-
-    if (!isNaN(lat) && !isNaN(lon)) {
-      var marker = L.marker([lat, lon]).addTo(map);
-      marker.bindPopup(
-        'Punto consultado<br>Lat: ' + lat.toFixed(6) +
-        '<br>Lon: ' + lon.toFixed(6)
-      ).openPopup();
-    }
-
-    // Permitir nueva consulta directamente desde el overview:
-    // clic en el mapa abre info.html en una pestaña nueva con el nuevo punto.
-    map.on('click', function(e) {
-      var nlat = e.latlng.lat;
-      var nlon = e.latlng.lng;
-      var url = 'info.html?lat=' + encodeURIComponent(nlat) +
-                '&lon=' + encodeURIComponent(nlon);
-      window.open(url, '_blank');
-    });
-
-    // ---- CONFIGURACIÓN DE CAPAS PRC / SCC ----
-    const PRC_CAPAS = [
-      { id: 'PRC_COPIAPO',      nombre: 'PRC Comunal Copiapó',                 archivo: 'capas/IPT_03_PRC_Copiapo.kml' },
-      { id: 'PRC_CALDERA',      nombre: 'PRC Comunal Caldera',                 archivo: 'capas/IPT_03_PRC_Caldera.kml' },
-      { id: 'PRC_CHAÑARAL',     nombre: 'PRC Comunal Chañaral',                archivo: 'capas/IPT_03_PRC_Chañaral.kml' },
-      { id: 'PRC_DIEGO_ALMAGRO',nombre: 'PRC Comunal Diego de Almagro',        archivo: 'capas/IPT_03_PRC_Diego_de_Almagro.kml' },
-      { id: 'PRC_FREIRINA',     nombre: 'PRC Comunal Freirina',                archivo: 'capas/IPT_03_PRC_Freirina.kml' },
-      { id: 'PRC_HUASCO',       nombre: 'PRC Comunal Huasco',                  archivo: 'capas/IPT_03_PRC_Huasco.kml' },
-      { id: 'PRC_VALLENAR',     nombre: 'PRC Comunal Vallenar',                archivo: 'capas/IPT_03_PRC_Vallenar.kml' },
-      { id: 'SCC_ELSALADO',     nombre: 'SCC El Salado',                       archivo: 'capas/IPT_03_SCC_ElSalado.kml' },
-      { id: 'SCC_FLAMENCO',     nombre: 'SCC Flamenco',                        archivo: 'capas/IPT_03_SCC_Flamenco.kml' },
-      { id: 'SCC_PORTOFINO',    nombre: 'SCC Portofino',                       archivo: 'capas/IPT_03_SCC_Portofino.kml' },
-      { id: 'PRICOST',          nombre: 'PRC Intercomunal Costero de Atacama', archivo: 'capas/PRICOST_Atacama.kml' }
-    ];
-
-    function nombrePoligono(props) {
-      if (!props) return 'Polígono sin nombre';
-      return props.name ||
-             props.Nombre ||
-             props.NOMBRE ||
-             props.ZONA ||
-             props.Zona ||
-             props.CODIGO ||
-             JSON.stringify(props);
-    }
-
-    // Consulta PRC/SCC en un solo archivo KML (robusta)
-    function consultarPRCEnArchivo(lat, lon, cfg) {
-      return new Promise(function(resolve) {
-        var loader = omnivore.kml(cfg.archivo);
-
-        loader.on('ready', function() {
-          try {
-            var geojson = this.toGeoJSON();
-            var features = geojson.features || [];
-            var pt = turf.point([lon, lat]);
-
-            var resultados = [];
-
-            for (var i = 0; i < features.length; i++) {
-              var f = features[i];
-              if (!f.geometry) continue;
-
-              var t = f.geometry.type;
-              if (t !== 'Polygon' && t !== 'MultiPolygon') continue;
-
-              var dentro = false;
-              try {
-                dentro = turf.booleanPointInPolygon(pt, f);
-              } catch (e) {
-                console.warn('Error booleanPointInPolygon', e);
-              }
-
-              if (!dentro) {
-                try {
-                  var buf = turf.buffer(pt, 0.002, { units: 'kilometers' }); // ~2 m
-                  dentro = turf.booleanIntersects(buf, f);
-                } catch (e2) {
-                  console.warn('Error en buffer/intersects', e2);
-                }
-              }
-
-              if (dentro) {
-                resultados.push({
-                  feature: f,
-                  props: f.properties || {},
-                  nombre: nombrePoligono(f.properties || {}),
-                  instrumento: cfg.nombre
-                });
-              }
-            }
-
-            resolve(resultados);
-          } catch (e) {
-            console.warn('Error procesando', cfg.nombre, e);
-            resolve([]);
-          }
-        });
-
-        loader.on('error', function(err) {
-          console.warn('Error cargando KML de', cfg.nombre, err);
-          resolve([]);
-        });
-      });
-    }
-
-    // Consulta global en todas las capas (secuencial para evitar fallos globales)
-    async function consultarPRCGlobal(lat, lon) {
-      let todos = [];
-      for (const cfg of PRC_CAPAS) {
-        try {
-          const res = await consultarPRCEnArchivo(lat, lon, cfg);
-          todos = todos.concat(res);
-        } catch (e) {
-          console.warn('Error en consulta de', cfg.nombre, e);
-        }
-      }
-      return todos;
-    }
-
-    function construirHTML(resultados) {
-      var html = '<section><h3>Consulta PRC / SCC</h3>';
-
-      if (!resultados || resultados.length === 0) {
-        html += '<p>El punto consultado <strong>no se encuentra dentro de ningún polígono</strong> de los archivos PRC/SCC cargados.</p>';
-        html += '</section>';
-        return html;
-      }
-
-      // Agrupar por instrumento
-      var porInstrumento = {};
-      resultados.forEach(function(r) {
-        var inst = r.instrumento || 'PRC/SCC';
-        if (!porInstrumento[inst]) {
-          porInstrumento[inst] = [];
-        }
-        porInstrumento[inst].push(r);
-      });
-
-      Object.keys(porInstrumento).forEach(function(inst) {
-        var lista = porInstrumento[inst];
-        html += '<h4 style="margin-top:12px;">' + inst + '</h4>';
-        html += '<p>Se encontraron ' + lista.length + ' polígonos que contienen el punto.</p>';
-
-        lista.forEach(function(r, idx) {
-          html += '<p style="margin:4px 0;"><strong>Polígono ' + (idx + 1) +
-                  ':</strong> ' + r.nombre + '</p>';
-
-          var props = r.props || {};
-          var keys = Object.keys(props);
-          if (keys.length > 0) {
-            html += '<table><tr><th>Atributo</th><th>Valor</th></tr>';
-            keys.forEach(function(k) {
-              html += '<tr><td>' + k + '</td><td>' + props[k] + '</td></tr>';
-            });
-            html += '</table>';
-          }
-        });
-      });
-
-      html += '</section>';
-      return html;
-    }
-
-    if (!isNaN(lat) && !isNaN(lon)) {
-      consultarPRCGlobal(lat, lon)
-        .then(function(resultados) {
-          // dibujar polígonos en el mapa
-          resultados.forEach(function(r) {
-            try {
-              L.geoJSON(r.feature, {
-                style: {
-                  color: '#2563eb',
-                  weight: 2,
-                  fillOpacity: 0.2
-                }
-              }).addTo(map);
-            } catch (e) {
-              console.warn('Error al dibujar polígono', e);
-            }
-          });
-
-          document.getElementById('prc-container').innerHTML =
-            construirHTML(resultados);
-        })
-        .catch(function(err) {
-          console.error('Error en consulta PRC/SCC:', err);
-          document.getElementById('prc-container').innerHTML =
-            '<section><h3>Consulta PRC / SCC</h3><p>Error al procesar los archivos KML.</p></section>';
-        });
-    } else {
-      document.getElementById('prc-container').innerHTML =
-        '<section><h3>Consulta PRC / SCC</h3><p>No se recibieron coordenadas válidas.</p></section>';
-    }
-  </script>
-
-  <!-- Botón para descargar todo el contenido de la pestaña como PDF -->
 <button id="btnPDF" onclick="descargarPDF()">📄 Descargar PDF</button>
 
 <script>
 function descargarPDF() {
+    document.body.classList.add('pdf-mode');
+    const elemento = document.getElementById('pdf-content');
 
-    // Activar modo PDF (quita márgenes visuales antes de capturar)
-    document.body.classList.add("pdf-mode");
-
-    const opt = {
-        margin:       0,        // margen cero para evitar espacios arriba
-        filename:     "GeoIPT_reporte_consulta.pdf",
-        html2canvas:  { scale: 2, scrollY: 0 },
-        jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' }
+    const opciones = {
+        margin:0,
+        filename:'GeoIPT_reporte_consulta.pdf',
+        html2canvas:{ scale:2, scrollY:0 },
+        jsPDF:{ unit:'mm', format:'letter', orientation:'portrait' }
     };
 
-    html2pdf()
-        .set(opt)
-        .from(document.body)
-        .save()
-        .then(() => {
-            // Sacar modo PDF (para volver a ver la página normal)
-            document.body.classList.remove("pdf-mode");
-        });
+    html2pdf().set(opciones).from(elemento).save().then(()=>{
+        document.body.classList.remove('pdf-mode');
+    });
 }
 </script>
 
-
-
-
-
-  
 </body>
 </html>
