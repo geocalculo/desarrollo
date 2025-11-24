@@ -360,11 +360,12 @@
       const region = regionSelect.value || "";
       const instrumento = instrumentoSelect.value || "";
 
-      if (!instrumento) {
-        hintText.textContent =
-          "Debe seleccionar un instrumento antes de hacer clic en el mapa.";
-        return;
-      }
+if (!instrumento) {
+    hintText.textContent =
+      "Nota: No seleccionaste instrumento, pero el análisis se hará igual sobre todos los PRC/SCC.";
+    // NO hay return aquí → se permite continuar
+}
+
 
       const params = new URLSearchParams({
         lat: lat,
