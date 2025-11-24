@@ -251,9 +251,13 @@
         <div id="resultado-prc" style="margin-top:0.5rem; font-size:0.95rem;"></div>
         <ul id="lista-coincidencias" class="coincidencias"></ul>
 
-        <h3 style="margin-top: 1.5rem;">Detalle de atributos </h3>
+        <h3 id="titulo-atributos" style="margin-top: 1.5rem;">
+          Detalle de atributos del/los polígono(s)
+        </h3>
         <p id="instrumento-atributos" class="tip"></p>
         <div id="detalle-atributos-prc"></div>
+
+        
       </section>
 
       <div class="actions-row">
@@ -700,16 +704,41 @@ document.getElementById("instrumento-display").textContent = instrumentos;
       });
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const latParam = parseFloat(getParam("lat") || "-27.0");
-      const lonParam = parseFloat(getParam("lon") || "-70.0");
-      const regionCode = getParam("region") || "--";
-      const instrumento = getParam("instrumento") || "-";
+document.addEventListener("DOMContentLoaded", () => {
+  const latParam = parseFloat(getParam("lat") || "-27.0");
+  const lonParam = parseFloat(getParam("lon") || "-70.0");
+  const regionCode = getParam("region") || "--";
+  let instrumento = getParam("instrumento") || "-";
 
-      document.getElementById("lat-display").textContent = latParam.toFixed(6);
-      document.getElementById("lon-display").textContent = lonParam.toFixed(6);
-      document.getElementById("region-display").textContent = regionCode;
-      document.getElementById("instrumento-display").textContent = instrumento;
+  // Quitar extensión .kml si viene en el parámetro
+  if (instrumento && instrumento !== "-") {
+    instrumento = instrumento.replace(/\.kml$/i, "");
+  }
+
+  document.getElementById("lat-display").textContent = latParam.toFixed(6);
+  document.getElementById("lon-display").textContent = lonParam.toFixed(6);
+  document.getElementById("region-display").textContent = regionCode;
+  document.getElementById("instrumento-display").textContent = instrumento;
+
+  // Actualizar título de atributos si ya viene un instrumento en la URL
+  const tituloAttr = document.getElementById("titulo-atributos");
+  if (tituloAttr && instrumento && instrumento !== "-") {
+    tituloAttr.textContent =
+      "Detalle de atributos del/los polígono(s) – " + instrumento;
+  }
+
+  actualizarUTM(latParam, lonParam);
+  initMap(latParam, lonParam);
+  initPdfButton();
+
+  if (regionCode && regionCode !== "--") {
+    evaluarPRC(latParam, lonParam, regionCode);
+  } else {
+    document.getElementById("resultado-prc").innerHTML =
+      '<span class="resultado-nok">Resultado:</span> No se indicó código de región en la URL.';
+  }
+});
+
 
       actualizarUTM(latParam, lonParam);
       initMap(latParam, lonParam);
