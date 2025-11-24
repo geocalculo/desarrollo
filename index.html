@@ -360,7 +360,78 @@ if (navigator.geolocation) {
           "Error al cargar los instrumentos. Revisa la consola del navegador.";
       }
     }
+// Lee un KML y devuelve sus bounds como L.LatLngBounds (solo polígonos)
+async function obtenerBoundsDesdeKml(url) {
+  try {
+    const resp = await fetch(url + "?_=" + Date.now());
+    if (!resp.ok) {
+      console.warn("No se pudo leer KML para bounds:", url, resp.status);
+      return null;
+    }
+    const kmlText = await resp.text();
 
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(kmlText, "application/xml");
+    const placemarks = Array.from(xml.getElementsByTagName("Placemark"));
+
+    const coordsGlobal = [];
+
+    placemarks.forEach((pm) => {
+      // Polygons directos
+      pm.querySelectorAll("Polygon").forEach((poly) => {
+        const coordsEl =
+          poly.querySelector("outerBoundaryIs coordinates") ||
+          poly.querySelector("outerBoundaryIs>LinearRing>coordinates") ||
+          poly.querySelector("coordinates");
+        if (!coordsEl) return;
+        const coordsText = coordsEl.textContent.trim();
+        if (!coordsText) return;
+
+        coordsText.split(/\s+/).forEach((pair) => {
+          const parts = pair.split(",");
+          const lon = parseFloat(parts[0]);
+          const lat = parseFloat(parts[1]);
+          if (!isNaN(lat) && !isNaN(lon)) {
+            coordsGlobal.push(L.latLng(lat, lon));
+          }
+        });
+      });
+
+      // MultiGeometry -> Polygon
+      pm.querySelectorAll("MultiGeometry Polygon").forEach((poly) => {
+        const coordsEl =
+          poly.querySelector("outerBoundaryIs coordinates") ||
+          poly.querySelector("outerBoundaryIs>LinearRing>coordinates") ||
+          poly.querySelector("coordinates");
+        if (!coordsEl) return;
+        const coordsText = coordsEl.textContent.trim();
+        if (!coordsText) return;
+
+        coordsText.split(/\s+/).forEach((pair) => {
+          const parts = pair.split(",");
+          const lon = parseFloat(parts[0]);
+          const lat = parseFloat(parts[1]);
+          if (!isNaN(lat) && !isNaN(lon)) {
+            coordsGlobal.push(L.latLng(lat, lon));
+          }
+        });
+      });
+    });
+
+    if (!coordsGlobal.length) {
+      console.warn("KML sin coordenadas de polígonos para bounds:", url);
+      return null;
+    }
+
+    return L.latLngBounds(coordsGlobal);
+  } catch (err) {
+    console.error("Error leyendo/parsing KML para bounds:", url, err);
+    return null;
+  }
+}
+
+
+    
     function zoomInstrumento(regionCodigo, archivoKml) {
       if (!archivoKml) return;
 
