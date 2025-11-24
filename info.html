@@ -501,108 +501,134 @@
       return results;
     }
 
-    async function evaluarPRC(lat, lon, regionCode) {
-      const resultadoDiv = document.getElementById("resultado-prc");
-      const listaUl = document.getElementById("lista-coincidencias");
+async function evaluarPRC(lat, lon, regionCode) {
+  const resultadoDiv = document.getElementById("resultado-prc");
+  const listaUl = document.getElementById("lista-coincidencias");
 
-      resultadoDiv.textContent = "Evaluando polígonos PRC/SCC de la región...";
-      listaUl.innerHTML = "";
+  resultadoDiv.textContent = "Evaluando polígonos PRC/SCC de la región...";
+  listaUl.innerHTML = "";
 
-      const matchingPlacemarks = [];
-      const coincidenciasArchivos = new Map();
-      const drawnLayers = [];
+  const matchingPlacemarks = [];
+  const coincidenciasArchivos = new Map();
+  const drawnLayers = [];
 
-      // Ruta genérica: ajusta según tu estructura real de carpetas
-      const basePath = `capas/region_${regionCode}/`;
-      const listadoUrl = `${basePath}listado.json`;
+  // ⚠️ AQUÍ VA LA RUTA CORRECTA A TUS CARPETAS
+  // capas/capas_03/, capas/capas_02/, etc.
+  const basePath = `capas/capas_${regionCode}/`;
+  const listadoUrl = `${basePath}listado.json`;
+
+  try {
+    const listadoResp = await fetch(listadoUrl);
+    if (!listadoResp.ok) {
+      throw new Error("No se pudo leer listado.json de la región " + regionCode);
+    }
+    const listado = await listadoResp.json();
+
+    // listado puede ser:
+    // - un objeto con "kml": [ "archivo1.kml", ... ]
+    // - o directamente un arreglo de strings u objetos
+    let archivos = [];
+    if (Array.isArray(listado)) {
+      archivos = listado;
+    } else if (Array.isArray(listado.kml)) {
+      archivos = listado.kml;
+    }
+
+    for (const entry of archivos) {
+      // entry puede ser string ("IPT_03_PRC_Copiapo.kml")
+      // o un objeto { archivo: "...", nombre: "..." }
+      let archivo = "";
+      let nombreInstrumento = "";
+
+      if (typeof entry === "string") {
+        archivo = entry;
+        nombreInstrumento = entry;
+      } else if (entry && typeof entry === "object") {
+        archivo =
+          entry.archivo || entry.kml || entry.nombre || "";
+        nombreInstrumento =
+          entry.nombre || archivo;
+      }
+
+      if (!archivo) continue;
+
+      const kmlUrl = basePath + archivo;
 
       try {
-        const listadoResp = await fetch(listadoUrl);
-        if (!listadoResp.ok) {
-          throw new Error("No se pudo leer listado.json de la región " + regionCode);
+        const kmlResp = await fetch(kmlUrl);
+        if (!kmlResp.ok) {
+          console.warn("No se pudo leer KML:", kmlUrl);
+          continue;
         }
-        const listado = await listadoResp.json();
+        const kmlText = await kmlResp.text();
+        const features = parseKmlPolygons(kmlText);
 
-        for (const item of listado) {
-          const archivo = item.archivo || item.kml || item.nombre || "";
-          if (!archivo) continue;
+        features.forEach((feat) => {
+          let contiene = false;
 
-          const kmlUrl = basePath + archivo;
-
-          try {
-            const kmlResp = await fetch(kmlUrl);
-            if (!kmlResp.ok) {
-              console.warn("No se pudo leer KML:", kmlUrl);
-              continue;
+          feat.polygons.forEach((polyCoords) => {
+            if (pointInPolygon(lat, lon, polyCoords)) {
+              contiene = true;
+              // Dibujar polígono en el mapa
+              const polyLayer = L.polygon(polyCoords, {
+                color: "#2563eb",
+                weight: 2,
+                fillColor: "#3b82f6",
+                fillOpacity: 0.15,
+              }).addTo(window._geoiptMap);
+              drawnLayers.push(polyLayer);
             }
-            const kmlText = await kmlResp.text();
-            const features = parseKmlPolygons(kmlText);
-
-            features.forEach((feat) => {
-              let contiene = false;
-              feat.polygons.forEach((polyCoords) => {
-                if (pointInPolygon(lat, lon, polyCoords)) {
-                  contiene = true;
-                  // Dibujar polígono en el mapa
-                  const polyLayer = L.polygon(polyCoords, {
-                    color: "#2563eb",
-                    weight: 2,
-                    fillColor: "#3b82f6",
-                    fillOpacity: 0.15,
-                  }).addTo(window._geoiptMap);
-                  drawnLayers.push(polyLayer);
-                }
-              });
-
-              if (contiene) {
-                matchingPlacemarks.push(feat.placemarkEl);
-
-                const key = archivo;
-                if (!coincidenciasArchivos.has(key)) {
-                  coincidenciasArchivos.set(key, {
-                    archivo,
-                    nombreInstrumento: item.nombre || archivo,
-                  });
-                }
-              }
-            });
-          } catch (errKml) {
-            console.warn("Error procesando KML", kmlUrl, errKml);
-          }
-        }
-
-        if (matchingPlacemarks.length > 0) {
-          resultadoDiv.innerHTML =
-            '<span class="resultado-ok">Resultado:</span> El punto consultado se encuentra dentro de uno o más polígonos de los instrumentos PRC/SCC de la región.';
-          listaUl.innerHTML = "";
-
-          coincidenciasArchivos.forEach((obj) => {
-            const li = document.createElement("li");
-            li.textContent = `Coincidencia en archivo: ${obj.archivo}`;
-            listaUl.appendChild(li);
           });
 
-          actualizarAtributosPRC(matchingPlacemarks);
+          if (contiene) {
+            matchingPlacemarks.push(feat.placemarkEl);
 
-          // Ajustar vista del mapa a los polígonos dibujados
-          if (drawnLayers.length) {
-            const group = L.featureGroup(drawnLayers);
-            window._geoiptMap.fitBounds(group.getBounds().pad(0.2));
+            if (!coincidenciasArchivos.has(archivo)) {
+              coincidenciasArchivos.set(archivo, {
+                archivo,
+                nombreInstrumento,
+              });
+            }
           }
-        } else {
-          resultadoDiv.innerHTML =
-            '<span class="resultado-nok">Resultado:</span> El punto consultado no se encuentra dentro de ningún polígono de los archivos PRC/SCC cargados.';
-          listaUl.innerHTML = "";
-          actualizarAtributosPRC([]);
-        }
-      } catch (err) {
-        console.error(err);
-        resultadoDiv.innerHTML =
-          '<span class="resultado-nok">Resultado:</span> No fue posible evaluar los polígonos PRC/SCC de la región (revisa listado.json y la ruta de los KML).';
-        listaUl.innerHTML = "";
-        actualizarAtributosPRC([]);
+        });
+      } catch (errKml) {
+        console.warn("Error procesando KML", kmlUrl, errKml);
       }
     }
+
+    if (matchingPlacemarks.length > 0) {
+      resultadoDiv.innerHTML =
+        '<span class="resultado-ok">Resultado:</span> El punto consultado se encuentra dentro de uno o más polígonos de los instrumentos PRC/SCC de la región.';
+      listaUl.innerHTML = "";
+
+      coincidenciasArchivos.forEach((obj) => {
+        const li = document.createElement("li");
+        li.textContent = `Coincidencia en archivo: ${obj.archivo}`;
+        listaUl.appendChild(li);
+      });
+
+      actualizarAtributosPRC(matchingPlacemarks);
+
+      // Ajustar vista del mapa a los polígonos dibujados
+      if (drawnLayers.length) {
+        const group = L.featureGroup(drawnLayers);
+        window._geoiptMap.fitBounds(group.getBounds().pad(0.2));
+      }
+    } else {
+      resultadoDiv.innerHTML =
+        '<span class="resultado-nok">Resultado:</span> El punto consultado no se encuentra dentro de ningún polígono de los archivos PRC/SCC cargados.';
+      listaUl.innerHTML = "";
+      actualizarAtributosPRC([]);
+    }
+  } catch (err) {
+    console.error(err);
+    resultadoDiv.innerHTML =
+      '<span class="resultado-nok">Resultado:</span> No fue posible evaluar los polígonos PRC/SCC de la región (revisa listado.json y la ruta de los KML).';
+    listaUl.innerHTML = "";
+    actualizarAtributosPRC([]);
+  }
+}
+
 
     function initMap(lat, lon) {
       const map = L.map("map").setView([lat, lon], 15);
