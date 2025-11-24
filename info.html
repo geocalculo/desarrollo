@@ -342,41 +342,46 @@
       return attrs;
     }
 
-    function renderAttributesTable(placemarkEl, index) {
-      const attrs = getAttributesFromPlacemark(placemarkEl);
-      const keys = Object.keys(attrs);
+function renderAttributesTable(placemarkEl, index) {
+  const attrs = getAttributesFromPlacemark(placemarkEl);
+  const keys = Object.keys(attrs);
 
-      if (!keys.length) {
-        return `
-          <div class="atributos-item">
-            <h4>Polígono ${index + 1}</h4>
-            <p>No se encontraron atributos en el KML para este polígono.</p>
-          </div>
-        `;
-      }
+  // Texto del título: usa "Zona : <valor ZONA>" si existe, si no, cae en "Polígono n"
+  const zonaLabel = attrs["ZONA"]
+    ? `Zona : ${escapeHtml(attrs["ZONA"])}`
+    : `Polígono ${index + 1}`;
 
-      const rows = keys
-        .map(
-          (key) => `
-          <tr>
-            <th>${escapeHtml(key)}</th>
-            <td>${escapeHtml(attrs[key])}</td>
-          </tr>
-        `
-        )
-        .join("");
+  if (!keys.length) {
+    return `
+      <div class="atributos-item">
+        <h4>${zonaLabel}</h4>
+        <p>No se encontraron atributos en el KML para este polígono.</p>
+      </div>
+    `;
+  }
 
-      return `
-        <div class="atributos-item" style="margin-top: 1rem;">
-          <h4>Polígono ${index + 1}</h4>
-          <table class="tabla-atributos">
-            <tbody>
-              ${rows}
-            </tbody>
-          </table>
-        </div>
-      `;
-    }
+  const rows = keys
+    .map(
+      (key) => `
+      <tr>
+        <th>${escapeHtml(key)}</th>
+        <td>${escapeHtml(attrs[key])}</td>
+      </tr>
+    `
+    )
+    .join("");
+
+  return `
+    <div class="atributos-item" style="margin-top: 1rem;">
+      <h4>${zonaLabel}</h4>
+      <table class="tabla-atributos">
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
 
     function actualizarAtributosPRC(matchingPlacemarks) {
       const container = document.getElementById("detalle-atributos-prc");
