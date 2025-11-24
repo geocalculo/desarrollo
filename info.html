@@ -614,11 +614,7 @@ async function evaluarPRC(lat, lon, regionCode) {
 
       actualizarAtributosPRC(matchingPlacemarks);
 
-      // Ajustar vista del mapa a los polígonos dibujados
-      if (drawnLayers.length) {
-        const group = L.featureGroup(drawnLayers);
-        window._geoiptMap.fitBounds(group.getBounds().pad(0.2));
-      }
+
     } else {
       resultadoDiv.innerHTML =
         '<span class="resultado-nok">Resultado:</span> El punto consultado no se encuentra dentro de ningún polígono de los archivos PRC/SCC cargados.';
