@@ -368,7 +368,8 @@ if (navigator.geolocation) {
       if (regionCodigo === "02") carpeta = "capas/capas_02/";
       else if (regionCodigo === "03") carpeta = "capas/capas_03/";
 
-      const url = carpeta + archivoKml;
+      const url = carpeta + encodeURIComponent(archivoKml);
+
       const cacheKey = regionCodigo + "|" + archivoKml;
 
       if (ZOOM_CACHE[cacheKey]) {
