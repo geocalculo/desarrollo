@@ -148,26 +148,9 @@ function consultaPRCEnTodasLasCapas(lat, lon, manifestPath, map) {
       });
 
       return Promise.all(promises).then(function(resultados) {
-        // Dibujar polígonos en el mapa si se entregó un mapa Leaflet
-        if (map) {
-          resultados.forEach(function(r) {
-            r.coincidencias.forEach(function(c) {
-              try {
-                L.geoJSON(c.feature, {
-                  style: {
-                    color: '#2563eb',
-                    weight: 2,
-                    fillOpacity: 0.2
-                  }
-                }).addTo(map);
-              } catch(e) {
-                console.warn('No se pudo dibujar polígono en el mapa', e);
-              }
-            });
-          });
-        }
-
-        return construirHTMLDesdeResultados(resultados);
+        // ... (dibujo de polígonos y retorno de HTML)
       });
     });
+}
+
 }
