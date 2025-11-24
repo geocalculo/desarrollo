@@ -24,6 +24,25 @@ header h1 {
   margin-bottom: 0.25rem;
 }
 
+
+.nota-origen {
+  margin-top: 2.5rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #6b7280;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 0.75rem;
+}
+
+.nota-origen a {
+  color: #1d4ed8;
+  text-decoration: none;
+}
+
+.nota-origen a:hover {
+  text-decoration: underline;
+}
+
 header p {
   font-size: 0.9rem;
   opacity: 0.85;
