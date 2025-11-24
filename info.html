@@ -228,7 +228,7 @@
             <span id="region-display">-</span>
           </div>
           <div class="coords-block">
-            <strong>Instrumento seleccionado para zoom</strong>
+            <strong>Instrumento(s) consultado(s)</strong>
             <span id="instrumento-display">-</span>
           </div>
         </div>
@@ -613,6 +613,14 @@ async function evaluarPRC(lat, lon, regionCode) {
       });
 
       actualizarAtributosPRC(matchingPlacemarks);
+
+      // Actualizar encabezado "instrumento(s) consultados)"
+const instrumentos = Array.from(coincidenciasArchivos.values())
+  .map(obj => obj.archivo.replace(/\.kml$/i, ""))
+  .join(", ");
+
+document.getElementById("instrumento-display").textContent = instrumentos;
+
 
 
     } else {
