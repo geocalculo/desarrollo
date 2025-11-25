@@ -834,7 +834,21 @@ function initKmlButton() {
     const nombreZona = zonas.length ? zonas.join("_") : "Zona";
 
     // 4) Nombre final del archivo
-    const nombreArchivo = `${instrumento} - ${nombreZona}.kml`;
+ // ==== Nuevo nombre automático ====
+// AAAAMMDD + HHMMSS
+function timestamp() {
+  const now = new Date();
+  const YYYY = now.getFullYear();
+  const MM = String(now.getMonth() + 1).padStart(2, '0');
+  const DD = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  return `${YYYY}${MM}${DD}_${hh}${mm}${ss}`;
+}
+
+const nombreArchivo = `descargaKML_${timestamp()}.kml`;
+
 
     // 5) Convertir GeoJSON a KML (sin tocar estructura)
     let kmlString = tokml(gj, {
