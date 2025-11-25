@@ -170,14 +170,16 @@
       background: #f9fafb;
     }
 
-    /* Botón descargar PDF */
+    /* Botones de acción */
     .actions-row {
       margin-top: 2rem;
       display: flex;
       justify-content: flex-end;
+      gap: 0.75rem;
+      flex-wrap: wrap;
     }
 
-    button#btn-descargar-pdf {
+    button.action-button {
       border: none;
       border-radius: 999px;
       padding: 0.7rem 1.5rem;
@@ -191,17 +193,17 @@
       gap: 0.45rem;
     }
 
-    button#btn-descargar-pdf:hover {
+    button.action-button:hover {
       opacity: 0.94;
       transform: translateY(-0.5px);
     }
 
-    button#btn-descargar-pdf:active {
+    button.action-button:active {
       transform: translateY(0);
       opacity: 0.88;
     }
 
-    button#btn-descargar-pdf svg {
+    button.action-button svg {
       width: 16px;
       height: 16px;
     }
@@ -231,8 +233,6 @@
             <strong>Instrumento(s) consultado(s)</strong>
             <span id="instrumento-display">-</span>
           </div>
-
-
         </div>
       </header>
 
@@ -259,36 +259,44 @@
         <p id="instrumento-atributos" class="tip"></p>
         <div id="detalle-atributos-prc"></div>
       </section>
+
       <div class="nota-origen-wrapper">
-  <div class="nota-titulo" id="nota-toggle">
-    <br>
-    <span class="icono" id="nota-icono">+</span>
-    Nota sobre el origen de la información
-  </div>
+        <div class="nota-titulo" id="nota-toggle">
+          <br>
+          <span class="icono" id="nota-icono">+</span>
+          Nota sobre el origen de la información
+        </div>
 
-  <div class="nota-contenido" id="nota-contenido">
-    <p>
-      Las capas utilizadas en este reporte corresponden a instrumentos de planificación territorial 
-      publicados oficialmente por el Ministerio de Vivienda y Urbanismo (MINVU) y otros organismos del Estado de Chile.
-      La información mostrada por el presente visor se basa en archivos en formato KML descargados desde la 
-      Infraestructura de Datos Espaciales del MINVU (IDE MINVU).
-    </p>
+        <div class="nota-contenido" id="nota-contenido">
+          <p>
+            Las capas utilizadas en este reporte corresponden a instrumentos de planificación territorial 
+            publicados oficialmente por el Ministerio de Vivienda y Urbanismo (MINVU) y otros organismos del Estado de Chile.
+            La información mostrada por el presente visor se basa en archivos en formato KML descargados desde la 
+            Infraestructura de Datos Espaciales del MINVU (IDE MINVU).
+          </p>
 
-    <p>
-      Los archivos oficiales, actualizados y disponibles para descarga pública, pueden ser revisados directamente en:
-      <a href="https://ide.minvu.cl/pages/descargas" target="_blank" rel="noopener">
-        https://ide.minvu.cl/pages/descargas
-      </a>.
-    </p>
+          <p>
+            Los archivos oficiales, actualizados y disponibles para descarga pública, pueden ser revisados directamente en:
+            <a href="https://ide.minvu.cl/pages/descargas" target="_blank" rel="noopener">
+              https://ide.minvu.cl/pages/descargas
+            </a>.
+          </p>
 
-    <p>
-      Este reporte es referencial y no reemplaza certificaciones emitidas por organismos competentes.
-    </p>
-  </div>
-</div>
+          <p>
+            Este reporte es referencial y no reemplaza certificaciones emitidas por organismos competentes.
+          </p>
+        </div>
+      </div>
 
       <div class="actions-row">
-        <button id="btn-descargar-pdf" type="button">
+        <button id="btn-descargar-kml" type="button" class="action-button">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3v9m0 0 3-3m-3 3-3-3M5 18h14M6 21h12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Descargar KML
+        </button>
+
+        <button id="btn-descargar-pdf" type="button" class="action-button">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -310,6 +318,9 @@
 
   <!-- html2pdf (html2canvas + jsPDF) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-YcsIP0Yq4T0mN3GExlYtGWRqlhK/SXxPxq8np5xpoE2mR7BncpsbR9f7DmqDveoxu48UUfG9U0mH0DkR3h3K0A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <!-- tokml para exportar GeoJSON a KML -->
+  <script src="https://unpkg.com/tokml@0.4.0/tokml.js"></script>
 
   <script>
     function getParam(name) {
@@ -547,6 +558,11 @@
       const basePath = `capas/capas_${regionCode}/`;
       const listadoUrl = `${basePath}listado.json`;
 
+      // limpiar capa de resultado si existe
+      if (window._geoiptResultado) {
+        window._geoiptResultado.clearLayers();
+      }
+
       try {
         const listadoResp = await fetch(listadoUrl);
         if (!listadoResp.ok) {
@@ -600,7 +616,14 @@
                     weight: 2,
                     fillColor: "#3b82f6",
                     fillOpacity: 0.15,
-                  }).addTo(window._geoiptMap);
+                  });
+
+                  // agregar polígono coincidente a la capa de resultado (para exportar a KML)
+                  if (window._geoiptResultado) {
+                    polyLayer.addTo(window._geoiptResultado);
+                  } else {
+                    polyLayer.addTo(window._geoiptMap);
+                  }
                 }
               });
 
@@ -633,7 +656,7 @@
 
           actualizarAtributosPRC(matchingPlacemarks);
 
-          // 🔹 AQUÍ se definen los instrumentos consultados SIN depender de la URL
+          // Instrumentos consultados detectados por el motor
           const instrumentos = Array.from(coincidenciasArchivos.values())
             .map((obj) => obj.archivo.replace(/\.kml$/i, ""))
             .join(", ");
@@ -714,6 +737,9 @@
         { position: "topright" }
       ).addTo(map);
 
+      // capa vacía donde se almacenan los polígonos que hicieron match
+      window._geoiptResultado = L.featureGroup().addTo(map);
+
       const marker = L.marker([lat, lon]).addTo(map);
       marker.bindPopup(
         `Punto consultado<br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}`
@@ -751,6 +777,47 @@
       });
     }
 
+    function initKmlButton() {
+      const btn = document.getElementById("btn-descargar-kml");
+      if (!btn) return;
+
+      btn.addEventListener("click", () => {
+        const group = window._geoiptResultado;
+        if (!group || group.getLayers().length === 0) {
+          alert("No hay ningún polígono para descargar.");
+          return;
+        }
+
+        // GeoJSON desde la capa de resultado
+        const geojson = group.toGeoJSON();
+
+        // Nombre base desde el encabezado de instrumentos
+        let nombreBase = (document.getElementById("instrumento-display")?.textContent || "poligono")
+          .split(",")[0]
+          .trim() || "poligono";
+
+        nombreBase = nombreBase.replace(/\.kml$/i, "");
+
+        const kmlString = tokml(geojson, {
+          documentName: nombreBase,
+          name: nombreBase
+        });
+
+        const blob = new Blob([kmlString], {
+          type: "application/vnd.google-earth.kml+xml;charset=utf-8"
+        });
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = nombreBase + "_consulta.geoipt.kml";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
       const latParam = parseFloat(getParam("lat") || "-27.0");
       const lonParam = parseFloat(getParam("lon") || "-70.0");
@@ -763,6 +830,7 @@
       actualizarUTM(latParam, lonParam);
       initMap(latParam, lonParam);
       initPdfButton();
+      initKmlButton();
 
       if (regionCode && regionCode !== "--") {
         evaluarPRC(latParam, lonParam, regionCode);
