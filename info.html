@@ -794,64 +794,96 @@
       });
     }
 
-    function initKmlButton() {
-      const btn = document.getElementById("btn-descargar-kml");
-      if (!btn) return;
+function initKmlButton() {
+  const btn = document.getElementById("btn-descargar-kml");
+  if (!btn) return;
 
-      btn.addEventListener("click", () => {
-        const group = window._geoiptResultado;
-        if (!group || group.getLayers().length === 0) {
-          alert("No hay ningún polígono para descargar.");
-          return;
-        }
-
-        // GeoJSON desde la capa de resultado
-        const geojson = group.toGeoJSON();
-
-        // Nombre base desde el encabezado de instrumentos
-        let nombreBase = (document.getElementById("instrumento-display")?.textContent || "poligono")
-          .split(",")[0]
-          .trim() || "poligono";
-
-        nombreBase = nombreBase.replace(/\.kml$/i, "");
-
-        // KML base desde tokml (incluye ExtendedData con atributos)
-        let kmlString = tokml(geojson, {
-          documentName: nombreBase,
-          name: nombreBase
-        });
-
-        // Style azul semitransparente (similar al overview)
-        const styleBlock = `
-  <Style id="geoipt_poly">
-    <LineStyle>
-      <!-- ff = opaco, AABBGGRR -->
-      <color>ffeb6325</color>
-      <width>2</width>
-    </LineStyle>
-    <PolyStyle>
-      <!-- 66 = semitransparente -->
-      <color>66f6823b</color>
-    </PolyStyle>
-  </Style>`;
-
-        kmlString = kmlString.replace("<Document>", "<Document>" + styleBlock);
-        kmlString = kmlString.replace(/<Placemark>/g, "<Placemark><styleUrl>#geoipt_poly</styleUrl>");
-
-        const blob = new Blob([kmlString], {
-          type: "application/vnd.google-earth.kml+xml;charset=utf-8"
-        });
-
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = nombreBase + "_consulta.geoipt.kml";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      });
+  btn.addEventListener("click", () => {
+    const group = window._geoiptResultado;
+    if (!group || group.getLayers().length === 0) {
+      alert("No hay ningún polígono para descargar.");
+      return;
     }
+
+    // Convertir FeatureGroup → GeoJSON
+    const gj = group.toGeoJSON();
+
+    // Obtener nombre del instrumento
+    let instrumento = (document.getElementById("instrumento-display")?.textContent || "PRC")
+      .split(",")[0]
+      .trim()
+      .replace(/_/g, " ")
+      .replace(/\.kml$/i, "");
+
+    // Obtener todas las zonas involucradas
+    let zonas = [];
+
+    gj.features.forEach(f => {
+      if (f.properties?.ZONA) {
+        zonas.push(f.properties.ZONA.replace(/\s+/g, ""));
+      }
+    });
+
+    zonas = [...new Set(zonas)]; // eliminar duplicados
+
+    let nombreZona = zonas.join("_") || "Zona";
+
+    // Construir nombre final del archivo
+    const nombreArchivo = `${instrumento} - ${nombreZona}.kml`;
+
+    // Convertir GeoJSON a KML
+    let kmlString = tokml(gj, {
+      documentName: instrumento,
+      name: nombreZona
+    });
+
+    // Agregar estilo azul semitransparente (igual que overview)
+    const styleBlock = `
+<Style id="geoipt_poly">
+  <LineStyle>
+    <color>ffeb6325</color>
+    <width>2</width>
+  </LineStyle>
+  <PolyStyle>
+    <color>66f6823b</color>
+  </PolyStyle>
+</Style>`;
+
+    kmlString = kmlString.replace("<Document>", "<Document>" + styleBlock);
+
+    // Que todos los polígonos usen el estilo
+    kmlString = kmlString.replace(/<Placemark>/g, "<Placemark><styleUrl>#geoipt_poly</styleUrl>");
+
+    // Forzar que sea un solo MultiGeometry (evita duplicados)
+    kmlString = kmlString
+      .replace(/<Placemark>/g, "")
+      .replace(/<\/Placemark>/g, "");
+
+    kmlString = kmlString.replace(
+      /<Document>[\s\S]*?<styleUrl>/,
+      `<Document>${styleBlock}<Placemark><name>${nombreZona}</name><styleUrl>#geoipt_poly</styleUrl><MultiGeometry>`
+    );
+
+    kmlString = kmlString.replace(/<\/Polygon>/g, "</Polygon>");
+
+    // Cerrar MultiGeometry y Placemark
+    kmlString = kmlString.replace("</Document>", "</MultiGeometry></Placemark></Document>");
+
+    // Descargar archivo
+    const blob = new Blob([kmlString], {
+      type: "application/vnd.google-earth.kml+xml;charset=utf-8"
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombreArchivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+}
 
     document.addEventListener("DOMContentLoaded", () => {
       const latParam = parseFloat(getParam("lat") || "-27.0");
