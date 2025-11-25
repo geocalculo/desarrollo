@@ -607,6 +607,18 @@
             features.forEach((feat) => {
               let contiene = false;
 
+              // atributos del Placemark original
+              const attrs = getAttributesFromPlacemark(feat.placemarkEl) || {};
+
+              // nombre amigable para el feature
+              if (!attrs.name) {
+                if (attrs.ZONA) {
+                  attrs.name = attrs.ZONA;
+                } else if (attrs.NOMBRE) {
+                  attrs.name = attrs.NOMBRE;
+                }
+              }
+
               feat.polygons.forEach((polyCoords) => {
                 if (pointInPolygon(lat, lon, polyCoords)) {
                   contiene = true;
@@ -615,10 +627,15 @@
                     color: "#2563eb",
                     weight: 2,
                     fillColor: "#3b82f6",
-                    fillOpacity: 0.15,
+                    fillOpacity: 0.15, // azul semitransparente
                   });
 
-                  // agregar polígono coincidente a la capa de resultado (para exportar a KML)
+                  // adjuntamos atributos para que viajen al KML
+                  polyLayer.feature = {
+                    type: "Feature",
+                    properties: attrs,
+                  };
+
                   if (window._geoiptResultado) {
                     polyLayer.addTo(window._geoiptResultado);
                   } else {
@@ -798,10 +815,28 @@
 
         nombreBase = nombreBase.replace(/\.kml$/i, "");
 
-        const kmlString = tokml(geojson, {
+        // KML base desde tokml (incluye ExtendedData con atributos)
+        let kmlString = tokml(geojson, {
           documentName: nombreBase,
           name: nombreBase
         });
+
+        // Style azul semitransparente (similar al overview)
+        const styleBlock = `
+  <Style id="geoipt_poly">
+    <LineStyle>
+      <!-- ff = opaco, AABBGGRR -->
+      <color>ffeb6325</color>
+      <width>2</width>
+    </LineStyle>
+    <PolyStyle>
+      <!-- 66 = semitransparente -->
+      <color>66f6823b</color>
+    </PolyStyle>
+  </Style>`;
+
+        kmlString = kmlString.replace("<Document>", "<Document>" + styleBlock);
+        kmlString = kmlString.replace(/<Placemark>/g, "<Placemark><styleUrl>#geoipt_poly</styleUrl>");
 
         const blob = new Blob([kmlString], {
           type: "application/vnd.google-earth.kml+xml;charset=utf-8"
