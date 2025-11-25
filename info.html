@@ -805,71 +805,67 @@ function initKmlButton() {
       return;
     }
 
-    // Convertir FeatureGroup → GeoJSON
+    // 1) GeoJSON desde la capa de resultado
     const gj = group.toGeoJSON();
 
-    // Obtener nombre del instrumento
-    let instrumento = (document.getElementById("instrumento-display")?.textContent || "PRC")
-      .split(",")[0]
-      .trim()
-      .replace(/_/g, " ")
-      .replace(/\.kml$/i, "");
+    // 2) Nombre del instrumento (limpio)
+    let instrumentoRaw =
+      (document.getElementById("instrumento-display")?.textContent || "PRC")
+        .split(",")[0]
+        .trim();
 
-    // Obtener todas las zonas involucradas
+    // Ej: "IPT_03_PRC_Chanaral" -> "PRC Chanaral"
+    let instrumento = instrumentoRaw
+      .replace(/^IPT_\d+_/i, "")   // quita "IPT_03_"
+      .replace(/_/g, " ");         // guiones bajos -> espacio
+
+    // 3) Zonas involucradas (ZONA) para el nombre del archivo
     let zonas = [];
 
-    gj.features.forEach(f => {
-      if (f.properties?.ZONA) {
-        zonas.push(f.properties.ZONA.replace(/\s+/g, ""));
+    gj.features.forEach((f) => {
+      if (f.properties && f.properties.ZONA) {
+        // Nos quedamos con el primer token, ej: "ZU4 Zona ..." -> "ZU4"
+        const z = String(f.properties.ZONA).trim().split(/\s+/)[0];
+        zonas.push(z);
       }
     });
 
-    zonas = [...new Set(zonas)]; // eliminar duplicados
+    zonas = [...new Set(zonas)]; // elimina duplicados
+    const nombreZona = zonas.length ? zonas.join("_") : "Zona";
 
-    let nombreZona = zonas.join("_") || "Zona";
-
-    // Construir nombre final del archivo
+    // 4) Nombre final del archivo
     const nombreArchivo = `${instrumento} - ${nombreZona}.kml`;
 
-    // Convertir GeoJSON a KML
+    // 5) Convertir GeoJSON a KML (sin tocar estructura)
     let kmlString = tokml(gj, {
       documentName: instrumento,
       name: nombreZona
     });
 
-    // Agregar estilo azul semitransparente (igual que overview)
+    // 6) Agregar estilo azul semitransparente (como en el visor)
     const styleBlock = `
-<Style id="geoipt_poly">
-  <LineStyle>
-    <color>ffeb6325</color>
-    <width>2</width>
-  </LineStyle>
-  <PolyStyle>
-    <color>66f6823b</color>
-  </PolyStyle>
-</Style>`;
+  <Style id="geoipt_poly">
+    <LineStyle>
+      <!-- ff = opaco, formato AABBGGRR -->
+      <color>ffeb6325</color>
+      <width>2</width>
+    </LineStyle>
+    <PolyStyle>
+      <!-- 66 = semitransparente -->
+      <color>66f6823b</color>
+    </PolyStyle>
+  </Style>`;
 
+    // Inserta el <Style> dentro de <Document>
     kmlString = kmlString.replace("<Document>", "<Document>" + styleBlock);
 
-    // Que todos los polígonos usen el estilo
-    kmlString = kmlString.replace(/<Placemark>/g, "<Placemark><styleUrl>#geoipt_poly</styleUrl>");
-
-    // Forzar que sea un solo MultiGeometry (evita duplicados)
-    kmlString = kmlString
-      .replace(/<Placemark>/g, "")
-      .replace(/<\/Placemark>/g, "");
-
+    // Hace que todos los Placemarks usen ese estilo
     kmlString = kmlString.replace(
-      /<Document>[\s\S]*?<styleUrl>/,
-      `<Document>${styleBlock}<Placemark><name>${nombreZona}</name><styleUrl>#geoipt_poly</styleUrl><MultiGeometry>`
+      /<Placemark>/g,
+      "<Placemark><styleUrl>#geoipt_poly</styleUrl>"
     );
 
-    kmlString = kmlString.replace(/<\/Polygon>/g, "</Polygon>");
-
-    // Cerrar MultiGeometry y Placemark
-    kmlString = kmlString.replace("</Document>", "</MultiGeometry></Placemark></Document>");
-
-    // Descargar archivo
+    // 7) Descargar el archivo
     const blob = new Blob([kmlString], {
       type: "application/vnd.google-earth.kml+xml;charset=utf-8"
     });
@@ -884,6 +880,7 @@ function initKmlButton() {
     URL.revokeObjectURL(url);
   });
 }
+
 
     document.addEventListener("DOMContentLoaded", () => {
       const latParam = parseFloat(getParam("lat") || "-27.0");
