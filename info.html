@@ -295,13 +295,6 @@
           </svg>
           Descargar KML
         </button>
-
-        <button id="btn-descargar-pdf" type="button" class="action-button">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Descargar PDF
-        </button>
       </div>
     </div>
   </div>
@@ -315,9 +308,6 @@
 
   <!-- Proj4 para coordenadas UTM -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.1/proj4.js" integrity="sha512-bVmL59OstkCfyhMDnwUdIBcyKyxM/oZhIu7lq+SIURMi5A+tg1mzRi51gfYWS+ytfV/6s5wx2cgHBw0tSmyYVQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
-  <!-- html2pdf (html2canvas + jsPDF) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-YcsIP0Yq4T0mN3GExlYtGWRqlhK/SXxPxq8np5xpoE2mR7BncpsbR9f7DmqDveoxu48UUfG9U0mH0DkR3h3K0A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
   <!-- tokml para exportar GeoJSON a KML -->
   <script src="https://unpkg.com/tokml@0.4.0/tokml.js"></script>
@@ -610,7 +600,7 @@
               // atributos del Placemark original
               const attrs = getAttributesFromPlacemark(feat.placemarkEl) || {};
 
-              // nombre amigable para el feature
+              // nombre amigable opcional
               if (!attrs.name) {
                 if (attrs.ZONA) {
                   attrs.name = attrs.ZONA;
@@ -627,7 +617,7 @@
                     color: "#2563eb",
                     weight: 2,
                     fillColor: "#3b82f6",
-                    fillOpacity: 0.15, // azul semitransparente
+                    fillOpacity: 0.15,
                   });
 
                   // adjuntamos atributos para que viajen al KML
@@ -771,130 +761,93 @@
       });
     }
 
-    function initPdfButton() {
-      const btn = document.getElementById("btn-descargar-pdf");
+    function initKmlButton() {
+      const btn = document.getElementById("btn-descargar-kml");
       if (!btn) return;
 
       btn.addEventListener("click", () => {
-        const element = document.getElementById("report-wrapper");
-        const opt = {
-          margin: [10, 10, 10, 10],
-          filename: "GeoIPT_reporte_punto.pdf",
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            scrollX: 0,
-            scrollY: -window.scrollY || 0,
-          },
-          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        };
+        const group = window._geoiptResultado;
+        if (!group || group.getLayers().length === 0) {
+          alert("No hay ningún polígono para descargar.");
+          return;
+        }
 
-        html2pdf().set(opt).from(element).save();
-      });
-    }
+        // GeoJSON desde la capa de resultado
+        const gj = group.toGeoJSON();
 
-function initKmlButton() {
-  const btn = document.getElementById("btn-descargar-kml");
-  if (!btn) return;
+        // Nombre del instrumento (solo para metadata interna del KML)
+        let instrumentoRaw =
+          (document.getElementById("instrumento-display")?.textContent || "PRC")
+            .split(",")[0]
+            .trim();
 
-  btn.addEventListener("click", () => {
-    const group = window._geoiptResultado;
-    if (!group || group.getLayers().length === 0) {
-      alert("No hay ningún polígono para descargar.");
-      return;
-    }
+        let instrumento = instrumentoRaw
+          .replace(/^IPT_\d+_/i, "")
+          .replace(/_/g, " ");
 
-    // 1) GeoJSON desde la capa de resultado
-    const gj = group.toGeoJSON();
+        // Zonas involucradas (para el nombre del Document)
+        let zonas = [];
+        gj.features.forEach((f) => {
+          if (f.properties && f.properties.ZONA) {
+            const z = String(f.properties.ZONA).trim().split(/\s+/)[0];
+            zonas.push(z);
+          }
+        });
+        zonas = [...new Set(zonas)];
+        const nombreZona = zonas.length ? zonas.join("_") : "Zona";
 
-    // 2) Nombre del instrumento (limpio)
-    let instrumentoRaw =
-      (document.getElementById("instrumento-display")?.textContent || "PRC")
-        .split(",")[0]
-        .trim();
+        // Timestamp AAAAMMDD_HHMMSS
+        function timestamp() {
+          const now = new Date();
+          const YYYY = now.getFullYear();
+          const MM = String(now.getMonth() + 1).padStart(2, "0");
+          const DD = String(now.getDate()).padStart(2, "0");
+          const hh = String(now.getHours()).padStart(2, "0");
+          const mm = String(now.getMinutes()).padStart(2, "0");
+          const ss = String(now.getSeconds()).padStart(2, "0");
+          return `${YYYY}${MM}${DD}_${hh}${mm}${ss}`;
+        }
 
-    // Ej: "IPT_03_PRC_Chanaral" -> "PRC Chanaral"
-    let instrumento = instrumentoRaw
-      .replace(/^IPT_\d+_/i, "")   // quita "IPT_03_"
-      .replace(/_/g, " ");         // guiones bajos -> espacio
+        const nombreArchivo = `descargaKML_${timestamp()}.kml`;
 
-    // 3) Zonas involucradas (ZONA) para el nombre del archivo
-    let zonas = [];
+        // Convertir GeoJSON a KML
+        let kmlString = tokml(gj, {
+          documentName: instrumento,
+          name: nombreZona
+        });
 
-    gj.features.forEach((f) => {
-      if (f.properties && f.properties.ZONA) {
-        // Nos quedamos con el primer token, ej: "ZU4 Zona ..." -> "ZU4"
-        const z = String(f.properties.ZONA).trim().split(/\s+/)[0];
-        zonas.push(z);
-      }
-    });
-
-    zonas = [...new Set(zonas)]; // elimina duplicados
-    const nombreZona = zonas.length ? zonas.join("_") : "Zona";
-
-    // 4) Nombre final del archivo
- // ==== Nuevo nombre automático ====
-// AAAAMMDD + HHMMSS
-function timestamp() {
-  const now = new Date();
-  const YYYY = now.getFullYear();
-  const MM = String(now.getMonth() + 1).padStart(2, '0');
-  const DD = String(now.getDate()).padStart(2, '0');
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mm = String(now.getMinutes()).padStart(2, '0');
-  const ss = String(now.getSeconds()).padStart(2, '0');
-  return `${YYYY}${MM}${DD}_${hh}${mm}${ss}`;
-}
-
-const nombreArchivo = `descargaKML_${timestamp()}.kml`;
-
-
-    // 5) Convertir GeoJSON a KML (sin tocar estructura)
-    let kmlString = tokml(gj, {
-      documentName: instrumento,
-      name: nombreZona
-    });
-
-    // 6) Agregar estilo azul semitransparente (como en el visor)
-    const styleBlock = `
+        // Agregar estilo azul semitransparente
+        const styleBlock = `
   <Style id="geoipt_poly">
     <LineStyle>
-      <!-- ff = opaco, formato AABBGGRR -->
       <color>ffeb6325</color>
       <width>2</width>
     </LineStyle>
     <PolyStyle>
-      <!-- 66 = semitransparente -->
       <color>66f6823b</color>
     </PolyStyle>
   </Style>`;
 
-    // Inserta el <Style> dentro de <Document>
-    kmlString = kmlString.replace("<Document>", "<Document>" + styleBlock);
+        kmlString = kmlString.replace("<Document>", "<Document>" + styleBlock);
+        kmlString = kmlString.replace(
+          /<Placemark>/g,
+          "<Placemark><styleUrl>#geoipt_poly</styleUrl>"
+        );
 
-    // Hace que todos los Placemarks usen ese estilo
-    kmlString = kmlString.replace(
-      /<Placemark>/g,
-      "<Placemark><styleUrl>#geoipt_poly</styleUrl>"
-    );
+        const blob = new Blob([kmlString], {
+          type: "application/vnd.google-earth.kml+xml;charset=utf-8"
+        });
 
-    // 7) Descargar el archivo
-    const blob = new Blob([kmlString], {
-      type: "application/vnd.google-earth.kml+xml;charset=utf-8"
-    });
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = nombreArchivo;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
-}
-
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = nombreArchivo;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    }
 
     document.addEventListener("DOMContentLoaded", () => {
       const latParam = parseFloat(getParam("lat") || "-27.0");
@@ -907,7 +860,6 @@ const nombreArchivo = `descargaKML_${timestamp()}.kml`;
 
       actualizarUTM(latParam, lonParam);
       initMap(latParam, lonParam);
-      initPdfButton();
       initKmlButton();
 
       if (regionCode && regionCode !== "--") {
