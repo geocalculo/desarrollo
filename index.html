@@ -226,64 +226,73 @@
     // -------------------------
     // Leer listado.json por región y poblar combo de instrumentos
     // -------------------------
-    async function cargarInstrumentos(regionCode) {
-      instrumentoSelect.innerHTML = "";
-      instrumentoSelect.disabled = true;
+async function cargarInstrumentos(regionCode) {
+  instrumentoSelect.innerHTML = "";
+  instrumentoSelect.disabled = true;
 
-      const optDefault = document.createElement("option");
-      optDefault.value = "";
-      optDefault.textContent =
-        "Selecciona un instrumento para hacer zoom";
-      instrumentoSelect.appendChild(optDefault);
+  const optDefault = document.createElement("option");
+  optDefault.value = "";
+  optDefault.textContent =
+    "Selecciona un instrumento para hacer zoom";
+  instrumentoSelect.appendChild(optDefault);
 
-      if (!regionCode) return;
+  if (!regionCode) return;
 
-      // 02 -> capas_02, 03 -> capas_03, RM -> capas_RM
-      const basePath = `capas/capas_${regionCode}/`;
-      const listadoUrl = `${basePath}listado.json`;
+  // 02 -> capas_02, 03 -> capas_03, RM -> capas_RM
+  const basePath = `capas/capas_${regionCode}/`;
+  const listadoUrl = `${basePath}listado.json`;
 
-      try {
-        const resp = await fetch(listadoUrl);
-        if (!resp.ok) {
-          console.warn("No se pudo leer listado.json de la región", regionCode);
-          return;
-        }
-        const listado = await resp.json();
-
-        let archivos = [];
-        if (Array.isArray(listado)) {
-          archivos = listado;
-        } else if (Array.isArray(listado.kml)) {
-          archivos = listado.kml;
-        }
-
-        archivos.forEach((entry) => {
-          let archivo = "";
-          let nombre = "";
-
-          if (typeof entry === "string") {
-            archivo = entry;
-            nombre = entry;
-          } else if (entry && typeof entry === "object") {
-            archivo = entry.archivo || entry.kml || entry.nombre || "";
-            nombre = entry.nombre || archivo;
-          }
-
-          if (!archivo) return;
-
-          const opt = document.createElement("option");
-          opt.value = archivo;
-          opt.textContent = nombre.replace(/\.kml$/i, "");
-          instrumentoSelect.appendChild(opt);
-        });
-
-        if (archivos.length > 0) {
-          instrumentoSelect.disabled = false;
-        }
-      } catch (err) {
-        console.warn("Error cargando instrumentos región", regionCode, err);
-      }
+  try {
+    const resp = await fetch(listadoUrl);
+    if (!resp.ok) {
+      console.warn("No se pudo leer listado.json de la región", regionCode);
+      return;
     }
+    const listado = await resp.json();
+
+    let archivos = [];
+
+    // 1) Formato antiguo: array simple ["IPT_...kml", ...]
+    if (Array.isArray(listado)) {
+      archivos = listado;
+
+    // 2) Formato con propiedad kml: { "kml": [ ... ] }
+    } else if (Array.isArray(listado.kml)) {
+      archivos = listado.kml;
+
+    // 3) Formato RM: { "instrumentos": [ {archivo, nombre, ...}, ... ] }
+    } else if (Array.isArray(listado.instrumentos)) {
+      archivos = listado.instrumentos;
+    }
+
+    archivos.forEach((entry) => {
+      let archivo = "";
+      let nombre = "";
+
+      if (typeof entry === "string") {
+        archivo = entry;
+        nombre = entry;
+      } else if (entry && typeof entry === "object") {
+        archivo = entry.archivo || entry.kml || entry.nombre || "";
+        nombre = entry.nombre || archivo;
+      }
+
+      if (!archivo) return;
+
+      const opt = document.createElement("option");
+      opt.value = archivo;
+      opt.textContent = nombre.replace(/\.kml$/i, "");
+      instrumentoSelect.appendChild(opt);
+    });
+
+    if (archivos.length > 0) {
+      instrumentoSelect.disabled = false;
+    }
+  } catch (err) {
+    console.warn("Error cargando instrumentos región", regionCode, err);
+  }
+}
+
 
     // -------------------------
     // Zoom al extent real de un KML de instrumento (solo fitBounds)
