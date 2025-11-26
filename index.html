@@ -156,9 +156,10 @@
         <div class="control-group">
           <label for="region-select">Región</label>
           <select id="region-select">
-            <!-- Atacama por defecto -->
+            <!-- Regiones disponibles -->
             <option value="02">02 - Antofagasta</option>
             <option value="03" selected>03 - Atacama</option>
+            <option value="RM">RM - Metropolitana</option>
           </select>
         </div>
 
@@ -237,6 +238,7 @@
 
       if (!regionCode) return;
 
+      // 02 -> capas_02, 03 -> capas_03, RM -> capas_RM
       const basePath = `capas/capas_${regionCode}/`;
       const listadoUrl = `${basePath}listado.json`;
 
@@ -353,6 +355,8 @@
           map.setView([-27.5, -70.5], 7); // Atacama
         } else if (regionCode === "02") {
           map.setView([-23.5, -69.3], 7); // Antofagasta
+        } else if (regionCode === "RM") {
+          map.setView([-33.45, -70.65], 10); // Metropolitana
         }
       }
     });
@@ -366,11 +370,10 @@
     });
 
     // -------------------------
-    // Click en el mapa → abrir info.html SIN requisito de región
-    // Se usa la región seleccionada; si el usuario no toca nada, es 03 (Atacama)
+    // Click en el mapa → abrir info.html
     // -------------------------
     map.on("click", (e) => {
-      const regionCode = regionSelect.value || "03"; // Atacama por defecto
+      const regionCode = regionSelect.value || "03"; // por defecto Atacama
 
       const lat = e.latlng.lat.toString();
       const lon = e.latlng.lng.toString();
@@ -394,11 +397,15 @@
     // -------------------------
     (function init() {
       const defaultRegion = regionSelect.value || "03"; // Atacama
+
       if (defaultRegion === "03") {
         map.setView([-27.5, -70.5], 7);
       } else if (defaultRegion === "02") {
         map.setView([-23.5, -69.3], 7);
+      } else if (defaultRegion === "RM") {
+        map.setView([-33.45, -70.65], 10);
       }
+
       cargarInstrumentos(defaultRegion);
     })();
   </script>
