@@ -141,6 +141,30 @@
       }
     }
   </style>
+
+<style>
+  .locate-button {
+    position: absolute;
+    top: 100px; /* debajo del icono de capas */
+    right: 12px;
+    z-index: 1000;
+    background: #fff;
+    width: 34px;
+    height: 34px;
+    border-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.45);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+  }
+
+  .locate-button:hover {
+    background: #f2f2f2;
+  }
+</style>
+
+  
 </head>
 <body>
   <header>
@@ -183,6 +207,12 @@
         revisa todos los KML de la región declarados en <code>listado.json</code>.
       </p>
     </div>
+
+    <div id="locate-btn" class="locate-button" title="Centrar en mi ubicación">
+      🔍
+    </div>
+
+    
   </main>
 
   <!-- Leaflet JS -->
@@ -421,5 +451,48 @@
       cargarInstrumentos(defaultRegion);
     })();
   </script>
+
+<script>
+// Botón "Centrar en mi ubicación"
+document.getElementById("locate-btn").addEventListener("click", function () {
+  if (!navigator.geolocation) {
+    alert("Tu dispositivo no soporta geolocalización.");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    function (pos) {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+
+      // Centrar mapa a escala 1:10.000 → zoom 17
+      map.setView([lat, lon], 17);
+
+      // Agregar marcador o un circulito azul
+      if (window.geoMarker) {
+        map.removeLayer(window.geoMarker);
+      }
+
+      window.geoMarker = L.circleMarker([lat, lon], {
+        radius: 8,
+        color: '#1E90FF',
+        fillColor: '#1E90FF',
+        fillOpacity: 0.7
+      }).addTo(map);
+    },
+    function (err) {
+      alert("No se pudo obtener ubicación.\n¿Tienes activado el GPS?");
+      console.error(err);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0
+    }
+  );
+});
+</script>
+
+  
 </body>
 </html>
