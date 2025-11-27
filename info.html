@@ -373,6 +373,7 @@
   ></script>
 
  // Conversión WGS84 -> UTM 19S (EPSG:32719) usando proj4
+// Conversión WGS84 -> UTM 19S (EPSG:32719) usando proj4
 function actualizarUTM(lat, lon) {
   try {
     if (typeof proj4 === "undefined") {
@@ -403,6 +404,7 @@ function actualizarUTM(lat, lon) {
     console.error("Error UTM:", e);
   }
 }
+
 
   <!-- tokml para exportar GeoJSON a KML -->
   <script src="https://unpkg.com/tokml@0.4.0/tokml.js"></script>
