@@ -231,6 +231,62 @@
       }
     ).addTo(map);
 
+    // --- Control Leaflet "Centrar en mi ubicación" ---
+const locateControl = L.control({ position: 'topright' });
+
+locateControl.onAdd = function (map) {
+  const container = L.DomUtil.create(
+    'div',
+    'leaflet-bar leaflet-control leaflet-control-locate'
+  );
+
+  container.title = 'Centrar en mi ubicación';
+  container.innerHTML = '🔍';
+
+  // Evitar clicks que afecten al mapa
+  L.DomEvent.disableClickPropagation(container);
+
+  container.onclick = function () {
+    if (!navigator.geolocation) {
+      alert('Tu dispositivo no soporta geolocalización.');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+
+        // zoom = 17 => escala aprox 1:10.000
+        map.setView([lat, lon], 17);
+
+        if (window.geoMarker) map.removeLayer(window.geoMarker);
+
+        window.geoMarker = L.circleMarker([lat, lon], {
+          radius: 8,
+          color: '#1E90FF',
+          fillColor: '#1E90FF',
+          fillOpacity: 0.7
+        }).addTo(map);
+      },
+      function (err) {
+        alert('No se pudo obtener ubicación. ¿GPS activado?');
+        console.error(err);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+      }
+    );
+  };
+
+  return container;
+};
+
+locateControl.addTo(map);
+
+
     const esriSat = L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       {
@@ -449,12 +505,7 @@
   </script>
 
 <script>
-// Botón "Centrar en mi ubicación"
-document.getElementById("locate-btn").addEventListener("click", function () {
-  if (!navigator.geolocation) {
-    alert("Tu dispositivo no soporta geolocalización.");
-    return;
-  }
+
 
   navigator.geolocation.getCurrentPosition(
     function (pos) {
