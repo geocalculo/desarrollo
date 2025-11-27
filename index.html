@@ -156,7 +156,7 @@
         <div class="control-group">
           <label for="region-select">Región</label>
           <select id="region-select">
-            <!-- Fallback estático; si existe capas/regiones.json se sobreescribe -->
+            <!-- Fallback estático; si existe capas/regiones.json se reemplaza dinámicamente -->
             <option value="02">02 - Antofagasta</option>
             <option value="03" selected>03 - Atacama</option>
           </select>
@@ -225,7 +225,7 @@
     const instrumentoSelect = document.getElementById("instrumento-select");
 
     // -------------------------
-    // Cargar instrumentos desde listado.json (MISMA LÓGICA QUE TENÍAS)
+    // Cargar instrumentos desde listado.json (formatos: array, {kml:[]}, {instrumentos:[]})
     // -------------------------
     async function cargarInstrumentos(regionCode) {
       instrumentoSelect.innerHTML = "";
@@ -250,18 +250,28 @@
         }
         const listado = await resp.json();
 
-        let archivos = [];
-        // Formatos que ya soportabas:
-        // 1) Array simple
+        let entradas = [];
+
+        // 1) Array simple: ["IPT_03_PRC_Copiapo.kml", ...]
         if (Array.isArray(listado)) {
-          archivos = listado;
-        }
-        // 2) Objeto con propiedad kml
-        else if (Array.isArray(listado.kml)) {
-          archivos = listado.kml;
+          entradas = listado;
+
+        // 2) Objeto con propiedad kml: { "kml": [ ... ] }
+        } else if (Array.isArray(listado.kml)) {
+          entradas = listado.kml;
+
+        // 3) Objeto con propiedad instrumentos: { "instrumentos": [ ... ] }
+        } else if (Array.isArray(listado.instrumentos)) {
+          entradas = listado.instrumentos;
+
+        } else {
+          console.warn("Formato no reconocido en listado.json para región", regionCode, listado);
+          return;
         }
 
-        archivos.forEach((entry) => {
+        let contador = 0;
+
+        entradas.forEach((entry) => {
           let archivo = "";
           let nombre = "";
 
@@ -269,7 +279,7 @@
             archivo = entry;
             nombre = entry;
           } else if (entry && typeof entry === "object") {
-            archivo = entry.archivo || entry.kml || entry.nombre || "";
+            archivo = entry.archivo || entry.kml || entry.nombreArchivo || entry.nombre || "";
             nombre = entry.nombre || archivo;
           }
 
@@ -279,9 +289,10 @@
           opt.value = archivo;
           opt.textContent = nombre.replace(/\.kml$/i, "");
           instrumentoSelect.appendChild(opt);
+          contador++;
         });
 
-        if (archivos.length > 0) {
+        if (contador > 0) {
           instrumentoSelect.disabled = false;
         }
       } catch (err) {
@@ -352,7 +363,8 @@
     // {
     //   "regiones": [
     //     { "codigo": "02", "nombre": "02 - Antofagasta", "centro": [-23.5,-69.3], "zoom": 7, "activo": true },
-    //     { "codigo": "03", "nombre": "03 - Atacama",    "centro": [-27.5,-70.5], "zoom": 7, "activo": true }
+    //     { "codigo": "03", "nombre": "03 - Atacama",    "centro": [-27.5,-70.5], "zoom": 7, "activo": true },
+    //     { "codigo": "RM", "nombre": "RM - Metropolitana", "centro": [-33.45,-70.65], "zoom": 8, "activo": true }
     //   ]
     // }
     // -------------------------
