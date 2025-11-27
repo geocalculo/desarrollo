@@ -506,26 +506,24 @@
         .join("");
     }
 
-    // Conversión WGS84 -> UTM 19S (EPSG:32719) usando proj4
-    function actualizarUTM(lat, lon) {
-      try {
-        if (!proj4.defs["EPSG:32719"]) {
-          proj4.defs(
-            "EPSG:32719",
-            "+proj=utm +zone=19 +south +datum=WGS84 +units=m +no_defs"
-          );
-        }
-        const utm = proj4("EPSG:4326", "EPSG:32719", [lon, lat]);
-        document.getElementById("utm-e-display").textContent = utm[0]
-          .toFixed(3)
-          .replace(".", ",");
-        document.getElementById("utm-n-display").textContent = utm[1]
-          .toFixed(3)
-          .replace(".", ",");
-      } catch (e) {
-        console.error("Error UTM:", e);
-      }
+function actualizarUTM(lat, lon) {
+  try {
+    if (!proj4.defs["EPSG:32719"]) {
+      proj4.defs(
+        "EPSG:32719",
+        "+proj=utm +zone=19 +south +datum=WGS84 +units=m +no_defs"
+      );
     }
+    const utm = proj4("EPSG:4326", "EPSG:32719", [lon, lat]);
+
+    // Sin decimales
+    document.getElementById("utm-e-display").textContent = utm[0].toFixed(0);
+    document.getElementById("utm-n-display").textContent = utm[1].toFixed(0);
+  } catch (e) {
+    console.error("Error UTM:", e);
+  }
+}
+
 
     // Punto en polígono (Ray casting)
     function pointInPolygon(lat, lon, polygonLatLngs) {
