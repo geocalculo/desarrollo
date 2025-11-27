@@ -509,36 +509,7 @@
     }
 
 // Conversión WGS84 -> UTM 19S (EPSG:32719) usando proj4
-function actualizarUTM(lat, lon) {
-  try {
-    if (typeof proj4 === "undefined") {
-      console.error("proj4 no está definido (no se cargó la librería)");
-      return;
-    }
 
-    // Definir sistema si no existe
-    proj4.defs(
-      "EPSG:32719",
-      "+proj=utm +zone=19 +south +datum=WGS84 +units=m +no_defs"
-    );
-
-    const utm = proj4("EPSG:4326", "EPSG:32719", [lon, lat]);
-
-    if (!utm || isNaN(utm[0]) || isNaN(utm[1])) {
-      console.error("Resultado UTM inválido:", utm);
-      return;
-    }
-
-    // Sin decimales, con separador de miles
-    const este  = utm[0].toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    const norte = utm[1].toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-
-    document.getElementById("utm-e-display").textContent = este;
-    document.getElementById("utm-n-display").textContent = norte;
-  } catch (e) {
-    console.error("Error UTM:", e);
-  }
-}
 
 
 
