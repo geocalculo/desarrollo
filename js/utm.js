@@ -59,7 +59,7 @@ function actualizarUTM(latDeg, lonDeg) {
       y += 10000000;
     }
 
-    // Redondeados sin decimales, con separadores
+    // Redondeados sin decimales, con separadores de miles
     const este = Math.round(x)
       .toString()
       .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
