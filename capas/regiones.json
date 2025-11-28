@@ -27,8 +27,7 @@
       "zoom": 7,
       "activo": true
     },
-
-            {
+        {
       "id": "VA",
       "codigo_ine": "05",
       "nombre": "Región de Valparaiso",
@@ -37,7 +36,5 @@
       "zoom": 7,
       "activo": true
     }
-
-
   ]
 }
