@@ -12,11 +12,7 @@
   />
 
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -44,21 +40,9 @@
       gap: 0.75rem;
     }
 
-    .brand {
-      display: flex;
-      flex-direction: column;
-      gap: 0.15rem;
-    }
-
-    .brand-title {
-      font-size: 1.1rem;
-      font-weight: 600;
-    }
-
-    .brand-subtitle {
-      font-size: 0.78rem;
-      color: #9ca3af;
-    }
+    .brand { display: flex; flex-direction: column; gap: 0.15rem; }
+    .brand-title { font-size: 1.1rem; font-weight: 600; }
+    .brand-subtitle { font-size: 0.78rem; color: #9ca3af; }
 
     .controls {
       display: flex;
@@ -75,10 +59,7 @@
       min-width: 180px;
     }
 
-    .control-group label {
-      font-size: 0.75rem;
-      color: #9ca3af;
-    }
+    .control-group label { font-size: 0.75rem; color: #9ca3af; }
 
     select {
       background: #020617;
@@ -90,9 +71,7 @@
       outline: none;
     }
 
-    select:focus {
-      border-color: #3b82f6;
-    }
+    select:focus { border-color: #3b82f6; }
 
     main {
       flex: 1;
@@ -118,52 +97,27 @@
       border: 1px solid #1f2937;
     }
 
-    .hint {
-      font-size: 0.8rem;
-      color: #9ca3af;
-    }
-
-    .hint strong {
-      color: #e5e7eb;
-    }
+    .hint { font-size: 0.8rem; color: #9ca3af; }
+    .hint strong { color: #e5e7eb; }
 
     @media (max-width: 640px) {
-      header {
-        padding: 8px 10px;
-      }
+      header { padding: 8px 10px; }
+      #map { height: calc(100vh - 130px); }
+      .control-group { min-width: 100%; }
+    }
 
-      #map {
-        height: calc(100vh - 130px);
-      }
-
-      .control-group {
-        min-width: 100%;
-      }
+    .leaflet-control-locate {
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      cursor: pointer;
     }
   </style>
-
-<style>
-
-  .leaflet-control-locate {
-  width: 34px;
-  height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  cursor: pointer;
-}
-
-
-
-
-  .locate-button:hover {
-    background: #f2f2f2;
-  }
-</style>
-
-  
 </head>
+
 <body>
   <header>
     <div class="header-inner">
@@ -177,12 +131,7 @@
       <div class="controls">
         <div class="control-group">
           <label for="region-select">Región</label>
-          <select id="region-select">
-            <!-- Atacama por defecto, RM incluida -->
-            <option value="02">02 - Antofagasta</option>
-            <option value="03" selected>03 - Atacama</option>
-            <option value="RM">RM - Metropolitana</option>
-          </select>
+          <select id="region-select"></select>
         </div>
 
         <div class="control-group">
@@ -200,22 +149,20 @@
       <div id="map"></div>
       <p class="hint">
         <strong>Instrucciones:</strong> Desde el minuto 0 puedes hacer clic en el mapa
-        para abrir un reporte detallado del punto en una nueva pestaña. 
+        para abrir un reporte detallado del punto en una nueva pestaña.
       </p>
     </div>
-
-
-
-    
   </main>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // --- Mapa principal ---
+    // ---------------------------------
+    // MAPA BASE
+    // ---------------------------------
     const map = L.map('map', {
-      center: [-27.5, -70.5], // centro aprox. Atacama
+      center: [-27.5, -70.5],
       zoom: 7,
       minZoom: 4,
       maxZoom: 19
@@ -223,321 +170,159 @@
 
     const osm = L.tileLayer(
       "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
-      }
+      { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }
     ).addTo(map);
-
-    // --- Control Leaflet "Centrar en mi ubicación" ---
-const locateControl = L.control({ position: 'topright' });
-
-locateControl.onAdd = function (map) {
-  const container = L.DomUtil.create(
-    'div',
-    'leaflet-bar leaflet-control leaflet-control-locate'
-  );
-
-  container.title = 'Centrar en mi ubicación';
-  container.innerHTML = '🔍';
-
-  // Evitar clicks que afecten al mapa
-  L.DomEvent.disableClickPropagation(container);
-
-  container.onclick = function () {
-    if (!navigator.geolocation) {
-      alert('Tu dispositivo no soporta geolocalización.');
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      function (pos) {
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-
-        // zoom = 17 => escala aprox 1:10.000
-        map.setView([lat, lon], 17);
-
-        if (window.geoMarker) map.removeLayer(window.geoMarker);
-
-        window.geoMarker = L.circleMarker([lat, lon], {
-          radius: 8,
-          color: '#1E90FF',
-          fillColor: '#1E90FF',
-          fillOpacity: 0.7
-        }).addTo(map);
-      },
-      function (err) {
-        alert('No se pudo obtener ubicación. ¿GPS activado?');
-        console.error(err);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0
-      }
-    );
-  };
-
-  return container;
-};
-
-locateControl.addTo(map);
-
 
     const esriSat = L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       {
         maxZoom: 19,
         attribution:
-          "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, and the GIS User Community"
+          "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye"
       }
     );
 
-    L.control.layers(
-      { "Mapa calle": osm, "Satélite": esriSat },
-      {},
-      { position: "topright" }
-    ).addTo(map);
+    L.control.layers({ "Mapa calle": osm, "Satélite": esriSat }, {}, { position: "topright" }).addTo(map);
 
     const regionSelect = document.getElementById("region-select");
     const instrumentoSelect = document.getElementById("instrumento-select");
 
-    // -------------------------
-    // Cargar instrumentos desde listado.json
-    // Soporta: array simple, {kml:[...]}, {instrumentos:[...]}
-    // -------------------------
+    // ---------------------------------
+    // CARGAR REGIONES DESDE regiones.json
+    // ---------------------------------
+    async function cargarRegiones() {
+      try {
+        const resp = await fetch("capas/regiones.json");
+        const regiones = await resp.json();
+
+        regionSelect.innerHTML = "";
+
+        regiones
+          .filter(r => r.activo)
+          .forEach(r => {
+            const opt = document.createElement("option");
+            opt.value = r.codigo_ine;
+            opt.textContent = `${r.codigo_ine} - ${r.nombre.replace("Región de ", "")}`;
+            regionSelect.appendChild(opt);
+          });
+
+        regionSelect.value = "03"; // Atacama por defecto
+      } catch (err) {
+        console.error("Error cargando regiones.json", err);
+      }
+    }
+
+    // ---------------------------------
+    // CARGAR INSTRUMENTOS
+    // ---------------------------------
     async function cargarInstrumentos(regionCode) {
       instrumentoSelect.innerHTML = "";
       instrumentoSelect.disabled = true;
 
       const optDefault = document.createElement("option");
       optDefault.value = "";
-      optDefault.textContent =
-        "Selecciona un instrumento para hacer zoom";
+      optDefault.textContent = "Selecciona un instrumento para hacer zoom";
       instrumentoSelect.appendChild(optDefault);
 
       if (!regionCode) return;
 
-      const basePath = `capas/capas_${regionCode}/`;
-      const listadoUrl = `${basePath}listado.json`;
+      const basePath = `capas/capas_${regionCode}/listado.json`;
 
       try {
-        const resp = await fetch(listadoUrl);
-        if (!resp.ok) {
-          console.warn("No se pudo leer listado.json de la región", regionCode);
-          return;
-        }
+        const resp = await fetch(basePath);
+        if (!resp.ok) return;
+
         const listado = await resp.json();
+        let entradas = listado.instrumentos || listado.kml || listado || [];
 
-        let entradas = [];
-
-        if (Array.isArray(listado)) {
-          // ["IPT_...kml", ...]
-          entradas = listado;
-        } else if (Array.isArray(listado.kml)) {
-          // { kml: [ "IPT_...kml", ... ] }
-          entradas = listado.kml;
-        } else if (Array.isArray(listado.instrumentos)) {
-          // { instrumentos: [ {archivo, nombre, ...}, ... ] }
-          entradas = listado.instrumentos;
-        } else {
-          console.warn("Formato no reconocido en listado.json para región", regionCode, listado);
-          return;
-        }
-
-        let contador = 0;
-
-        entradas.forEach((entry) => {
-          let archivo = "";
-          let nombre = "";
-
-          if (typeof entry === "string") {
-            archivo = entry;
-            nombre = entry;
-          } else if (entry && typeof entry === "object") {
-            archivo = entry.archivo || entry.kml || entry.nombreArchivo || entry.nombre || "";
-            nombre = entry.nombre || archivo;
-          }
-
-          if (!archivo) return;
+        entradas.forEach(e => {
+          const archivo = e.archivo || e;
+          const nombre = e.nombre || archivo;
 
           const opt = document.createElement("option");
           opt.value = archivo;
           opt.textContent = nombre.replace(/\.kml$/i, "");
           instrumentoSelect.appendChild(opt);
-          contador++;
         });
 
-        if (contador > 0) {
-          instrumentoSelect.disabled = false;
-        }
+        instrumentoSelect.disabled = false;
       } catch (err) {
-        console.warn("Error cargando instrumentos región", regionCode, err);
+        console.warn("Error cargando listado.json:", err);
       }
     }
 
-    // -------------------------
-    // Zoom al extent real de un KML de instrumento (solo fitBounds, SIN rectángulo)
-    // -------------------------
-    async function zoomAlInstrumentoPorExtent(regionCode, nombreKml) {
-      if (!regionCode || !nombreKml) return;
+    // ---------------------------------
+    // ZOOM POR INSTRUMENTO
+    // ---------------------------------
+    async function zoomAlInstrumentoPorExtent(regionCode, archivo) {
+      if (!archivo) return;
 
-      const basePath = `capas/capas_${regionCode}/`;
-      const kmlUrl = basePath + nombreKml;
+      const url = `capas/capas_${regionCode}/${archivo}`;
 
       try {
-        const resp = await fetch(kmlUrl);
-        if (!resp.ok) {
-          console.warn("No se pudo leer KML para zoom:", kmlUrl);
-          return;
-        }
+        const resp = await fetch(url);
         const kmlText = await resp.text();
+        const xml = new DOMParser().parseFromString(kmlText, "application/xml");
 
-        const parser = new DOMParser();
-        const xml = parser.parseFromString(kmlText, "application/xml");
-
-        const coordEls = xml.querySelectorAll(
-          "Placemark Polygon coordinates, " +
-          "Placemark MultiGeometry Polygon coordinates, " +
-          "Placemark LineString coordinates, " +
-          "coordinates"
-        );
-
+        const coords = xml.querySelectorAll("coordinates");
         const puntos = [];
 
-        coordEls.forEach((el) => {
-          const txt = el.textContent.trim();
-          if (!txt) return;
-
-          txt.split(/\s+/).forEach((pair) => {
-            const partes = pair.split(",");
-            if (partes.length < 2) return;
-            const lon = parseFloat(partes[0]);
-            const lat = parseFloat(partes[1]);
-            if (!isNaN(lat) && !isNaN(lon)) {
-              puntos.push([lat, lon]);
-            }
+        coords.forEach(c => {
+          c.textContent.trim().split(/\s+/).forEach(par => {
+            const [lon, lat] = par.split(",").map(Number);
+            if (!isNaN(lat) && !isNaN(lon)) puntos.push([lat, lon]);
           });
         });
 
-        if (!puntos.length) {
-          console.warn("No se encontraron coordenadas en", nombreKml);
-          return;
-        }
-
         const bounds = L.latLngBounds(puntos);
-        map.fitBounds(bounds, { padding: [30, 30] }); // solo zoom, sin dibujar nada
+        map.fitBounds(bounds, { padding: [30, 30] });
+
       } catch (err) {
-        console.warn("Error procesando KML para zoom:", kmlUrl, err);
+        console.warn("No se pudo leer KML:", url);
       }
     }
 
-    // -------------------------
-    // Eventos de UI
-    // -------------------------
-    regionSelect.addEventListener("change", () => {
-      const regionCode = regionSelect.value;
+    // ---------------------------------
+    // EVENTOS
+    // ---------------------------------
+    regionSelect.addEventListener("change", async () => {
+      const code = regionSelect.value;
+      cargarInstrumentos(code);
 
-      if (regionCode === "03") {
-        map.setView([-27.5, -70.5], 7); // Atacama
-      } else if (regionCode === "02") {
-        map.setView([-23.5, -69.3], 7); // Antofagasta
-      } else if (regionCode === "RM") {
-        map.setView([-33.45, -70.65], 9); // RM aprox.
-      }
+      // Leer centro/zoom desde regiones.json
+      const resp = await fetch("capas/regiones.json");
+      const regiones = await resp.json();
+      const r = regiones.find(x => x.codigo_ine === code);
 
-      if (regionCode) {
-        cargarInstrumentos(regionCode);
-      }
+      if (r) map.setView(r.centro, r.zoom);
     });
 
     instrumentoSelect.addEventListener("change", () => {
-      const regionCode = regionSelect.value;
-      const archivoKml = instrumentoSelect.value;
-      if (!regionCode || !archivoKml) return;
-
-      zoomAlInstrumentoPorExtent(regionCode, archivoKml);
+      zoomAlInstrumentoPorExtent(regionSelect.value, instrumentoSelect.value);
     });
 
-    // -------------------------
-    // Click en el mapa → abrir info.html
-    // Desde el minuto 0 (por defecto usa región 03 - Atacama)
-    // -------------------------
+    // ---------------------------------
+    // CLICK EN MAPA → info.html
+    // ---------------------------------
     map.on("click", (e) => {
-      const regionCode = regionSelect.value || "03"; // Atacama por defecto
+      const regionCode = regionSelect.value || "03";
 
-      const lat = e.latlng.lat.toString();
-      const lon = e.latlng.lng.toString();
-
-      const url = new URL(
-        window.location.origin +
-        window.location.pathname.replace(/index\.html$/i, "") +
-        "info.html"
-      );
-      url.searchParams.set("lat", lat);
-      url.searchParams.set("lon", lon);
-      if (regionCode) {
-        url.searchParams.set("region", regionCode);
-      }
+      const url = new URL("info.html", window.location.href);
+      url.searchParams.set("lat", e.latlng.lat);
+      url.searchParams.set("lon", e.latlng.lng);
+      url.searchParams.set("region", regionCode);
 
       window.open(url.toString(), "_blank");
     });
 
-    // -------------------------
-    // Inicialización
-    // -------------------------
-    (function init() {
-      const defaultRegion = regionSelect.value || "03"; // Atacama
-      if (defaultRegion === "03") {
-        map.setView([-27.5, -70.5], 7);
-      } else if (defaultRegion === "02") {
-        map.setView([-23.5, -69.3], 7);
-      } else if (defaultRegion === "RM") {
-        map.setView([-33.45, -70.65], 9);
-      }
-
-      // Desde el arranque ya queda la región por defecto con sus instrumentos
-      cargarInstrumentos(defaultRegion);
+    // ---------------------------------
+    // INICIALIZACIÓN
+    // ---------------------------------
+    (async function init() {
+      await cargarRegiones();
+      cargarInstrumentos("03");
+      map.setView([-27.5, -70.5], 7);
     })();
   </script>
-
-<script>
-
-
-  navigator.geolocation.getCurrentPosition(
-    function (pos) {
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-
-      // Centrar mapa a escala 1:10.000 → zoom 17
-      map.setView([lat, lon], 17);
-
-      // Agregar marcador o un circulito azul
-      if (window.geoMarker) {
-        map.removeLayer(window.geoMarker);
-      }
-
-      window.geoMarker = L.circleMarker([lat, lon], {
-        radius: 8,
-        color: '#1E90FF',
-        fillColor: '#1E90FF',
-        fillOpacity: 0.7
-      }).addTo(map);
-    },
-    function (err) {
-      alert("No se pudo obtener ubicación.\n¿Tienes activado el GPS?");
-      console.error(err);
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0
-    }
-  );
-});
-</script>
-
-  
 </body>
 </html>
