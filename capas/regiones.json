@@ -26,6 +26,18 @@
       "centro": [-33.6, -69.8],
       "zoom": 7,
       "activo": true
+    },
+
+            {
+      "id": "VA",
+      "codigo_ine": "05",
+      "nombre": "Región de Valparaiso",
+      "carpeta": "capas_05",
+      "centro": [-33.6, -71.8],
+      "zoom": 7,
+      "activo": true
     }
+
+
   ]
 }
