@@ -192,7 +192,7 @@
     // ---------------------------------
     async function cargarRegiones() {
       try {
-        const resp = await fetch("capas/regiones.json");
+        const resp = await fetch("./capas/regiones.json");
         const regiones = await resp.json();
 
         regionSelect.innerHTML = "";
@@ -290,7 +290,7 @@
       cargarInstrumentos(code);
 
       // Leer centro/zoom desde regiones.json
-      const resp = await fetch("capas/regiones.json");
+      const resp = await fetch("./capas/regiones.json");
       const regiones = await resp.json();
       const r = regiones.find(x => x.codigo_ine === code);
 
