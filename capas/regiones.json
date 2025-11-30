@@ -1,14 +1,14 @@
 [
-  {
-    "id": "AT",
-    "codigo_ine": "03",
-    "nombre": "Región de Atacama",
-    "carpeta": "capas_03",
+    {
+    "id": "TA",
+    "codigo_ine": "01",
+    "nombre": "Región de Tarapacá",
+    "carpeta": "capas_01",
     "centro": [-27.5, -70.25],
     "zoom": 7,
     "activo": true
   },
-  {
+   {
     "id": "AN",
     "codigo_ine": "02",
     "nombre": "Región de Antofagasta",
@@ -18,11 +18,11 @@
     "activo": true
   },
   {
-    "id": "RM",
-    "codigo_ine": "13",
-    "nombre": "Región Metropolitana",
-    "carpeta": "capas_RM",
-    "centro": [-33.6, -69.8],
+    "id": "AT",
+    "codigo_ine": "03",
+    "nombre": "Región de Atacama",
+    "carpeta": "capas_03",
+    "centro": [-27.5, -70.25],
     "zoom": 7,
     "activo": true
   },
@@ -36,6 +36,34 @@
     "activo": true
   },
   {
+    "id": "RM",
+    "codigo_ine": "13",
+    "nombre": "Región Metropolitana",
+    "carpeta": "capas_RM",
+    "centro": [-33.6, -69.8],
+    "zoom": 7,
+    "activo": true
+  },
+
+    {
+    "id": "OH",
+    "codigo_ine": "06",
+    "nombre": "Región de O'Higgins",
+    "carpeta": "capas_06",
+    "centro": [-37.1, -72.8],
+    "zoom": 7,
+    "activo": true
+  },
+    {
+    "id": "MA",
+    "codigo_ine": "07",
+    "nombre": "Región del Maule",
+    "carpeta": "capas_07",
+    "centro": [-37.1, -72.8],
+    "zoom": 7,
+    "activo": true
+  },
+    {
     "id": "BI",
     "codigo_ine": "08",
     "nombre": "Región del Biobío",
@@ -43,5 +71,78 @@
     "centro": [-37.1, -72.8],
     "zoom": 7,
     "activo": true
+  },
+  {
+    "id": "AR",
+    "codigo_ine": "09",
+    "nombre": "Región de la Araucanía",
+    "carpeta": "capas_09",
+    "centro": [-37.1, -72.8],
+    "zoom": 7,
+    "activo": true
+  },  
+  {
+    "id": "LA",
+    "codigo_ine": "10",
+    "nombre": "Región de los Lagos",
+    "carpeta": "capas_10",
+    "centro": [-37.1, -72.8],
+    "zoom": 7,
+    "activo": true
+  },
+  {
+      "id": "AY",
+    "codigo_ine": "11",
+    "nombre": "Región de Aysén",
+    "carpeta": "capas_11",
+    "centro": [-37.1, -72.8],
+    "zoom": 7,
+    "activo": true
+    },
+  {
+      "id": "MA",
+    "codigo_ine": "12",
+    "nombre": "Región de Magallanes",
+    "carpeta": "capas_12",
+    "centro": [-37.1, -72.8],
+    "zoom": 7,
+    "activo": true
+    },
+  {
+      "id": "RI",
+    "codigo_ine": "14",
+    "nombre": "Región de los Ríos",
+    "carpeta": "capas_14",
+    "centro": [-37.1, -72.8],
+    "zoom": 7,
+    "activo": true
+    },
+  {
+       "id": "RI",
+    "codigo_ine": "14",
+    "nombre": "Región de los Ríos",
+    "carpeta": "capas_14",
+    "centro": [-37.1, -72.8],
+    "zoom": 7,
+    "activo": true 
+  },
+  {
+    "id": "AR",
+    "codigo_ine": "15",
+    "nombre": "Región de Arica y Parinacota",
+    "carpeta": "capas_15",
+    "centro": [-37.1, -72.8],
+    "zoom": 7,
+    "activo": true 
+  },
+  {
+    "id": "NU",
+    "codigo_ine": "16",
+    "nombre": "Región del Ñuble",
+    "carpeta": "capas_16",
+    "centro": [-37.1, -72.8],
+    "zoom": 7,
+    "activo": true 
   }
+  
 ]
