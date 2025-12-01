@@ -1,0 +1,9 @@
+{
+  "region": "15",
+  "nombre": "Arica y Parinacota",
+  "kml": [
+    "IPT_15_PRC_Arica.kml",
+    "IPT_15_PRC_Arica_SECC_San_MIguel.kml",
+    "IPT_15_PRC_Putre.kml"
+  ]
+}
