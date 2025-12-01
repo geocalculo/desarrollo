@@ -1,0 +1,14 @@
+{
+  "region": "12",
+  "nombre": "Magallanes",
+  "kml": [
+    "IPT_12_PNSECC_Cerro_Castillo.kml",
+    "IPT_12_PNSECC_Rio_Serrano.kml",
+    "IPT_12_PRC_Laguna_Blanca.kml",
+    "IPT_12_PRC_Porvenir.kml",
+    "IPT_12_PRC_Puerto_Natales.kml",
+    "IPT_12_PRC_Puerto_Williams_CaboHornos.kml",
+    "IPT_12_PRC_Punta_Arenas.kml",
+    "IPT_12_PRC_Punta_Delgada_San_Gregorio.kml"
+  ]
+}
