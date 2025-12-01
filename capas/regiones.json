@@ -111,7 +111,7 @@
     "id": "RM",
     "codigo_ine": "13",
     "nombre": "Región Metropolitana",
-    "carpeta": "capas_RM",
+    "carpeta": "capas_13",
     "centro": [-33.6, -70.7],
     "zoom": 8,
     "activo": true
