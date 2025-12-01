@@ -1,0 +1,31 @@
+{
+  "region": "10",
+  "nombre": "Los Lagos",
+  "kml": [
+    "IPT_10_PNSECC_Chaiten_Villa_Santa_Lucia.kml",
+    "IPT_10_PNSECC_Puntilla_Niquen_Entre_Lagos.kml",
+    "IPT_10_PNSECC_San_Juan_BahiaMansa.kml",
+    "IPT_10_PNSECC_San_Juan_Costa_Pauacho.kml",
+    "IPT_10_PRC_Ancud.kml",
+    "IPT_10_PRC_Calbuco.kml",
+    "IPT_10_PRC_Castro.kml",
+    "IPT_10_PRC_Chonchi.kml",
+    "IPT_10_PRC_Fresia.kml",
+    "IPT_10_PRC_Frutillar.kml",
+    "IPT_10_PRC_Llanquihue.kml",
+    "IPT_10_PRC_Maullin.kml",
+    "IPT_10_PRC_Osorno.kml",
+    "IPT_10_PRC_Palena.kml",
+    "IPT_10_PRC_Puerto_Montt.kml",
+    "IPT_10_PRC_Puerto_Octay.kml",
+    "IPT_10_PRC_Puerto_Varas.kml",
+    "IPT_10_PRC_Purranque.kml",
+    "IPT_10_PRC_Puyehue.kml",
+    "IPT_10_PRC_Queilen.kml",
+    "IPT_10_PRC_Queilen_Puyehue_Bahia_El_Encanto.kml",
+    "IPT_10_PRC_Quellon.kml",
+    "IPT_10_PRC_Quinchao_Achao.kml",
+    "IPT_10_PRC_Rio_Negro.kml",
+    "IPT_10_PRC_San_Pablo.kml"
+  ]
+}
