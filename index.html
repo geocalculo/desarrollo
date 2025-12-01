@@ -118,10 +118,41 @@
   </header>
 
   <main>
-    <div id="map"></div>
+<!-- Mira de rifle -->
+<div id="mira-rifle" title="Ubicar mi posición"
+     style="
+       position: absolute;
+       bottom: 25px;
+       right: 25px;
+       z-index: 5000;
+       width: 46px;
+       height: 46px;
+       background: #ffffffee;
+       border-radius: 50%;
+       display: flex;
+       justify-content: center;
+       align-items: center;
+       cursor: pointer;
+       border: 1px solid #d1d5db;
+       backdrop-filter: blur(6px);
+     ">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+       stroke="#111827" stroke-width="2" stroke-linecap="round"
+       stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3"></circle>
+    <line x1="12" y1="2" x2="12" y2="5"></line>
+    <line x1="12" y1="19" x2="12" y2="22"></line>
+    <line x1="2" y1="12" x2="5" y2="12"></line>
+    <line x1="19" y1="12" x2="22" y2="12"></line>
+    <path d="M7 7l2.5 2.5"></path>
+    <path d="M17 7l-2.5 2.5"></path>
+    <path d="M7 17l2.5-2.5"></path>
+    <path d="M17 17l-2.5-2.5"></path>
+  </svg>
+</div>
 
-    <!-- Mira de rifle -->
-    <div id="mira-rifle" title="Ubicar mi posición">⦿</div>
+
+    
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
