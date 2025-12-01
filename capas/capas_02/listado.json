@@ -1,28 +1,139 @@
 {
-  "region": "02",
-  "nombre": "Antofagasta",
-  "kml": [
-    "PRC_02_Antofagasta.kml",
-    "PRC_02_Calama.kml",
-    "PRC_02_Mejillones.kml",
-    "PRC_02_Mejillones_Meseta.kml",
-    "PRC_02_Mejillones_Portuaria.kml",
-    "PRC_02_Ollague.kml",
-    "PRC_02_SanPedroAtacama.kml",
-    "PRC_02_SanPedroAtacama_Peine.kml",
-    "PRC_02_SanPedroAtacama_Toconao.kml",
-    "PRC_02_Taltal.kml",
-    "PRC_02_Tocopilla.kml",
-    "PRC_Sierra_Gorda.kml",
-    "SECC_02_Antofagasta_LaChimba.kml",
-    "SECC_02_Antofagasta_LaNegra.kml",
-    "SECC_02_Calama_SanJuan.kml",
-    "SECC_02_Calama_Topater.kml",
-    "SECC_02_Mejillones_CostaneraSur.kml",
-    "SECC_02_Mejillones_IndPequena.kml",
-    "SECC_02_Mejillones_ItataHornitos.kml",
-    "SECC_02_SanPedroAtacama_Pozo.kml",
-    "SECC_02_SanPedroAtacama_Quitar.kml",
-    "SECC_02_Taltal_Cifuncho.kml"
+  "region": "Región de Antofagasta",
+  "codigo_region": "02",
+  "carpeta": "capas_02",
+  "instrumentos": [
+    {
+      "archivo": "PRC_02_Antofagasta.kml",
+      "nombre": "PRC Antofagasta",
+      "tipo": "PRC",
+      "comuna": "Antofagasta"
+    },
+    {
+      "archivo": "PRC_02_Calama.kml",
+      "nombre": "PRC Calama",
+      "tipo": "PRC",
+      "comuna": "Calama"
+    },
+    {
+      "archivo": "PRC_02_Mejillones.kml",
+      "nombre": "PRC Mejillones",
+      "tipo": "PRC",
+      "comuna": "Mejillones"
+    },
+    {
+      "archivo": "PRC_02_Mejillones_Meseta.kml",
+      "nombre": "PRC Mejillones Meseta",
+      "tipo": "PRC",
+      "comuna": "Mejillones"
+    },
+    {
+      "archivo": "PRC_02_Mejillones_Portuaria.kml",
+      "nombre": "PRC Mejillones Portuaria",
+      "tipo": "PRC",
+      "comuna": "Mejillones"
+    },
+    {
+      "archivo": "PRC_02_Ollague.kml",
+      "nombre": "PRC Ollagüe",
+      "tipo": "PRC",
+      "comuna": "Ollagüe"
+    },
+    {
+      "archivo": "PRC_02_SanPedroAtacama.kml",
+      "nombre": "PRC San Pedro de Atacama",
+      "tipo": "PRC",
+      "comuna": "San Pedro de Atacama"
+    },
+    {
+      "archivo": "PRC_02_SanPedroAtacama_Peine.kml",
+      "nombre": "PRC Peine",
+      "tipo": "PRC",
+      "comuna": "Peine (San Pedro de Atacama)"
+    },
+    {
+      "archivo": "PRC_02_SanPedroAtacama_Toconao.kml",
+      "nombre": "PRC Toconao",
+      "tipo": "PRC",
+      "comuna": "Toconao (San Pedro de Atacama)"
+    },
+    {
+      "archivo": "PRC_02_Taltal.kml",
+      "nombre": "PRC Taltal",
+      "tipo": "PRC",
+      "comuna": "Taltal"
+    },
+    {
+      "archivo": "PRC_02_Tocopilla.kml",
+      "nombre": "PRC Tocopilla",
+      "tipo": "PRC",
+      "comuna": "Tocopilla"
+    },
+    {
+      "archivo": "PRC_Sierra_Gorda.kml",
+      "nombre": "PRC Sierra Gorda",
+      "tipo": "PRC",
+      "comuna": "Sierra Gorda"
+    },
+    {
+      "archivo": "SECC_02_Antofagasta_LaChimba.kml",
+      "nombre": "SCC La Chimba",
+      "tipo": "SCC",
+      "comuna": "Antofagasta"
+    },
+    {
+      "archivo": "SECC_02_Antofagasta_LaNegra.kml",
+      "nombre": "SCC La Negra",
+      "tipo": "SCC",
+      "comuna": "Antofagasta"
+    },
+    {
+      "archivo": "SECC_02_Calama_SanJuan.kml",
+      "nombre": "SCC San Juan",
+      "tipo": "SCC",
+      "comuna": "Calama"
+    },
+    {
+      "archivo": "SECC_02_Calama_Topater.kml",
+      "nombre": "SCC Topater",
+      "tipo": "SCC",
+      "comuna": "Calama"
+    },
+    {
+      "archivo": "SECC_02_Mejillones_CostaneraSur.kml",
+      "nombre": "SCC Costanera Sur",
+      "tipo": "SCC",
+      "comuna": "Mejillones"
+    },
+    {
+      "archivo": "SECC_02_Mejillones_IndPequena.kml",
+      "nombre": "SCC Industrial Pequeña",
+      "tipo": "SCC",
+      "comuna": "Mejillones"
+    },
+    {
+      "archivo": "SECC_02_Mejillones_ItataHornitos.kml",
+      "nombre": "SCC Itata Hornitos",
+      "tipo": "SCC",
+      "comuna": "Mejillones"
+    },
+    {
+      "archivo": "SECC_02_SanPedroAtacama_Pozo.kml",
+      "nombre": "SCC Pozo",
+      "tipo": "SCC",
+      "comuna": "San Pedro de Atacama"
+    },
+    {
+      "archivo": "SECC_02_SanPedroAtacama_Quitar.kml",
+      "nombre": "SCC Quitor",
+      "tipo": "SCC",
+      "comuna": "San Pedro de Atacama"
+    },
+    {
+      "archivo": "SECC_02_Taltal_Cifuncho.kml",
+      "nombre": "SCC Cifuncho",
+      "tipo": "SCC",
+      "comuna": "Taltal"
+    }
   ]
 }
