@@ -1,17 +1,73 @@
 {
-  "region": "03",
-  "nombre": "Atacama",
-  "kml": [
-    "IPT_03_PRC_Caldera.kml",
-    "IPT_03_PRC_Chanaral.kml",
-    "IPT_03_PRC_Copiapo.kml",
-    "IPT_03_PRC_Diego_de_Almagro.kml",
-    "IPT_03_PRC_Freirina.kml",
-    "IPT_03_PRC_Huasco.kml",
-    "IPT_03_PRC_Vallenar.kml",
-    "IPT_03_SCC_ElSalado.kml",
-    "IPT_03_SCC_Flamenco.kml",
-    "IPT_03_SCC_Portofino.kml",
-    "PRICOST_Atacama.kml"
+  "region": "Región de Atacama",
+  "codigo_region": "03",
+  "carpeta": "capas_03",
+  "instrumentos": [
+    {
+      "archivo": "IPT_03_PRC_Caldera.kml",
+      "nombre": "PRC Caldera",
+      "tipo": "PRC",
+      "comuna": "Caldera"
+    },
+    {
+      "archivo": "IPT_03_PRC_Chanaral.kml",
+      "nombre": "PRC Chañaral",
+      "tipo": "PRC",
+      "comuna": "Chañaral"
+    },
+    {
+      "archivo": "IPT_03_PRC_Copiapo.kml",
+      "nombre": "PRC Copiapó",
+      "tipo": "PRC",
+      "comuna": "Copiapó"
+    },
+    {
+      "archivo": "IPT_03_PRC_Diego_de_Almagro.kml",
+      "nombre": "PRC Diego de Almagro",
+      "tipo": "PRC",
+      "comuna": "Diego de Almagro"
+    },
+    {
+      "archivo": "IPT_03_PRC_Freirina.kml",
+      "nombre": "PRC Freirina",
+      "tipo": "PRC",
+      "comuna": "Freirina"
+    },
+    {
+      "archivo": "IPT_03_PRC_Huasco.kml",
+      "nombre": "PRC Huasco",
+      "tipo": "PRC",
+      "comuna": "Huasco"
+    },
+    {
+      "archivo": "IPT_03_PRC_Vallenar.kml",
+      "nombre": "PRC Vallenar",
+      "tipo": "PRC",
+      "comuna": "Vallenar"
+    },
+    {
+      "archivo": "IPT_03_SCC_ElSalado.kml",
+      "nombre": "SCC El Salado",
+      "tipo": "SCC",
+      "comuna": "Diego de Almagro"
+    },
+    {
+      "archivo": "IPT_03_SCC_Flamenco.kml",
+      "nombre": "SCC Flamenco",
+      "tipo": "SCC",
+      "comuna": "Chañaral"
+    },
+    {
+      "archivo": "IPT_03_SCC_Portofino.kml",
+      "nombre": "SCC Portofino",
+      "tipo": "SCC",
+      "comuna": "Chañaral"
+    },
+    {
+      "archivo": "PRICOST_Atacama.kml",
+      "nombre": "PRI Costero Atacama",
+      "tipo": "PRI",
+      "comuna": "Región de Atacama"
+    }
   ]
 }
