@@ -1,0 +1,29 @@
+{
+  "region": "09",
+  "nombre": "La Araucanía",
+  "kml": [
+    "IPT_09_PRC_Angol.kml",
+    "IPT_09_PRC_Carahue.kml",
+    "IPT_09_PRC_Collipulli.kml",
+    "IPT_09_PRC_Curacautin.kml",
+    "IPT_09_PRC_Freire.kml",
+    "IPT_09_PRC_Gorbea.kml",
+    "IPT_09_PRC_Lautaro.kml",
+    "IPT_09_PRC_Loncoche.kml",
+    "IPT_09_PRC_Lonquimay_Villa_Portales.kml",
+    "IPT_09_PRC_Nueva_Imperial.kml",
+    "IPT_09_PRC_Padre_Las_Casas.kml",
+    "IPT_09_PRC_Pitrufquen.kml",
+    "IPT_09_PRC_Pucon.kml",
+    "IPT_09_PRC_Puerto_Saavedra.kml",
+    "IPT_09_PRC_Renaico.kml",
+    "IPT_09_PRC_Renaico_Tijeral.kml",
+    "IPT_09_PRC_Temuco.kml",
+    "IPT_09_PRC_Temuco_Cajon.kml",
+    "IPT_09_PRC_Tolten_Queule.kml",
+    "IPT_09_PRC_Tolten_Villa_Ohiggins.kml",
+    "IPT_09_PRC_Traiguen.kml",
+    "IPT_09_PRC_Victoria.kml",
+    "IPT_09_PRC_Villarrica.kml"
+  ]
+}
