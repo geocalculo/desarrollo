@@ -1,0 +1,15 @@
+{
+  "region": "11",
+  "nombre": "Aysén",
+  "kml": [
+    "IPT_11_PNSECC_Melinka_Guatecas.kml",
+    "IPT_11_PNSECC_Rio_Ibanez_Cerro_Castillo.kml",
+    "IPT_11_PRC_Cisnes.kml",
+    "IPT_11_PRC_Coyhaique.kml",
+    "IPT_11_PRC_Lago_Verde.kml",
+    "IPT_11_PRC_La_Junta.kml",
+    "IPT_11_PRC_Puerto_Aysen.kml",
+    "IPT_11_PRC_Puerto_Chacabuco.kml",
+    "IPT_11_PRC_Puyuhuapi.kml"
+  ]
+}
