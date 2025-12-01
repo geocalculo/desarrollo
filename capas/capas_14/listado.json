@@ -1,0 +1,21 @@
+{
+  "region": "14",
+  "nombre": "Los Ríos",
+  "kml": [
+    "IPT_14_PNOSECC_Futroo_Bahia_Coique.kml",
+    "IPT_14_PNOSECC_Lago_Ranco_Ignao.kml",
+    "IPT_14_PNOSECC_Panguipulli_Puyumen.kml",
+    "IPT_14_PNOSECC_Valdivia_Barrios_Bajos.kml",
+    "IPT_14_PRC_Corral.kml",
+    "IPT_14_PRC_Futrono.kml",
+    "IPT_14_PRC_Lago_Ranco.kml",
+    "IPT_14_PRC_Lanco.kml",
+    "IPT_14_PRC_La_Union.kml",
+    "IPT_14_PRC_Los_Lagos.kml",
+    "IPT_14_PRC_Mafil.kml",
+    "IPT_14_PRC_Paillaco.kml",
+    "IPT_14_PRC_Panguipulli.kml",
+    "IPT_14_PRC_Rio_Bueno.kml",
+    "IPT_14_PRC_Valdivia.kml"
+  ]
+}
