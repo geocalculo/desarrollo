@@ -1,0 +1,11 @@
+{
+  "region": "01",
+  "nombre": "Tarapacá",
+  "kml": [
+    "IPT_01_PRC_Alto_Hospicio.kml",
+    "IPT_01_PRC_Huara.kml",
+    "IPT_01_PRC_Iquique.kml",
+    "IPT_01_PRC_Pica.kml",
+    "IPT_01_PRC_Pozo_al_Monte.kml"
+  ]
+}
