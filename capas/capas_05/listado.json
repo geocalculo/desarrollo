@@ -1,7 +1,7 @@
 {
   "region": "Región de Valparaíso",
   "codigo_region": "05",
-  "carpeta": "capas_V",
+  "carpeta": "capas_05",
   "instrumentos": [
     {
       "archivo": "IPT_05_PRC_Algarrobo.kml",
