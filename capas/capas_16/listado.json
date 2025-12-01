@@ -1,0 +1,24 @@
+{
+  "region": "16",
+  "nombre": "Ñuble",
+  "kml": [
+    "IPT_16_PRC_Bulnes.kml",
+    "IPT_16_PRC_Chillan.kml",
+    "IPT_16_PRC_Chillan_Viejo.kml",
+    "IPT_16_PRC_Cobquecura.kml",
+    "IPT_16_PRC_Coelemu.kml",
+    "IPT_16_PRC_El_Carmen.kml",
+    "IPT_16_PRC_Ninhue.kml",
+    "IPT_16_PRC_Niquen.kml",
+    "IPT_16_PRC_Pemuco.kml",
+    "IPT_16_PRC_Pinto.kml",
+    "IPT_16_PRC_Portezuelo.kml",
+    "IPT_16_PRC_Quillon.kml",
+    "IPT_16_PRC_Quirihue.kml",
+    "IPT_16_PRC_Ranquil.kml",
+    "IPT_16_PRC_San_Carlos.kml",
+    "IPT_16_PRC_San_Fabian.kml",
+    "IPT_16_PRC_San_Ignacio.kml",
+    "IPT_16_PRC_Yungay.kml"
+  ]
+}
