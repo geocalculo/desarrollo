@@ -1,7 +1,7 @@
 {
   "region": "Región Metropolitana",
   "codigo_region": "13",
-  "carpeta": "capas_RM",
+  "carpeta": "capas_13",
   "instrumentos": [
     {
       "archivo": "IPT_13_PRC_Cerrillos.kml",
