@@ -170,6 +170,37 @@
       background: #f9fafb;
     }
 
+    /* Barra superior y botón Home */
+    .top-bar {
+      display: flex;
+      justify-content: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .home-button {
+      border: none;
+      border-radius: 999px;
+      padding: 0.55rem 1.2rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: #e5e7eb;
+      color: #111827;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+    }
+
+    .home-button:hover {
+      background: #d1d5db;
+    }
+
+    .home-button svg {
+      width: 16px;
+      height: 16px;
+    }
+
     /* Botones de acción */
     .actions-row {
       margin-top: 2rem;
@@ -269,6 +300,27 @@
         transform: rotate(360deg);
       }
     }
+
+    /* Ocultar elementos en impresión */
+    .no-print {
+      /* Se sobreescribe en @media print */
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+
+      #report-wrapper {
+        box-shadow: none;
+        border-radius: 0;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -278,6 +330,16 @@
 
   <div class="page">
     <div id="report-wrapper">
+      <!-- Botón Home (solo pantalla) -->
+      <div class="top-bar no-print">
+        <button id="btn-home" type="button" class="home-button">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 11L12 4l8 7v8a1 1 0 0 1-1 1h-4v-5H9v5H5a1 1 0 0 1-1-1v-8Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Home
+        </button>
+      </div>
+
       <header>
         <h1>GeoIPT - Reporte del punto consultado</h1>
         <div class="coords-row">
@@ -314,7 +376,8 @@
         <h2>Consulta PRC / SCC (punto sobre polígonos de toda la región)</h2>
         <p>
           Evaluación del punto sobre todos los polígonos de los instrumentos PRC/SCC de la región seleccionada. El combo del mapa principal se usa solo para zoom
-          óptico; aquí se revisan <strong>todos los KML declarados en el listado.json de la región</strong>.
+          óptico; aquí se revisan <strong>todos los KML declarados en el listado.json de la región</strong>, filtrando previamente solo aquellos cuya extensión
+          intersecta el área visible del mapa de referencia.
         </p>
         <div id="resultado-prc" style="margin-top:0.5rem; font-size:0.95rem;"></div>
         <ul id="lista-coincidencias" class="coincidencias"></ul>
@@ -354,12 +417,19 @@
         </div>
       </div>
 
-      <div class="actions-row">
+      <div class="actions-row no-print">
         <button id="btn-descargar-kml" type="button" class="action-button">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 3v9m0 0 3-3m-3 3-3-3M5 18h14M6 21h12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           Descargar KML
+        </button>
+
+        <button id="btn-print" type="button" class="action-button">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M7 9V4h10v5M6 18H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-1M8 18h8v3H8v-3Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Imprimir reporte
         </button>
       </div>
     </div>
@@ -370,12 +440,9 @@
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin="">
-    
-    </script>
+  </script>
 
   <script src="js/utm.js"></script>
-
-
 
   <!-- tokml para exportar GeoJSON a KML -->
   <script src="https://unpkg.com/tokml@0.4.0/tokml.js"></script>
@@ -508,11 +575,6 @@
         .join("");
     }
 
-// Conversión WGS84 -> UTM 19S (EPSG:32719) usando proj4
-
-
-
-
     // Punto en polígono (Ray casting)
     function pointInPolygon(lat, lon, polygonLatLngs) {
       let inside = false;
@@ -597,6 +659,66 @@
       return results;
     }
 
+    // Obtener bounds actuales del mapa
+    function getViewBBox() {
+      const map = window._geoiptMap;
+      if (!map) return null;
+      const b = map.getBounds();
+      return {
+        minLat: b.getSouth(),
+        maxLat: b.getNorth(),
+        minLon: b.getWest(),
+        maxLon: b.getEast()
+      };
+    }
+
+    // Leer bbox de una entrada de listado.json
+    // Soporta:
+    // - bbox: [minLat, minLon, maxLat, maxLon]
+    // - extent: [minLat, minLon, maxLat, maxLon]
+    // - minLat, maxLat, minLon, maxLon como campos separados
+    function getEntryBBox(entry) {
+      if (!entry || typeof entry !== "object") return null;
+
+      let minLat, maxLat, minLon, maxLon;
+
+      if (Array.isArray(entry.bbox) && entry.bbox.length === 4) {
+        [minLat, minLon, maxLat, maxLon] = entry.bbox.map(Number);
+      } else if (Array.isArray(entry.extent) && entry.extent.length === 4) {
+        [minLat, minLon, maxLat, maxLon] = entry.extent.map(Number);
+      } else if (
+        typeof entry.minLat !== "undefined" &&
+        typeof entry.maxLat !== "undefined" &&
+        typeof entry.minLon !== "undefined" &&
+        typeof entry.maxLon !== "undefined"
+      ) {
+        minLat = Number(entry.minLat);
+        maxLat = Number(entry.maxLat);
+        minLon = Number(entry.minLon);
+        maxLon = Number(entry.maxLon);
+      }
+
+      if (
+        [minLat, maxLat, minLon, maxLon].some(
+          (v) => typeof v !== "number" || isNaN(v)
+        )
+      ) {
+        return null;
+      }
+
+      return { minLat, maxLat, minLon, maxLon };
+    }
+
+    function bboxesIntersect(a, b) {
+      if (!a || !b) return true;
+      const noOverlap =
+        b.minLat > a.maxLat ||
+        b.maxLat < a.minLat ||
+        b.minLon > a.maxLon ||
+        b.maxLon < a.minLon;
+      return !noOverlap;
+    }
+
     async function evaluarPRC(lat, lon, regionCode) {
       const resultadoDiv = document.getElementById("resultado-prc");
       const listaUl = document.getElementById("lista-coincidencias");
@@ -614,6 +736,8 @@
       if (window._geoiptResultado) {
         window._geoiptResultado.clearLayers();
       }
+
+      const viewBBox = getViewBBox();
 
       try {
         const listadoResp = await fetch(listadoUrl);
@@ -641,6 +765,7 @@
         for (const entry of archivos) {
           let archivo = "";
           let nombreInstrumento = "";
+          let entryMeta = null;
 
           if (typeof entry === "string") {
             archivo = entry;
@@ -650,9 +775,18 @@
               entry.archivo || entry.kml || entry.nombre || "";
             nombreInstrumento =
               entry.nombre || archivo;
+            entryMeta = entry;
           }
 
           if (!archivo) continue;
+
+          // Si tenemos bbox del instrumento y bounds del mapa,
+          // filtramos por intersección antes de leer el KML
+          const entryBBox = getEntryBBox(entryMeta);
+          if (viewBBox && entryBBox && !bboxesIntersect(entryBBox, viewBBox)) {
+            // No intersecta el área visible del mapa → se omite
+            continue;
+          }
 
           const kmlUrl = basePath + archivo;
 
@@ -935,6 +1069,23 @@
       });
     }
 
+    function initHomeButton() {
+      const btnHome = document.getElementById("btn-home");
+      if (!btnHome) return;
+      btnHome.addEventListener("click", () => {
+        // Ajusta esta ruta según dónde tengas el index principal
+        window.location.href = "index.html";
+      });
+    }
+
+    function initPrintButton() {
+      const btnPrint = document.getElementById("btn-print");
+      if (!btnPrint) return;
+      btnPrint.addEventListener("click", () => {
+        window.print();
+      });
+    }
+
     async function cargarReporte() {
       try {
         const latParam = parseFloat(getParam("lat") || "-27.0");
@@ -949,6 +1100,8 @@
         initMap(latParam, lonParam);
         initKmlButton();
         initNotaToggle();
+        initHomeButton();
+        initPrintButton();
 
         if (regionCode && regionCode !== "--") {
           await evaluarPRC(latParam, lonParam, regionCode);
