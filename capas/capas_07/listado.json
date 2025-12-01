@@ -1,0 +1,25 @@
+{
+  "region": "07",
+  "nombre": "Maule",
+  "kml": [
+    "IPT_07_PRC_Cauquenes.kml",
+    "IPT_07_PRC_Colbun.kml",
+    "IPT_07_PRC_Constitucion.kml",
+    "IPT_07_PRC_Curepto.kml",
+    "IPT_07_PRC_Curico.kml",
+    "IPT_07_PRC_Linares.kml",
+    "IPT_07_PRC_Maule.kml",
+    "IPT_07_PRC_Molina.kml",
+    "IPT_07_PRC_Parral.kml",
+    "IPT_07_PRC_Pelluhue.kml",
+    "IPT_07_PRC_Pencahue.kml",
+    "IPT_07_PRC_Romeral.kml",
+    "IPT_07_PRC_San_Clemente.kml",
+    "IPT_07_PRC_San_Javier.kml",
+    "IPT_07_PRC_Talca.kml",
+    "IPT_07_PRC_Teno.kml",
+    "IPT_07_PRC_Vichuquen.kml",
+    "IPT_07_PRC_Villa_Alegre.kml",
+    "IPT_07_PRC_Yerbas_Buenas.kml"
+  ]
+}
