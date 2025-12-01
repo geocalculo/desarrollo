@@ -12,8 +12,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-      Roboto, Helvetica, Arial, sans-serif;
+      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
       background: #0b1120;
       color: #e5e7eb;
       min-height: 100vh;
@@ -70,6 +69,26 @@
       min-height: 420px;
       border-radius: 1rem;
       border: 1px solid #1f2937;
+      position: relative;
+    }
+
+    /* Botón mira de rifle */
+    #mira-rifle {
+      position: absolute;
+      bottom: 25px;
+      right: 25px;
+      z-index: 5000;
+      width: 44px;
+      height: 44px;
+      background: #ffffffdd;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      border: 1px solid #cbd5e1;
+      backdrop-filter: blur(4px);
+      font-size: 20px;
     }
   </style>
 </head>
@@ -99,10 +118,10 @@
   </header>
 
   <main>
-    <div class="map-container">
-      <div id="map"></div>
-      <p class="hint"><strong>Instrucciones:</strong> Haz clic en el mapa para abrir el reporte del punto.</p>
-    </div>
+    <div id="map"></div>
+
+    <!-- Mira de rifle -->
+    <div id="mira-rifle" title="Ubicar mi posición">⦿</div>
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -111,57 +130,49 @@
     const regionSelect = document.getElementById("region-select");
     const instrumentoSelect = document.getElementById("instrumento-select");
 
-    // -------------------------
-    // MAPA BASE
-    // -------------------------
-    const map = L.map('map', {
+    // MAPA BASES
+    const mapaCalle = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    });
+
+    const mapaSatelite = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      { maxZoom: 19, attribution: "Tiles © Esri" }
+    );
+
+    const map = L.map("map", {
       center: [-27.5, -70.25],
       zoom: 7,
       minZoom: 4,
-      maxZoom: 19
+      maxZoom: 19,
+      layers: [mapaCalle]
     });
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    L.control.layers(
+      { "Mapa calle": mapaCalle, "Satélite": mapaSatelite },
+      {},
+      { position: "topright" }
+    ).addTo(map);
 
-    // -------------------------
-    // CARGAR REGIONES
-    // -------------------------
+    // Cargar regiones
     async function cargarRegiones() {
-      try {
-        const resp = await fetch("capas/regiones.json");
-        if (!resp.ok) {
-          console.error("No se pudo leer regiones.json", resp.status);
-          return;
-        }
+      const resp = await fetch("capas/regiones.json");
+      const regiones = await resp.json();
 
-        const regiones = await resp.json();
-        console.log("REGIONES:", regiones);
+      regionSelect.innerHTML = "";
 
-        regionSelect.innerHTML = "";
+      regiones.filter(r => r.activo).forEach(r => {
+        const opt = document.createElement("option");
+        opt.value = r.codigo_ine;
+        opt.textContent = `${r.codigo_ine} - ${r.nombre.replace("Región de ","")}`;
+        regionSelect.appendChild(opt);
+      });
 
-        regiones
-          .filter(r => r.activo)
-          .forEach(r => {
-            const opt = document.createElement("option");
-            opt.value = r.codigo_ine;
-            opt.textContent = `${r.codigo_ine} - ${r.nombre.replace("Región de ", "")}`;
-            regionSelect.appendChild(opt);
-          });
-
-        // ✔ Atacama por defecto
-        regionSelect.value = "03";
-
-      } catch (err) {
-        console.error("Error cargando regiones:", err);
-      }
+      regionSelect.value = "03";
     }
 
-    // -------------------------
-    // CARGAR INSTRUMENTOS
-    // -------------------------
+    // Cargar instrumentos
     async function cargarInstrumentos(regionCode) {
       instrumentoSelect.innerHTML = "";
       instrumentoSelect.disabled = true;
@@ -172,63 +183,49 @@
       instrumentoSelect.appendChild(def);
 
       const url = `capas/capas_${regionCode}/listado.json`;
+      const resp = await fetch(url);
+      if (!resp.ok) return;
 
-      try {
-        const resp = await fetch(url);
-        if (!resp.ok) return;
+      const data = await resp.json();
 
-        const data = await resp.json();
-        const lista = data.instrumentos || [];
+      (data.instrumentos || []).forEach(entry => {
+        const opt = document.createElement("option");
+        opt.value = entry.archivo;
+        opt.textContent = entry.nombre.replace(/\.kml$/i,"");
+        instrumentoSelect.appendChild(opt);
+      });
 
-        lista.forEach(entry => {
-          const opt = document.createElement("option");
-          opt.value = entry.archivo;
-          opt.textContent = entry.nombre.replace(/\.kml$/i, "");
-          instrumentoSelect.appendChild(opt);
-        });
-
-        instrumentoSelect.disabled = false;
-      } catch (e) {
-        console.warn("Error leyendo instrumentos:", e);
-      }
+      instrumentoSelect.disabled = false;
     }
 
-    // -------------------------
-    // ZOOM AL EXTENT DEL KML
-    // -------------------------
+    // Zoom al KML
     async function zoomAlInstrumento(regionCode, archivo) {
       const url = `capas/capas_${regionCode}/${archivo}`;
-      try {
-        const resp = await fetch(url);
-        const txt = await resp.text();
 
-        const xml = new DOMParser().parseFromString(txt, "application/xml");
-        const coords = xml.querySelectorAll("coordinates");
+      const resp = await fetch(url);
+      const txt = await resp.text();
 
-        const puntos = [];
-        coords.forEach(c => {
-          c.textContent.trim().split(/\s+/).forEach(par => {
-            const [lon, lat] = par.split(",").map(Number);
-            if (!isNaN(lat) && !isNaN(lon)) puntos.push([lat, lon]);
-          });
+      const xml = new DOMParser().parseFromString(txt,"application/xml");
+      const coords = xml.querySelectorAll("coordinates");
+
+      const puntos = [];
+      coords.forEach(c => {
+        c.textContent.trim().split(/\s+/).forEach(par => {
+          const [lon, lat] = par.split(",").map(Number);
+          if (!isNaN(lat) && !isNaN(lon)) puntos.push([lat,lon]);
         });
+      });
 
-        if (puntos.length) map.fitBounds(L.latLngBounds(puntos), { padding: [30, 30] });
-
-      } catch (e) {
-        console.warn("No se pudo abrir el KML:", e);
-      }
+      if (puntos.length) map.fitBounds(L.latLngBounds(puntos), { padding: [30,30] });
     }
 
-    // -------------------------
     // EVENTOS
-    // -------------------------
     regionSelect.addEventListener("change", async () => {
       const code = regionSelect.value;
 
       const resp = await fetch("capas/regiones.json");
       const regiones = await resp.json();
-      const r = regiones.find(x => x.codigo_ine === code);
+      const r = regiones.find(x=>x.codigo_ine === code);
 
       if (r) map.setView(r.centro, r.zoom);
 
@@ -247,13 +244,29 @@
       window.open(url, "_blank");
     });
 
-    // -------------------------
-    // INICIO
-    // -------------------------
+    // Mira de rifle (centrar sin dejar marcador)
+    document.getElementById("mira-rifle").addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        alert("La geolocalización no es compatible con este navegador.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          map.setView([lat, lon], 16); // sin marcador
+        },
+        err => alert("No se pudo obtener tu ubicación."),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+
+    // inicio
     (async function init() {
       await cargarRegiones();
       await cargarInstrumentos("03");
-      map.setView([-27.5, -70.25], 7);
+      map.setView([-27.5,-70.25], 7);
     })();
   </script>
 </body>
