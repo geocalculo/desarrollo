@@ -9,10 +9,15 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     body {
-      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Helvetica, Arial, sans-serif;
       background: #0b1120;
       color: #e5e7eb;
       min-height: 100vh;
@@ -36,9 +41,19 @@
       gap: 0.75rem;
     }
 
-    .brand { display: flex; flex-direction: column; gap: 0.15rem; }
-    .brand-title { font-size: 1.1rem; font-weight: 600; }
-    .brand-subtitle { font-size: 0.78rem; color: #9ca3af; }
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .brand-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+    .brand-subtitle {
+      font-size: 0.78rem;
+      color: #9ca3af;
+    }
 
     .controls {
       display: flex;
@@ -63,13 +78,17 @@
       font-size: 0.85rem;
     }
 
+    main {
+      flex: 1;
+      position: relative;
+    }
+
     #map {
       width: 100%;
       height: calc(100vh - 110px);
       min-height: 420px;
       border-radius: 1rem;
       border: 1px solid #1f2937;
-      position: relative;
     }
 
     /* Botón mira de rifle */
@@ -78,17 +97,16 @@
       bottom: 25px;
       right: 25px;
       z-index: 5000;
-      width: 44px;
-      height: 44px;
-      background: #ffffffdd;
+      width: 46px;
+      height: 46px;
+      background: #ffffffee;
       border-radius: 50%;
       display: flex;
       justify-content: center;
       align-items: center;
       cursor: pointer;
-      border: 1px solid #cbd5e1;
-      backdrop-filter: blur(4px);
-      font-size: 20px;
+      border: 1px solid #d1d5db;
+      backdrop-filter: blur(6px);
     }
   </style>
 </head>
@@ -98,7 +116,9 @@
     <div class="header-inner">
       <div class="brand">
         <div class="brand-title">GeoIPT</div>
-        <div class="brand-subtitle">Consulta rápida de instrumentos de planificación territorial (PRC / SCC)</div>
+        <div class="brand-subtitle">
+          Consulta rápida de instrumentos de planificación territorial (PRC / SCC)
+        </div>
       </div>
 
       <div class="controls">
@@ -118,41 +138,31 @@
   </header>
 
   <main>
-<!-- Mira de rifle -->
-<div id="mira-rifle" title="Ubicar mi posición"
-     style="
-       position: absolute;
-       bottom: 25px;
-       right: 25px;
-       z-index: 5000;
-       width: 46px;
-       height: 46px;
-       background: #ffffffee;
-       border-radius: 50%;
-       display: flex;
-       justify-content: center;
-       align-items: center;
-       cursor: pointer;
-       border: 1px solid #d1d5db;
-       backdrop-filter: blur(6px);
-     ">
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-       stroke="#111827" stroke-width="2" stroke-linecap="round"
-       stroke-linejoin="round">
-    <circle cx="12" cy="12" r="3"></circle>
-    <line x1="12" y1="2" x2="12" y2="5"></line>
-    <line x1="12" y1="19" x2="12" y2="22"></line>
-    <line x1="2" y1="12" x2="5" y2="12"></line>
-    <line x1="19" y1="12" x2="22" y2="12"></line>
-    <path d="M7 7l2.5 2.5"></path>
-    <path d="M17 7l-2.5 2.5"></path>
-    <path d="M7 17l2.5-2.5"></path>
-    <path d="M17 17l-2.5-2.5"></path>
-  </svg>
-</div>
+    <div id="map"></div>
 
-
-    
+    <!-- Mira de rifle -->
+    <div id="mira-rifle" title="Ubicar mi posición">
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#111827"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="12" cy="12" r="3"></circle>
+        <line x1="12" y1="2" x2="12" y2="5"></line>
+        <line x1="12" y1="19" x2="12" y2="22"></line>
+        <line x1="2" y1="12" x2="5" y2="12"></line>
+        <line x1="19" y1="12" x2="22" y2="12"></line>
+        <path d="M7 7l2.5 2.5"></path>
+        <path d="M17 7l-2.5 2.5"></path>
+        <path d="M7 17l2.5-2.5"></path>
+        <path d="M17 17l-2.5-2.5"></path>
+      </svg>
+    </div>
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -161,15 +171,21 @@
     const regionSelect = document.getElementById("region-select");
     const instrumentoSelect = document.getElementById("instrumento-select");
 
-    // MAPA BASES
+    // -------------------------
+    // MAPA BASE + CAPAS
+    // -------------------------
     const mapaCalle = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
+      attribution: "&copy; OpenStreetMap contributors",
     });
 
     const mapaSatelite = L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      { maxZoom: 19, attribution: "Tiles © Esri" }
+      {
+        maxZoom: 19,
+        attribution:
+          "Tiles © Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP",
+      }
     );
 
     const map = L.map("map", {
@@ -177,33 +193,53 @@
       zoom: 7,
       minZoom: 4,
       maxZoom: 19,
-      layers: [mapaCalle]
+      layers: [mapaCalle],
     });
 
-    L.control.layers(
-      { "Mapa calle": mapaCalle, "Satélite": mapaSatelite },
-      {},
-      { position: "topright" }
-    ).addTo(map);
+    L.control
+      .layers(
+        {
+          "Mapa calle": mapaCalle,
+          Satélite: mapaSatelite,
+        },
+        {},
+        { position: "topright" }
+      )
+      .addTo(map);
 
-    // Cargar regiones
+    // -------------------------
+    // CARGAR REGIONES
+    // -------------------------
     async function cargarRegiones() {
-      const resp = await fetch("capas/regiones.json");
-      const regiones = await resp.json();
+      try {
+        const resp = await fetch("capas/regiones.json");
+        if (!resp.ok) {
+          console.error("No se pudo leer regiones.json", resp.status);
+          return;
+        }
 
-      regionSelect.innerHTML = "";
+        const regiones = await resp.json();
+        regionSelect.innerHTML = "";
 
-      regiones.filter(r => r.activo).forEach(r => {
-        const opt = document.createElement("option");
-        opt.value = r.codigo_ine;
-        opt.textContent = `${r.codigo_ine} - ${r.nombre.replace("Región de ","")}`;
-        regionSelect.appendChild(opt);
-      });
+        regiones
+          .filter((r) => r.activo)
+          .forEach((r) => {
+            const opt = document.createElement("option");
+            opt.value = r.codigo_ine;
+            opt.textContent = `${r.codigo_ine} - ${r.nombre.replace("Región de ", "")}`;
+            regionSelect.appendChild(opt);
+          });
 
-      regionSelect.value = "03";
+        // Atacama por defecto
+        regionSelect.value = "03";
+      } catch (err) {
+        console.error("Error cargando regiones:", err);
+      }
     }
 
-    // Cargar instrumentos
+    // -------------------------
+    // CARGAR INSTRUMENTOS
+    // -------------------------
     async function cargarInstrumentos(regionCode) {
       instrumentoSelect.innerHTML = "";
       instrumentoSelect.disabled = true;
@@ -214,51 +250,75 @@
       instrumentoSelect.appendChild(def);
 
       const url = `capas/capas_${regionCode}/listado.json`;
-      const resp = await fetch(url);
-      if (!resp.ok) return;
 
-      const data = await resp.json();
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) return;
 
-      (data.instrumentos || []).forEach(entry => {
-        const opt = document.createElement("option");
-        opt.value = entry.archivo;
-        opt.textContent = entry.nombre.replace(/\.kml$/i,"");
-        instrumentoSelect.appendChild(opt);
-      });
+        const data = await resp.json();
+        const lista = data.instrumentos || [];
 
-      instrumentoSelect.disabled = false;
-    }
-
-    // Zoom al KML
-    async function zoomAlInstrumento(regionCode, archivo) {
-      const url = `capas/capas_${regionCode}/${archivo}`;
-
-      const resp = await fetch(url);
-      const txt = await resp.text();
-
-      const xml = new DOMParser().parseFromString(txt,"application/xml");
-      const coords = xml.querySelectorAll("coordinates");
-
-      const puntos = [];
-      coords.forEach(c => {
-        c.textContent.trim().split(/\s+/).forEach(par => {
-          const [lon, lat] = par.split(",").map(Number);
-          if (!isNaN(lat) && !isNaN(lon)) puntos.push([lat,lon]);
+        lista.forEach((entry) => {
+          const opt = document.createElement("option");
+          opt.value = entry.archivo;
+          opt.textContent = entry.nombre.replace(/\.kml$/i, "");
+          instrumentoSelect.appendChild(opt);
         });
-      });
 
-      if (puntos.length) map.fitBounds(L.latLngBounds(puntos), { padding: [30,30] });
+        instrumentoSelect.disabled = false;
+      } catch (e) {
+        console.warn("Error leyendo instrumentos:", e);
+      }
     }
 
+    // -------------------------
+    // ZOOM AL EXTENT DEL KML
+    // -------------------------
+    async function zoomAlInstrumento(regionCode, archivo) {
+      if (!archivo) return;
+      const url = `capas/capas_${regionCode}/${archivo}`;
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) return;
+        const txt = await resp.text();
+
+        const xml = new DOMParser().parseFromString(txt, "application/xml");
+        const coords = xml.querySelectorAll("coordinates");
+
+        const puntos = [];
+        coords.forEach((c) => {
+          c.textContent
+            .trim()
+            .split(/\s+/)
+            .forEach((par) => {
+              const [lon, lat] = par.split(",").map(Number);
+              if (!isNaN(lat) && !isNaN(lon)) puntos.push([lat, lon]);
+            });
+        });
+
+        if (puntos.length) {
+          map.fitBounds(L.latLngBounds(puntos), { padding: [30, 30] });
+        }
+      } catch (e) {
+        console.warn("No se pudo abrir el KML:", e);
+      }
+    }
+
+    // -------------------------
     // EVENTOS
+    // -------------------------
     regionSelect.addEventListener("change", async () => {
       const code = regionSelect.value;
 
-      const resp = await fetch("capas/regiones.json");
-      const regiones = await resp.json();
-      const r = regiones.find(x=>x.codigo_ine === code);
+      try {
+        const resp = await fetch("capas/regiones.json");
+        const regiones = await resp.json();
+        const r = regiones.find((x) => x.codigo_ine === code);
 
-      if (r) map.setView(r.centro, r.zoom);
+        if (r) map.setView(r.centro, r.zoom);
+      } catch (e) {
+        console.warn("No se pudo leer regiones.json en cambio de región:", e);
+      }
 
       cargarInstrumentos(code);
     });
@@ -267,7 +327,7 @@
       zoomAlInstrumento(regionSelect.value, instrumentoSelect.value);
     });
 
-    map.on("click", e => {
+    map.on("click", (e) => {
       const url = new URL("info.html", window.location.href);
       url.searchParams.set("lat", e.latlng.lat);
       url.searchParams.set("lon", e.latlng.lng);
@@ -275,7 +335,9 @@
       window.open(url, "_blank");
     });
 
-    // Mira de rifle (centrar sin dejar marcador)
+    // -------------------------
+    // MIRA DE RIFLE (CENTRAR SIN MARCADOR)
+    // -------------------------
     document.getElementById("mira-rifle").addEventListener("click", () => {
       if (!navigator.geolocation) {
         alert("La geolocalización no es compatible con este navegador.");
@@ -283,21 +345,29 @@
       }
 
       navigator.geolocation.getCurrentPosition(
-        pos => {
+        (pos) => {
           const lat = pos.coords.latitude;
           const lon = pos.coords.longitude;
-          map.setView([lat, lon], 16); // sin marcador
+          map.setView([lat, lon], 16); // escala aprox 1:10.000
         },
-        err => alert("No se pudo obtener tu ubicación."),
-        { enableHighAccuracy: true, timeout: 10000 }
+        (err) => {
+          alert("No se pudo obtener tu ubicación.");
+          console.error(err);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        }
       );
     });
 
-    // inicio
+    // -------------------------
+    // INICIO
+    // -------------------------
     (async function init() {
       await cargarRegiones();
       await cargarInstrumentos("03");
-      map.setView([-27.5,-70.25], 7);
+      map.setView([-27.5, -70.25], 7);
     })();
   </script>
 </body>
