@@ -10,7 +10,7 @@
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
+    crossorigin
   />
 
   <style>
@@ -303,7 +303,7 @@
 
     /* Ocultar elementos en impresión */
     .no-print {
-      /* Se sobreescribe en @media print */
+      /* se ocultan en @media print */
     }
 
     @media print {
@@ -334,7 +334,13 @@
       <div class="top-bar no-print">
         <button id="btn-home" type="button" class="home-button">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M4 11L12 4l8 7v8a1 1 0 0 1-1 1h-4v-5H9v5H5a1 1 0 0 1-1-1v-8Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            <path
+              d="M4 11L12 4l8 7v8a1 1 0 0 1-1 1h-4v-5H9v5H5a1 1 0 0 1-1-1v-8Z"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
           Home
         </button>
@@ -369,15 +375,61 @@
         <p class="tip">
           Tip: puedes hacer clic nuevamente en este mapa para abrir un nuevo reporte sobre un nuevo punto (se abrirá en una pestaña adicional).
         </p>
-        <div id="map"></div>
+
+        <!-- contenedor para mapa + mira de rifle -->
+        <div style="position: relative;">
+          <div id="map"></div>
+
+          <!-- Mira de rifle (solo pantalla) -->
+          <button
+            id="btn-geolocate"
+            type="button"
+            class="no-print"
+            aria-label="Ubicar mi posición"
+            title="Ubicar mi posición"
+            style="
+              position:absolute;
+              right:16px;
+              bottom:16px;
+              width:44px;
+              height:44px;
+              border-radius:999px;
+              border:1px solid #d1d5db;
+              background:#ffffffdd;
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              box-shadow:0 1px 3px rgba(15,23,42,0.25);
+              cursor:pointer;
+            "
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#111827"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="3"></circle>
+              <line x1="12" y1="2" x2="12" y2="5"></line>
+              <line x1="12" y1="19" x2="12" y2="22"></line>
+              <line x1="2" y1="12" x2="5" y2="12"></line>
+              <line x1="19" y1="12" x2="22" y2="12"></line>
+            </svg>
+          </button>
+        </div>
       </section>
 
       <section class="section">
         <h2>Consulta PRC / SCC (punto sobre polígonos de toda la región)</h2>
         <p>
-          Evaluación del punto sobre todos los polígonos de los instrumentos PRC/SCC de la región seleccionada. El combo del mapa principal se usa solo para zoom
-          óptico; aquí se revisan <strong>todos los KML declarados en el listado.json de la región</strong>, filtrando previamente solo aquellos cuya extensión
-          intersecta el área visible del mapa de referencia.
+          Evaluación del punto sobre todos los polígonos de los instrumentos PRC/SCC de la región seleccionada.
+          El combo del mapa principal se usa solo para zoom óptico; aquí se revisan
+          <strong>todos los KML declarados en el listado.json de la región</strong>, filtrando previamente solo
+          aquellos cuya extensión intersecta el área visible del mapa de referencia.
         </p>
         <div id="resultado-prc" style="margin-top:0.5rem; font-size:0.95rem;"></div>
         <ul id="lista-coincidencias" class="coincidencias"></ul>
@@ -391,16 +443,16 @@
 
       <div class="nota-origen-wrapper">
         <div class="nota-titulo" id="nota-toggle">
-          <br>
+          <br />
           <span class="icono" id="nota-icono">+</span>
           Nota sobre el origen de la información
         </div>
 
         <div class="nota-contenido" id="nota-contenido">
           <p>
-            Las capas utilizadas en este reporte corresponden a instrumentos de planificación territorial 
+            Las capas utilizadas en este reporte corresponden a instrumentos de planificación territorial
             publicados oficialmente por el Ministerio de Vivienda y Urbanismo (MINVU) y otros organismos del Estado de Chile.
-            La información mostrada por el presente visor se basa en archivos en formato KML descargados desde la 
+            La información mostrada por el presente visor se basa en archivos en formato KML descargados desde la
             Infraestructura de Datos Espaciales del MINVU (IDE MINVU).
           </p>
 
@@ -420,14 +472,26 @@
       <div class="actions-row no-print">
         <button id="btn-descargar-kml" type="button" class="action-button">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 3v9m0 0 3-3m-3 3-3-3M5 18h14M6 21h12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            <path
+              d="M12 3v9m0 0 3-3m-3 3-3-3M5 18h14M6 21h12"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
           Descargar KML
         </button>
 
         <button id="btn-print" type="button" class="action-button">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M7 9V4h10v5M6 18H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-1M8 18h8v3H8v-3Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            <path
+              d="M7 9V4h10v5M6 18H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-1M8 18h8v3H8v-3Z"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
           Imprimir reporte
         </button>
@@ -439,8 +503,8 @@
   <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin="">
-  </script>
+    crossorigin
+  ></script>
 
   <script src="js/utm.js"></script>
 
@@ -605,7 +669,10 @@
         const polygons = [];
 
         pm.querySelectorAll("Polygon").forEach((poly) => {
-          const coordsEl = poly.querySelector("outerBoundaryIs coordinates, outerBoundaryIs>LinearRing>coordinates, coordinates");
+          const coordsEl =
+            poly.querySelector(
+              "outerBoundaryIs coordinates, outerBoundaryIs>LinearRing>coordinates, coordinates"
+            );
           if (!coordsEl) return;
           const coordsText = coordsEl.textContent.trim();
           if (!coordsText) return;
@@ -627,7 +694,10 @@
         });
 
         pm.querySelectorAll("MultiGeometry Polygon").forEach((poly) => {
-          const coordsEl = poly.querySelector("outerBoundaryIs coordinates, outerBoundaryIs>LinearRing>coordinates, coordinates");
+          const coordsEl =
+            poly.querySelector(
+              "outerBoundaryIs coordinates, outerBoundaryIs>LinearRing>coordinates, coordinates"
+            );
           if (!coordsEl) return;
           const coordsText = coordsEl.textContent.trim();
           if (!coordsText) return;
@@ -659,7 +729,7 @@
       return results;
     }
 
-    // Obtener bounds actuales del mapa
+    // BBOX del mapa (viewport)
     function getViewBBox() {
       const map = window._geoiptMap;
       if (!map) return null;
@@ -668,7 +738,7 @@
         minLat: b.getSouth(),
         maxLat: b.getNorth(),
         minLon: b.getWest(),
-        maxLon: b.getEast()
+        maxLon: b.getEast(),
       };
     }
 
@@ -719,6 +789,70 @@
       return !noOverlap;
     }
 
+    // === NUEVO: obtener BBOX del propio KML (Opción 1) ===
+    function getKmlBBoxFromText(kmlText) {
+      if (!kmlText) return null;
+
+      // Intentar primero con LatLonBox / north-south-east-west
+      const northMatch = kmlText.match(/<north>\s*([-\d.]+)\s*<\/north>/i);
+      const southMatch = kmlText.match(/<south>\s*([-\d.]+)\s*<\/south>/i);
+      const eastMatch  = kmlText.match(/<east>\s*([-\d.]+)\s*<\/east>/i);
+      const westMatch  = kmlText.match(/<west>\s*([-\d.]+)\s*<\/west>/i);
+
+      if (northMatch && southMatch && eastMatch && westMatch) {
+        const north = parseFloat(northMatch[1]);
+        const south = parseFloat(southMatch[1]);
+        const east  = parseFloat(eastMatch[1]);
+        const west  = parseFloat(westMatch[1]);
+
+        if (
+          ![north, south, east, west].some(
+            (v) => typeof v !== "number" || isNaN(v)
+          )
+        ) {
+          return {
+            minLat: Math.min(north, south),
+            maxLat: Math.max(north, south),
+            minLon: Math.min(east, west),
+            maxLon: Math.max(east, west),
+          };
+        }
+      }
+
+      // Si no hay LatLonBox, barrer las coordinates
+      const coordMatches = [...kmlText.matchAll(/<coordinates>([\s\S]*?)<\/coordinates>/gi)];
+      let minLat = 90,
+        maxLat = -90,
+        minLon = 180,
+        maxLon = -180;
+      let found = false;
+
+      coordMatches.forEach((m) => {
+        const block = m[1].trim();
+        if (!block) return;
+        const pairs = block.split(/\s+/);
+        pairs.forEach((pair) => {
+          const parts = pair.split(",");
+          if (parts.length < 2) return;
+          const lon = parseFloat(parts[0]);
+          const lat = parseFloat(parts[1]);
+          if (isNaN(lat) || isNaN(lon)) return;
+          found = true;
+          if (lat < minLat) minLat = lat;
+          if (lat > maxLat) maxLat = lat;
+          if (lon < minLon) minLon = lon;
+          if (lon > maxLon) maxLon = lon;
+        });
+      });
+
+      if (!found) return null;
+
+      return { minLat, maxLat, minLon, maxLon };
+    }
+
+    // ============================
+    //   EVALUAR PRC / SCC
+    // ============================
     async function evaluarPRC(lat, lon, regionCode) {
       const resultadoDiv = document.getElementById("resultado-prc");
       const listaUl = document.getElementById("lista-coincidencias");
@@ -737,12 +871,14 @@
         window._geoiptResultado.clearLayers();
       }
 
-      const viewBBox = getViewBBox();
+      const viewBBox = getViewBBox(); // BBOX del mapa visible
 
       try {
         const listadoResp = await fetch(listadoUrl);
         if (!listadoResp.ok) {
-          throw new Error("No se pudo leer listado.json de la región " + regionCode);
+          throw new Error(
+            "No se pudo leer listado.json de la región " + regionCode
+          );
         }
         const listado = await listadoResp.json();
 
@@ -752,12 +888,10 @@
         // 1) Array simple
         if (Array.isArray(listado)) {
           archivos = listado;
-
-        // 2) { kml: [ ... ] }
+          // 2) { kml: [ ... ] }
         } else if (Array.isArray(listado.kml)) {
           archivos = listado.kml;
-
-        // 3) { instrumentos: [ ... ] }
+          // 3) { instrumentos: [ ... ] }
         } else if (Array.isArray(listado.instrumentos)) {
           archivos = listado.instrumentos;
         }
@@ -771,20 +905,16 @@
             archivo = entry;
             nombreInstrumento = entry;
           } else if (entry && typeof entry === "object") {
-            archivo =
-              entry.archivo || entry.kml || entry.nombre || "";
-            nombreInstrumento =
-              entry.nombre || archivo;
+            archivo = entry.archivo || entry.kml || entry.nombre || "";
+            nombreInstrumento = entry.nombre || archivo;
             entryMeta = entry;
           }
 
           if (!archivo) continue;
 
-          // Si tenemos bbox del instrumento y bounds del mapa,
-          // filtramos por intersección antes de leer el KML
+          // Filtro rápido con BBOX del listado.json si existe
           const entryBBox = getEntryBBox(entryMeta);
-          if (viewBBox && entryBBox && !bboxesIntersect(entryBBox, viewBBox)) {
-            // No intersecta el área visible del mapa → se omite
+          if (viewBBox && entryBBox && !bboxesIntersect(viewBBox, entryBBox)) {
             continue;
           }
 
@@ -797,6 +927,14 @@
               continue;
             }
             const kmlText = await kmlResp.text();
+
+            // === NUEVO: filtro Opción 1 con BBOX del KML ===
+            const kmlBBox = getKmlBBoxFromText(kmlText);
+            if (viewBBox && kmlBBox && !bboxesIntersect(viewBBox, kmlBBox)) {
+              // Si el KML no intersecta el área visible → se omite
+              continue;
+            }
+
             const features = parseKmlPolygons(kmlText);
 
             features.forEach((feat) => {
@@ -876,7 +1014,8 @@
             .join(", ");
 
           if (instrumentos) {
-            const instrumentoDisplay = document.getElementById("instrumento-display");
+            const instrumentoDisplay =
+              document.getElementById("instrumento-display");
             if (instrumentoDisplay) {
               instrumentoDisplay.textContent = instrumentos;
             }
@@ -884,10 +1023,12 @@
             const tituloAttr = document.getElementById("titulo-atributos");
             if (tituloAttr) {
               tituloAttr.textContent =
-                "Detalle de atributos del/los polígono(s) – " + instrumentos;
+                "Detalle de atributos del/los polígono(s) – " +
+                instrumentos;
             }
 
-            const pInstrumentoAttr = document.getElementById("instrumento-atributos");
+            const pInstrumentoAttr =
+              document.getElementById("instrumento-atributos");
             if (pInstrumentoAttr) {
               pInstrumentoAttr.textContent =
                 "Instrumento(s) consultado(s): " + instrumentos;
@@ -900,15 +1041,18 @@
           actualizarAtributosPRC([]);
 
           // Reset encabezados cuando no hay match
-          const instrumentoDisplay = document.getElementById("instrumento-display");
+          const instrumentoDisplay =
+            document.getElementById("instrumento-display");
           if (instrumentoDisplay) {
             instrumentoDisplay.textContent = "-";
           }
           const tituloAttr = document.getElementById("titulo-atributos");
           if (tituloAttr) {
-            tituloAttr.textContent = "Detalle de atributos del/los polígono(s)";
+            tituloAttr.textContent =
+              "Detalle de atributos del/los polígono(s)";
           }
-          const pInstrumentoAttr = document.getElementById("instrumento-atributos");
+          const pInstrumentoAttr =
+            document.getElementById("instrumento-atributos");
           if (pInstrumentoAttr) {
             pInstrumentoAttr.textContent =
               "No se encontró ningún instrumento que contenga el punto consultado.";
@@ -921,7 +1065,8 @@
         listaUl.innerHTML = "";
         actualizarAtributosPRC([]);
 
-        const instrumentoDisplay = document.getElementById("instrumento-display");
+        const instrumentoDisplay =
+          document.getElementById("instrumento-display");
         if (instrumentoDisplay) {
           instrumentoDisplay.textContent = "-";
         }
@@ -932,32 +1077,40 @@
       const map = L.map("map").setView([lat, lon], 15);
       window._geoiptMap = map;
 
-      const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors',
-      }).addTo(map);
+      const osm = L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap contributors",
+        }
+      ).addTo(map);
 
       const esriSat = L.tileLayer(
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         {
           maxZoom: 19,
-          attribution: "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, and the GIS User Community",
+          attribution:
+            "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, and the GIS User Community",
         }
       );
 
-      L.control.layers(
-        { "Mapa calle": osm, Satélite: esriSat },
-        {},
-        { position: "topright" }
-      ).addTo(map);
+      L.control
+        .layers(
+          { "Mapa calle": osm, Satélite: esriSat },
+          {},
+          { position: "topright" }
+        )
+        .addTo(map);
 
       // capa vacía donde se almacenan los polígonos que hicieron match
       window._geoiptResultado = L.featureGroup().addTo(map);
 
       const marker = L.marker([lat, lon]).addTo(map);
-      marker.bindPopup(
-        `Punto consultado<br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}`
-      ).openPopup();
+      marker
+        .bindPopup(
+          `Punto consultado<br>Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}`
+        )
+        .openPopup();
 
       // Al hacer clic en el mapa, abrir nueva pestaña con nuevo punto
       map.on("click", (e) => {
@@ -984,7 +1137,10 @@
 
         // Nombre del instrumento (solo para metadata interna del KML)
         let instrumentoRaw =
-          (document.getElementById("instrumento-display")?.textContent || "PRC")
+          (
+            document.getElementById("instrumento-display")?.textContent ||
+            "PRC"
+          )
             .split(",")[0]
             .trim();
 
@@ -1020,7 +1176,7 @@
         // Convertir GeoJSON a KML
         let kmlString = tokml(gj, {
           documentName: instrumento,
-          name: nombreZona
+          name: nombreZona,
         });
 
         // Agregar estilo azul semitransparente
@@ -1042,7 +1198,7 @@
         );
 
         const blob = new Blob([kmlString], {
-          type: "application/vnd.google-earth.kml+xml;charset=utf-8"
+          type: "application/vnd.google-earth.kml+xml;charset=utf-8",
         });
 
         const url = URL.createObjectURL(blob);
@@ -1073,7 +1229,6 @@
       const btnHome = document.getElementById("btn-home");
       if (!btnHome) return;
       btnHome.addEventListener("click", () => {
-        // Ajusta esta ruta según dónde tengas el index principal
         window.location.href = "index.html";
       });
     }
@@ -1086,14 +1241,43 @@
       });
     }
 
+    // Mira de rifle (geolocalización sin marcador)
+    function initGeolocateButton() {
+      const btnGeo = document.getElementById("btn-geolocate");
+      if (!btnGeo) return;
+
+      btnGeo.addEventListener("click", () => {
+        if (!navigator.geolocation) {
+          alert("La geolocalización no está disponible en este navegador.");
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            if (!window._geoiptMap) return;
+            window._geoiptMap.flyTo(
+              [pos.coords.latitude, pos.coords.longitude],
+              16
+            );
+          },
+          () => {
+            alert("No se pudo obtener la ubicación del dispositivo.");
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      });
+    }
+
     async function cargarReporte() {
       try {
         const latParam = parseFloat(getParam("lat") || "-27.0");
         const lonParam = parseFloat(getParam("lon") || "-70.0");
         const regionCode = getParam("region") || "--";
 
-        document.getElementById("lat-display").textContent = latParam.toFixed(6);
-        document.getElementById("lon-display").textContent = lonParam.toFixed(6);
+        document.getElementById("lat-display").textContent =
+          latParam.toFixed(6);
+        document.getElementById("lon-display").textContent =
+          lonParam.toFixed(6);
         document.getElementById("region-display").textContent = regionCode;
 
         actualizarUTM(latParam, lonParam);
@@ -1102,6 +1286,7 @@
         initNotaToggle();
         initHomeButton();
         initPrintButton();
+        initGeolocateButton();
 
         if (regionCode && regionCode !== "--") {
           await evaluarPRC(latParam, lonParam, regionCode);
