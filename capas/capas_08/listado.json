@@ -1,164 +1,199 @@
 {
+  "region": "Región del Biobío",
+  "codigo_region": "08",
+  "carpeta": "capas_08",
   "instrumentos": [
     {
       "archivo": "IPT_08_PNSECC_Concepcion_RiberaNorte.kml",
-      "nombre": "PNSECC Concepcion Ribera Norte",
-      "tipo": "PNSECC"
+      "nombre": "PNSECC Concepción Ribera Norte",
+      "tipo": "PNSECC",
+      "comuna": "Concepción"
     },
     {
       "archivo": "IPT_08_PNSECC_Lago_Lanalhue.kml",
       "nombre": "PNSECC Lago Lanalhue",
-      "tipo": "PNSECC"
+      "tipo": "PNSECC",
+      "comuna": "Contulmo"
     },
     {
       "archivo": "IPT_08_PRC_Alto_Biobio.kml",
-      "nombre": "PRC Alto Biobio",
-      "tipo": "PRC"
+      "nombre": "PRC Alto Biobío",
+      "tipo": "PRC",
+      "comuna": "Alto Biobío"
     },
     {
       "archivo": "IPT_08_PRC_Antuco.kml",
       "nombre": "PRC Antuco",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Antuco"
     },
     {
       "archivo": "IPT_08_PRC_Arauco.kml",
       "nombre": "PRC Arauco",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Arauco"
     },
     {
       "archivo": "IPT_08_PRC_Cabrero.kml",
       "nombre": "PRC Cabrero",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Cabrero"
     },
     {
       "archivo": "IPT_08_PRC_Canete.kml",
-      "nombre": "PRC Canete",
-      "tipo": "PRC"
+      "nombre": "PRC Cañete",
+      "tipo": "PRC",
+      "comuna": "Cañete"
     },
     {
       "archivo": "IPT_08_PRC_Chiguayante.kml",
       "nombre": "PRC Chiguayante",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Chiguayante"
     },
     {
       "archivo": "IPT_08_PRC_Concepcion.kml",
-      "nombre": "PRC Concepcion",
-      "tipo": "PRC"
+      "nombre": "PRC Concepción",
+      "tipo": "PRC",
+      "comuna": "Concepción"
     },
     {
       "archivo": "IPT_08_PRC_Contulmo.kml",
       "nombre": "PRC Contulmo",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Contulmo"
     },
     {
       "archivo": "IPT_08_PRC_Coronel.kml",
       "nombre": "PRC Coronel",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Coronel"
     },
     {
       "archivo": "IPT_08_PRC_Curanilahue.kml",
       "nombre": "PRC Curanilahue",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Curanilahue"
     },
     {
       "archivo": "IPT_08_PRC_Florida.kml",
       "nombre": "PRC Florida",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Florida"
     },
     {
       "archivo": "IPT_08_PRC_Hualpen.kml",
-      "nombre": "PRC Hualpen",
-      "tipo": "PRC"
+      "nombre": "PRC Hualpén",
+      "tipo": "PRC",
+      "comuna": "Hualpén"
     },
     {
       "archivo": "IPT_08_PRC_Hualqui.kml",
       "nombre": "PRC Hualqui",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Hualqui"
     },
     {
       "archivo": "IPT_08_PRC_Laja.kml",
       "nombre": "PRC Laja",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Laja"
     },
     {
       "archivo": "IPT_08_PRC_Lebu.kml",
       "nombre": "PRC Lebu",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Lebu"
     },
     {
       "archivo": "IPT_08_PRC_Los_Alamos.kml",
-      "nombre": "PRC Los Alamos",
-      "tipo": "PRC"
+      "nombre": "PRC Los Álamos",
+      "tipo": "PRC",
+      "comuna": "Los Álamos"
     },
     {
       "archivo": "IPT_08_PRC_Los_Angeles.kml",
-      "nombre": "PRC Los Angeles",
-      "tipo": "PRC"
+      "nombre": "PRC Los Ángeles",
+      "tipo": "PRC",
+      "comuna": "Los Ángeles"
     },
     {
       "archivo": "IPT_08_PRC_Lota.kml",
       "nombre": "PRC Lota",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Lota"
     },
     {
       "archivo": "IPT_08_PRC_Mulchen.kml",
-      "nombre": "PRC Mulchen",
-      "tipo": "PRC"
+      "nombre": "PRC Mulchén",
+      "tipo": "PRC",
+      "comuna": "Mulchén"
     },
     {
       "archivo": "IPT_08_PRC_Nacimiento.kml",
       "nombre": "PRC Nacimiento",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Nacimiento"
     },
     {
       "archivo": "IPT_08_PRC_Negrete.kml",
       "nombre": "PRC Negrete",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Negrete"
     },
     {
       "archivo": "IPT_08_PRC_Penco.kml",
       "nombre": "PRC Penco",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Penco"
     },
     {
       "archivo": "IPT_08_PRC_Santa_Barbara.kml",
-      "nombre": "PRC Santa Barbara",
-      "tipo": "PRC"
+      "nombre": "PRC Santa Bárbara",
+      "tipo": "PRC",
+      "comuna": "Santa Bárbara"
     },
     {
       "archivo": "IPT_08_PRC_Santa_Juana.kml",
       "nombre": "PRC Santa Juana",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Santa Juana"
     },
     {
       "archivo": "IPT_08_PRC_San_Carlos.kml",
       "nombre": "PRC San Carlos",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "San Carlos"
     },
     {
       "archivo": "IPT_08_PRC_San_Pedro_de_la_Paz.kml",
       "nombre": "PRC San Pedro de la Paz",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "San Pedro de la Paz"
     },
     {
       "archivo": "IPT_08_PRC_Talcahuano.kml",
       "nombre": "PRC Talcahuano",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Talcahuano"
     },
     {
       "archivo": "IPT_08_PRC_Tirua.kml",
-      "nombre": "PRC Tirua",
-      "tipo": "PRC"
+      "nombre": "PRC Tirúa",
+      "tipo": "PRC",
+      "comuna": "Tirúa"
     },
     {
       "archivo": "IPT_08_PRC_Tome.kml",
-      "nombre": "PRC Tome",
-      "tipo": "PRC"
+      "nombre": "PRC Tomé",
+      "tipo": "PRC",
+      "comuna": "Tomé"
     },
     {
       "archivo": "IPT_08_PRC_Yumbel.kml",
       "nombre": "PRC Yumbel",
-      "tipo": "PRC"
+      "tipo": "PRC",
+      "comuna": "Yumbel"
     }
   ]
 }
