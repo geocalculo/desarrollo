@@ -429,7 +429,7 @@
           Evaluación del punto sobre todos los polígonos de los instrumentos PRC/SCC de la región seleccionada.
           El combo del mapa principal se usa solo para zoom óptico; aquí se revisan
           <strong>todos los KML declarados en el listado.json de la región</strong>, filtrando previamente solo
-          aquellos cuya extensión intersecta el área visible del mapa de referencia.
+          aquellos cuya extensión intersecta el área visible del mapa de referencia (extent recibido desde la vista principal).
         </p>
         <div id="resultado-prc" style="margin-top:0.5rem; font-size:0.95rem;"></div>
         <ul id="lista-coincidencias" class="coincidencias"></ul>
@@ -789,11 +789,11 @@
       return !noOverlap;
     }
 
-    // === NUEVO: obtener BBOX del propio KML (Opción 1) ===
+    // === BBOX desde el propio KML (LatLonBox o coordinates) ===
     function getKmlBBoxFromText(kmlText) {
       if (!kmlText) return null;
 
-      // Intentar primero con LatLonBox / north-south-east-west
+      // Intentar primero con LatLonBox
       const northMatch = kmlText.match(/<north>\s*([-\d.]+)\s*<\/north>/i);
       const southMatch = kmlText.match(/<south>\s*([-\d.]+)\s*<\/south>/i);
       const eastMatch  = kmlText.match(/<east>\s*([-\d.]+)\s*<\/east>/i);
@@ -819,7 +819,7 @@
         }
       }
 
-      // Si no hay LatLonBox, barrer las coordinates
+      // Si no hay LatLonBox, barrer coordinates
       const coordMatches = [...kmlText.matchAll(/<coordinates>([\s\S]*?)<\/coordinates>/gi)];
       let minLat = 90,
         maxLat = -90,
@@ -871,7 +871,7 @@
         window._geoiptResultado.clearLayers();
       }
 
-      const viewBBox = getViewBBox(); // BBOX del mapa visible
+      const viewBBox = getViewBBox(); // BBOX del mapa visible (extent original)
 
       try {
         const listadoResp = await fetch(listadoUrl);
@@ -928,7 +928,7 @@
             }
             const kmlText = await kmlResp.text();
 
-            // === NUEVO: filtro Opción 1 con BBOX del KML ===
+            // Filtro adicional con BBOX del propio KML
             const kmlBBox = getKmlBBoxFromText(kmlText);
             if (viewBBox && kmlBBox && !bboxesIntersect(viewBBox, kmlBBox)) {
               // Si el KML no intersecta el área visible → se omite
@@ -1073,8 +1073,9 @@
       }
     }
 
-    function initMap(lat, lon) {
-      const map = L.map("map").setView([lat, lon], 15);
+    // initMap ahora acepta el BBOX inicial (extent del mapa principal)
+    function initMap(lat, lon, initialBBox) {
+      const map = L.map("map");
       window._geoiptMap = map;
 
       const osm = L.tileLayer(
@@ -1083,7 +1084,7 @@
           maxZoom: 19,
           attribution: "&copy; OpenStreetMap contributors",
         }
-      ).addTo(map);
+      );
 
       const esriSat = L.tileLayer(
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -1093,6 +1094,8 @@
             "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, and the GIS User Community",
         }
       );
+
+      osm.addTo(map);
 
       L.control
         .layers(
@@ -1104,6 +1107,15 @@
 
       // capa vacía donde se almacenan los polígonos que hicieron match
       window._geoiptResultado = L.featureGroup().addTo(map);
+
+      // Aplicar vista inicial según BBOX recibido; si no hay, usar centro y zoom fijo
+      if (initialBBox) {
+        const sw = L.latLng(initialBBox.minLat, initialBBox.minLon);
+        const ne = L.latLng(initialBBox.maxLat, initialBBox.maxLon);
+        map.fitBounds([sw, ne]);
+      } else {
+        map.setView([lat, lon], 15);
+      }
 
       const marker = L.marker([lat, lon]).addTo(map);
       marker
@@ -1117,6 +1129,32 @@
         const url = new URL(window.location.href);
         url.searchParams.set("lat", e.latlng.lat.toString());
         url.searchParams.set("lon", e.latlng.lng.toString());
+
+        // conservar código de región si venía en la URL
+        const regionCode = getParam("region");
+        if (regionCode) {
+          url.searchParams.set("region", regionCode);
+        }
+
+        // armar nuevo bbox según la vista actual del mapa de reporte
+        const bounds = map.getBounds();
+        const sw2 = bounds.getSouthWest();
+        const ne2 = bounds.getNorthEast();
+        const minLon2 = sw2.lng;
+        const minLat2 = sw2.lat;
+        const maxLon2 = ne2.lng;
+        const maxLat2 = ne2.lat;
+
+        url.searchParams.set(
+          "bbox",
+          [
+            minLon2.toFixed(6),
+            minLat2.toFixed(6),
+            maxLon2.toFixed(6),
+            maxLat2.toFixed(6),
+          ].join(",")
+        );
+
         window.open(url.toString(), "_blank");
       });
     }
@@ -1274,6 +1312,28 @@
         const lonParam = parseFloat(getParam("lon") || "-70.0");
         const regionCode = getParam("region") || "--";
 
+        // BBOX recibido desde el index.html (minLon,minLat,maxLon,maxLat)
+        const bboxParam = getParam("bbox");
+        let initialBBox = null;
+        if (bboxParam) {
+          const parts = bboxParam.split(",").map(Number);
+          if (
+            parts.length === 4 &&
+            parts.every((v) => typeof v === "number" && !isNaN(v))
+          ) {
+            const minLon = parts[0];
+            const minLat = parts[1];
+            const maxLon = parts[2];
+            const maxLat = parts[3];
+            initialBBox = {
+              minLat,
+              maxLat,
+              minLon,
+              maxLon,
+            };
+          }
+        }
+
         document.getElementById("lat-display").textContent =
           latParam.toFixed(6);
         document.getElementById("lon-display").textContent =
@@ -1281,7 +1341,7 @@
         document.getElementById("region-display").textContent = regionCode;
 
         actualizarUTM(latParam, lonParam);
-        initMap(latParam, lonParam);
+        initMap(latParam, lonParam, initialBBox);
         initKmlButton();
         initNotaToggle();
         initHomeButton();
