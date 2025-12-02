@@ -215,7 +215,7 @@ function parseKmlPolygons(kmlText) {
   return results;
 }
 
-// BBOX del mapa (viewport)
+// BBOX del mapa (viewport actual)
 function getViewBBox() {
   const map = window._geoiptMap;
   if (!map) return null;
@@ -275,7 +275,7 @@ function bboxesIntersect(a, b) {
   return !noOverlap;
 }
 
-// === NUEVO: obtener BBOX del propio KML (Opción 1) ===
+// === BBOX a partir del propio KML (LatLonBox o coordinates) ===
 function getKmlBBoxFromText(kmlText) {
   if (!kmlText) return null;
 
@@ -357,7 +357,7 @@ async function evaluarPRC(lat, lon, regionCode) {
     window._geoiptResultado.clearLayers();
   }
 
-  const viewBBox = getViewBBox(); // BBOX del mapa visible
+  const viewBBox = getViewBBox(); // BBOX del mapa visible en el reporte
 
   try {
     const listadoResp = await fetch(listadoUrl);
@@ -414,7 +414,7 @@ async function evaluarPRC(lat, lon, regionCode) {
         }
         const kmlText = await kmlResp.text();
 
-        // === NUEVO: filtro Opción 1 con BBOX del KML ===
+        // Filtro adicional con BBOX del propio KML
         const kmlBBox = getKmlBBoxFromText(kmlText);
         if (viewBBox && kmlBBox && !bboxesIntersect(viewBBox, kmlBBox)) {
           // Si el KML no intersecta el área visible → se omite
@@ -559,8 +559,22 @@ async function evaluarPRC(lat, lon, regionCode) {
   }
 }
 
-function initMap(lat, lon) {
-  const map = L.map("map").setView([lat, lon], 15);
+// ============================
+//   MAPA DEL REPORTE
+// ============================
+function initMap(lat, lon, initialBBox) {
+  const map = L.map("map");
+
+  // Si viene bbox desde index, usamos ese extent
+  if (initialBBox) {
+    const sw = L.latLng(initialBBox.minLat, initialBBox.minLon);
+    const ne = L.latLng(initialBBox.maxLat, initialBBox.maxLon);
+    map.fitBounds(L.latLngBounds(sw, ne));
+  } else {
+    // Fallback: centramos en el punto con zoom fijo
+    map.setView([lat, lon], 15);
+  }
+
   window._geoiptMap = map;
 
   const osm = L.tileLayer(
@@ -603,10 +617,14 @@ function initMap(lat, lon) {
     const url = new URL(window.location.href);
     url.searchParams.set("lat", e.latlng.lat.toString());
     url.searchParams.set("lon", e.latlng.lng.toString());
+    // Nota: aquí no reenviamos bbox para el nuevo clic, se recalculará en la nueva vista
     window.open(url.toString(), "_blank");
   });
 }
 
+// ============================
+//   DESCARGA KML
+// ============================
 function initKmlButton() {
   const btn = document.getElementById("btn-descargar-kml");
   if (!btn) return;
@@ -698,6 +716,9 @@ function initKmlButton() {
   });
 }
 
+// ============================
+//   UI: nota, home, print, geoloc
+// ============================
 function initNotaToggle() {
   const toggle = document.getElementById("nota-toggle");
   const contenido = document.getElementById("nota-contenido");
@@ -754,11 +775,25 @@ function initGeolocateButton() {
   });
 }
 
+// ============================
+//   CARGA DEL REPORTE
+// ============================
 async function cargarReporte() {
   try {
     const latParam = parseFloat(getParam("lat") || "-27.0");
     const lonParam = parseFloat(getParam("lon") || "-70.0");
     const regionCode = getParam("region") || "--";
+
+    // Leer bbox enviado desde index (minLon,minLat,maxLon,maxLat)
+    const bboxParam = getParam("bbox");
+    let initialBBox = null;
+    if (bboxParam) {
+      const parts = bboxParam.split(",").map(Number);
+      if (parts.length === 4 && parts.every((v) => !isNaN(v))) {
+        const [minLon, minLat, maxLon, maxLat] = parts;
+        initialBBox = { minLat, maxLat, minLon, maxLon };
+      }
+    }
 
     document.getElementById("lat-display").textContent =
       latParam.toFixed(6);
@@ -766,14 +801,20 @@ async function cargarReporte() {
       lonParam.toFixed(6);
     document.getElementById("region-display").textContent = regionCode;
 
+    // Conversión a UTM usando utm.js
     actualizarUTM(latParam, lonParam);
-    initMap(latParam, lonParam);
+
+    // Mapa de referencia con el mismo extent que el index
+    initMap(latParam, lonParam, initialBBox);
+
+    // UI
     initKmlButton();
     initNotaToggle();
     initHomeButton();
     initPrintButton();
     initGeolocateButton();
 
+    // Evaluación PRC/SCC
     if (regionCode && regionCode !== "--") {
       await evaluarPRC(latParam, lonParam, regionCode);
     } else {
