@@ -1,15 +1,8 @@
+// Referencias a los controles
 const regionSelect = document.getElementById("region-select");
 const instrumentoSelect = document.getElementById("instrumento-select");
 
-// Guardamos las regiones leídas del JSON (incluyendo bbox)
-let regionesData = [];
-
-// Bandera para distinguir cambio automático vs cambio del usuario
-let ajusteAutomaticoRegion = false;
-
-// -------------------------
-// MAPA BASE + CAPAS
-// -------------------------
+// Mapa base + capas
 const mapaCalle = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
   attribution: "&copy; OpenStreetMap contributors",
@@ -43,47 +36,9 @@ L.control
   )
   .addTo(map);
 
-// -------------------------
-// HELPERS BBOX REGIONES
-// -------------------------
-function pointInRegionBBox(lat, lon, reg) {
-  if (!reg.bbox || reg.bbox.length !== 4) return false;
-  const [minLon, minLat, maxLon, maxLat] = reg.bbox.map(Number);
-  return (
-    lat >= minLat &&
-    lat <= maxLat &&
-    lon >= minLon &&
-    lon <= maxLon
-  );
-}
-
-// Detectar región según el centro de pantalla
-// Solo ajusta el combo si hay UNA sola región candidata
-function detectarRegionPorPantalla() {
-  if (!regionesData.length) return;
-
-  const center = map.getCenter();
-  const lat = center.lat;
-  const lon = center.lng;
-
-  const candidatas = regionesData.filter((reg) =>
-    pointInRegionBBox(lat, lon, reg)
-  );
-
-  // Si no hay o hay más de una (RM / V Región), no tocamos el combo
-  if (candidatas.length !== 1) return;
-
-  const regionDetectada = candidatas[0];
-  const nuevoCodigo = regionDetectada.codigo_ine;
-
-  if (regionSelect.value === nuevoCodigo) return;
-
-  // Marcamos que el cambio es automático para no hacer setView doble
-  ajusteAutomaticoRegion = true;
-  regionSelect.value = nuevoCodigo;
-  cargarInstrumentos(nuevoCodigo);
-  ajusteAutomaticoRegion = false;
-}
+// Variables globales de regiones
+let regionesData = [];
+window._regionesData = regionesData;
 
 // -------------------------
 // CARGAR REGIONES
@@ -97,8 +52,8 @@ async function cargarRegiones() {
     }
 
     const data = await resp.json();
-    // Soportar {regiones:[...]} o array directo
-    regionesData = Array.isArray(data) ? data : (data.regiones || []);
+    regionesData = data.regiones || [];
+    window._regionesData = regionesData;
 
     regionSelect.innerHTML = "";
 
@@ -106,20 +61,34 @@ async function cargarRegiones() {
       .filter((r) => r.activo)
       .forEach((r) => {
         const opt = document.createElement("option");
-        opt.value = r.codigo_ine;
-        opt.textContent = `${r.codigo_ine} - ${r.nombre.replace("Región de ", "")}`;
+        opt.value = r.codigo_ine; // ej: capas_03, capas_13, capas_RM
+        opt.textContent = r.nombre;
         regionSelect.appendChild(opt);
       });
 
-    // Atacama por defecto
-    regionSelect.value = "03";
+    // Región por defecto: Atacama (capas_03) si existe, si no la primera
+    let defaultCode = "capas_03";
+    if (!regionesData.some((r) => r.codigo_ine === defaultCode)) {
+      if (regionesData.length > 0) {
+        defaultCode = regionesData[0].codigo_ine;
+      }
+    }
+
+    regionSelect.value = defaultCode;
+
+    const regDef = regionesData.find((r) => r.codigo_ine === defaultCode);
+    if (regDef) {
+      map.setView(regDef.centro, regDef.zoom || 7);
+    }
+
+    await cargarInstrumentos(defaultCode);
   } catch (err) {
     console.error("Error cargando regiones:", err);
   }
 }
 
 // -------------------------
-// CARGAR INSTRUMENTOS
+// CARGAR INSTRUMENTOS (zoom óptico)
 // -------------------------
 async function cargarInstrumentos(regionCode) {
   instrumentoSelect.innerHTML = "";
@@ -130,19 +99,35 @@ async function cargarInstrumentos(regionCode) {
   def.textContent = "Selecciona un instrumento para hacer zoom";
   instrumentoSelect.appendChild(def);
 
-  const url = `capas/capas_${regionCode}/listado.json`;
+  if (!regionCode) return;
+
+  // regionCode viene como nombre de carpeta: capas_03, capas_RM, etc.
+  const url = `capas/${regionCode}/listado.json`;
 
   try {
     const resp = await fetch(url);
     if (!resp.ok) return;
 
     const data = await resp.json();
-    const lista = data.instrumentos || [];
+    const lista = data.instrumentos || data.kml || data || [];
 
     lista.forEach((entry) => {
+      let archivo = "";
+      let nombre = "";
+
+      if (typeof entry === "string") {
+        archivo = entry;
+        nombre = entry;
+      } else if (entry && typeof entry === "object") {
+        archivo = entry.archivo || entry.kml || entry.nombre || "";
+        nombre = entry.nombre || archivo;
+      }
+
+      if (!archivo) return;
+
       const opt = document.createElement("option");
-      opt.value = entry.archivo;
-      opt.textContent = entry.nombre.replace(/\.kml$/i, "");
+      opt.value = archivo;
+      opt.textContent = nombre.replace(/\.kml$/i, "");
       instrumentoSelect.appendChild(opt);
     });
 
@@ -156,8 +141,9 @@ async function cargarInstrumentos(regionCode) {
 // ZOOM AL EXTENT DEL KML
 // -------------------------
 async function zoomAlInstrumento(regionCode, archivo) {
-  if (!archivo) return;
-  const url = `capas/capas_${regionCode}/${archivo}`;
+  if (!archivo || !regionCode) return;
+
+  const url = `capas/${regionCode}/${archivo}`;
   try {
     const resp = await fetch(url);
     if (!resp.ok) return;
@@ -186,17 +172,57 @@ async function zoomAlInstrumento(regionCode, archivo) {
 }
 
 // -------------------------
-// EVENTOS
+// DETECCIÓN AUTOMÁTICA DE REGIÓN SEGÚN VIEWPORT
 // -------------------------
-regionSelect.addEventListener("change", () => {
-  const code = regionSelect.value;
+function detectarRegionVisible() {
+  if (!regionesData || !regionesData.length) return;
 
-  // Si el cambio viene del ajuste automático, no movemos la vista (ya está donde debe)
-  if (!ajusteAutomaticoRegion) {
-    const r = regionesData.find((x) => x.codigo_ine === code);
-    if (r && Array.isArray(r.centro)) {
-      map.setView(r.centro, r.zoom || 7);
+  const b = map.getBounds();
+  const view = {
+    minLat: b.getSouth(),
+    maxLat: b.getNorth(),
+    minLon: b.getWest(),
+    maxLon: b.getEast(),
+  };
+
+  let mejorRegion = null;
+  let mayorSolape = 0;
+
+  regionesData.forEach((reg) => {
+    if (!reg.bbox || reg.bbox.length !== 4) return;
+
+    const [minLon, minLat, maxLon, maxLat] = reg.bbox;
+
+    const solapeLon = Math.max(0, Math.min(view.maxLon, maxLon) - Math.max(view.minLon, minLon));
+    const solapeLat = Math.max(0, Math.min(view.maxLat, maxLat) - Math.max(view.minLat, minLat));
+    const areaSolape = solapeLon * solapeLat;
+
+    if (areaSolape > mayorSolape) {
+      mayorSolape = areaSolape;
+      mejorRegion = reg;
     }
+  });
+
+  if (mejorRegion && regionSelect.value !== mejorRegion.codigo_ine) {
+    // Actualiza combo y lista de instrumentos, pero NO recentra el mapa
+    regionSelect.value = mejorRegion.codigo_ine;
+    cargarInstrumentos(mejorRegion.codigo_ine);
+    console.log("Región detectada automáticamente:", mejorRegion.nombre);
+  }
+}
+
+// Vincular evento al mapa
+map.on("moveend", detectarRegionVisible);
+
+// -------------------------
+// EVENTOS DE CONTROLES
+// -------------------------
+regionSelect.addEventListener("change", async () => {
+  const code = regionSelect.value;
+  const reg = regionesData.find((r) => r.codigo_ine === code);
+
+  if (reg) {
+    map.setView(reg.centro, reg.zoom || 7);
   }
 
   cargarInstrumentos(code);
@@ -206,28 +232,14 @@ instrumentoSelect.addEventListener("change", () => {
   zoomAlInstrumento(regionSelect.value, instrumentoSelect.value);
 });
 
-// Al mover el mapa (pan/zoom), intentamos detectar región solo si hay una candidata
-map.on("moveend", () => {
-  detectarRegionPorPantalla();
-});
-
-// Al hacer clic, abrimos el reporte con punto y bbox de la pantalla
+// Click en el mapa → abrir info.html
 map.on("click", (e) => {
   const url = new URL("info.html", window.location.href);
   url.searchParams.set("lat", e.latlng.lat);
   url.searchParams.set("lon", e.latlng.lng);
+  // Pasamos el identificador de carpeta como "region"
   url.searchParams.set("region", regionSelect.value);
-
-  const b = map.getBounds();
-  const bboxParam = [
-    b.getWest(),  // minLon
-    b.getSouth(), // minLat
-    b.getEast(),  // maxLon
-    b.getNorth()  // maxLat
-  ].join(",");
-  url.searchParams.set("bbox", bboxParam);
-
-  window.open(url, "_blank");
+  window.open(url.toString(), "_blank");
 });
 
 // -------------------------
@@ -261,6 +273,4 @@ document.getElementById("mira-rifle").addEventListener("click", () => {
 // -------------------------
 (async function init() {
   await cargarRegiones();
-  await cargarInstrumentos("03");
-  map.setView([-27.5, -70.25], 7);
 })();
