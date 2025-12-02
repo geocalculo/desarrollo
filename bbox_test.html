@@ -38,7 +38,6 @@
     // ===============================
     // 1) Cargar capas/regiones.json
     // ===============================
-
     let REGIONES = [];
 
     fetch("capas/regiones.json")
@@ -48,27 +47,23 @@
         console.log("Regiones cargadas:", REGIONES.length);
       })
       .catch(err => {
-        console.error("Error cargando regiones.json:", err);
+        console.error("Error cargando capas/regiones.json:", err);
         alert("No se pudo cargar capas/regiones.json");
       });
 
-
     // ===============================
-    // 2) Inicializar mapa (limpio)
+    // 2) Inicializar mapa
     // ===============================
-
     const map = L.map("map").setView([-27.5, -70.25], 6);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 18,
+      maxZoom: 18
     }).addTo(map);
 
-
     // ===============================
-    // 3) Funciones para manejar BBOX
+    // 3) Funciones BBOX
     // ===============================
-
-    function bboxLeaflet(bounds) {
+    function bboxFromLeaflet(bounds) {
       return {
         minLat: bounds.getSouth(),
         minLng: bounds.getWest(),
@@ -77,7 +72,8 @@
       };
     }
 
-    function bboxJSON(arr) {
+    function bboxFromArray(arr) {
+      // arr = [[minLat, minLng], [maxLat, maxLng]]
       return {
         minLat: arr[0][0],
         minLng: arr[0][1],
@@ -95,72 +91,93 @@
       );
     }
 
-
     // ===============================
-    // 4) Abrir ventana con resultados
+    // 4) Ventana con lista de regiones
     // ===============================
-
-    function abrirVentana(regiones) {
+    function abrirVentanaRegiones(regiones, frame) {
       const win = window.open("", "_blank");
-
       if (!win) {
-        alert("Pop-up bloqueado.");
+        alert("El navegador bloqueó la ventana emergente.");
         return;
       }
 
-      let html = `
-      <!DOCTYPE html>
-      <html lang="es">
-      <head>
-        <meta charset="UTF-8">
-        <title>Regiones visibles</title>
-        <style>
-          body {
-            background: #0b1120;
-            color: #e5e7eb;
-            font-family: system-ui, sans-serif;
-            padding: 20px;
-          }
-          h1 { margin-bottom: 10px; }
-          ul { margin-top: 10px; }
-          li { margin-bottom: 6px; }
-        </style>
-      </head>
-      <body>
-        <h1>Regiones que intersectan el área visible</h1>
-        <p>Total: ${regiones.length}</p>
-        <ul>
-          ${ regiones.map(r => `<li>${r.nombre} (<b>${r.id}</b>)</li>`).join("") }
-        </ul>
-      </body>
-      </html>
+      const titulo = "Regiones que intersectan el área visible";
+
+      const filas = regiones.map(r => {
+        const nombre = r.nombre || r.region || "(sin nombre)";
+        const id = r.id || "";
+        const carpeta = r.carpeta || "";
+        return `<li>${nombre} <small>(id: ${id}, carpeta: ${carpeta})</small></li>`;
+      }).join("");
+
+      const html = `
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+          <meta charset="UTF-8" />
+          <title>${titulo}</title>
+          <style>
+            body {
+              background: #0b1120;
+              color: #e5e7eb;
+              font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+                Roboto, Helvetica, Arial, sans-serif;
+              margin: 0;
+              padding: 16px;
+            }
+            h1 { margin-bottom: 8px; }
+            p  { margin: 4px 0; }
+            ul { margin-top: 8px; }
+            li { margin-bottom: 4px; }
+            code {
+              font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                "Liberation Mono", "Courier New", monospace;
+              font-size: 0.8rem;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${titulo}</h1>
+          <p><b>Total:</b> ${regiones.length}</p>
+          <p><b>Frame del mapa:</b></p>
+          <p>
+            <code>
+              minLat: ${frame.minLat.toFixed(5)} ·
+              minLng: ${frame.minLng.toFixed(5)} ·
+              maxLat: ${frame.maxLat.toFixed(5)} ·
+              maxLng: ${frame.maxLng.toFixed(5)}
+            </code>
+          </p>
+          <ul>
+            ${filas || "<li>No hay regiones que intersecten el área visible.</li>"}
+          </ul>
+        </body>
+        </html>
       `;
 
       win.document.write(html);
       win.document.close();
     }
 
-
     // ===============================
-    // 5) Click → evaluar intersecciones
+    // 5) Click → intersectar y abrir lista
     // ===============================
-
-    map.on("click", (e) => {
+    map.on("click", () => {
       if (!REGIONES.length) {
         alert("regiones.json aún no se ha cargado.");
         return;
       }
 
-      const frame = bboxLeaflet(map.getBounds());
+      const frame = bboxFromLeaflet(map.getBounds());
 
       const visibles = REGIONES.filter(r => {
         if (!r.bbox) return false;
-        return intersecta(frame, bboxJSON(r.bbox));
+        return intersecta(frame, bboxFromArray(r.bbox));
       });
 
-      abrirVentana(visibles);
+      console.log("Regiones visibles:", visibles.map(r => r.id || r.region));
+      abrirVentanaRegiones(visibles, frame);
     });
-
   </script>
 </body>
 </html>
