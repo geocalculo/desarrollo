@@ -1,95 +1,64 @@
-// Referencias a los controles
+// js/index.js
+
 const regionSelect = document.getElementById("region-select");
 const instrumentoSelect = document.getElementById("instrumento-select");
 
-// Mapa base + capas
-const mapaCalle = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: "&copy; OpenStreetMap contributors",
-});
-
-const mapaSatelite = L.tileLayer(
-  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-  {
-    maxZoom: 19,
-    attribution:
-      "Tiles © Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP",
-  }
-);
-
-const map = L.map("map", {
-  center: [-27.5, -70.25],
-  zoom: 7,
-  minZoom: 4,
-  maxZoom: 19,
-  layers: [mapaCalle],
-});
-
-L.control
-  .layers(
-    {
-      "Mapa calle": mapaCalle,
-      Satélite: mapaSatelite,
-    },
-    {},
-    { position: "topright" }
-  )
-  .addTo(map);
-
-// Variables globales de regiones
 let regionesData = [];
-window._regionesData = regionesData;
+let map;
 
-// -------------------------
-// CARGAR REGIONES
-// -------------------------
+// -------------------------------------
+//   CARGAR REGIONES DESDE regiones.json
+// -------------------------------------
 async function cargarRegiones() {
   try {
     const resp = await fetch("capas/regiones.json");
-    if (!resp.ok) {
-      console.error("No se pudo leer regiones.json", resp.status);
-      return;
-    }
+    if (!resp.ok) throw new Error("No se pudo leer capas/regiones.json");
 
     const data = await resp.json();
     regionesData = data.regiones || [];
-    window._regionesData = regionesData;
-
     regionSelect.innerHTML = "";
 
     regionesData
-      .filter((r) => r.activo)
+      .filter((r) => r.activo !== false)
       .forEach((r) => {
         const opt = document.createElement("option");
-        opt.value = r.codigo_ine; // ej: capas_03, capas_13, capas_RM
-        opt.textContent = r.nombre;
+        opt.value = r.codigo_ine; // "01", "02", "03", ...
+        const nombreCorto = r.nombre.replace(/^Región( de)? /i, "");
+        opt.textContent = `${r.codigo_ine} - ${nombreCorto}`;
         regionSelect.appendChild(opt);
       });
 
-    // Región por defecto: Atacama (capas_03) si existe, si no la primera
-    let defaultCode = "capas_03";
+    // Por defecto intentamos Atacama ("03"), si no existe tomamos la primera
+    let defaultCode = "03";
     if (!regionesData.some((r) => r.codigo_ine === defaultCode)) {
-      if (regionesData.length > 0) {
-        defaultCode = regionesData[0].codigo_ine;
-      }
+      defaultCode = regionesData[0]?.codigo_ine;
     }
 
-    regionSelect.value = defaultCode;
-
-    const regDef = regionesData.find((r) => r.codigo_ine === defaultCode);
-    if (regDef) {
-      map.setView(regDef.centro, regDef.zoom || 7);
+    if (defaultCode) {
+      regionSelect.value = defaultCode;
+      centrarEnRegion(defaultCode);
+      cargarInstrumentos(defaultCode);
     }
-
-    await cargarInstrumentos(defaultCode);
   } catch (err) {
     console.error("Error cargando regiones:", err);
   }
 }
 
-// -------------------------
-// CARGAR INSTRUMENTOS (zoom óptico)
-// -------------------------
+function obtenerRegionPorCodigo(cod) {
+  return regionesData.find((r) => r.codigo_ine === cod) || null;
+}
+
+function centrarEnRegion(cod) {
+  const reg = obtenerRegionPorCodigo(cod);
+  if (!reg || !Array.isArray(reg.centro)) return;
+  const [lat, lon] = reg.centro;
+  const zoom = reg.zoom || 7;
+  map.setView([lat, lon], zoom);
+}
+
+// -------------------------------------
+//   CARGAR INSTRUMENTOS PARA UNA REGIÓN
+// -------------------------------------
 async function cargarInstrumentos(regionCode) {
   instrumentoSelect.innerHTML = "";
   instrumentoSelect.disabled = true;
@@ -99,17 +68,25 @@ async function cargarInstrumentos(regionCode) {
   def.textContent = "Selecciona un instrumento para hacer zoom";
   instrumentoSelect.appendChild(def);
 
-  if (!regionCode) return;
+  const reg = obtenerRegionPorCodigo(regionCode);
+  if (!reg) {
+    console.warn("No se encontró la región", regionCode);
+    return;
+  }
 
-  // regionCode viene como nombre de carpeta: capas_03, capas_RM, etc.
-  const url = `capas/${regionCode}/listado.json`;
+  // En regiones.json viene algo como "capas_03"
+  const carpetaRegion = reg.carpeta;
+  const url = `capas/${carpetaRegion}/listado.json`;
 
   try {
     const resp = await fetch(url);
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      console.warn("No se pudo leer", url, resp.status);
+      return;
+    }
 
     const data = await resp.json();
-    const lista = data.instrumentos || data.kml || data || [];
+    const lista = data.instrumentos || data.kml || [];
 
     lista.forEach((entry) => {
       let archivo = "";
@@ -117,36 +94,44 @@ async function cargarInstrumentos(regionCode) {
 
       if (typeof entry === "string") {
         archivo = entry;
-        nombre = entry;
+        nombre = entry.replace(/\.kml$/i, "");
       } else if (entry && typeof entry === "object") {
-        archivo = entry.archivo || entry.kml || entry.nombre || "";
-        nombre = entry.nombre || archivo;
+        archivo = entry.archivo || entry.kml || "";
+        nombre = (entry.nombre || archivo || "").replace(/\.kml$/i, "");
       }
 
       if (!archivo) return;
 
       const opt = document.createElement("option");
       opt.value = archivo;
-      opt.textContent = nombre.replace(/\.kml$/i, "");
+      opt.textContent = nombre;
       instrumentoSelect.appendChild(opt);
     });
 
-    instrumentoSelect.disabled = false;
+    instrumentoSelect.disabled = instrumentoSelect.options.length <= 1;
   } catch (e) {
-    console.warn("Error leyendo instrumentos:", e);
+    console.error("Error leyendo instrumentos:", e);
   }
 }
 
 // -------------------------
-// ZOOM AL EXTENT DEL KML
+//   ZOOM AL EXTENT DEL KML
 // -------------------------
 async function zoomAlInstrumento(regionCode, archivo) {
-  if (!archivo || !regionCode) return;
+  if (!archivo) return;
 
-  const url = `capas/${regionCode}/${archivo}`;
+  const reg = obtenerRegionPorCodigo(regionCode);
+  if (!reg) return;
+
+  const carpetaRegion = reg.carpeta; // ej: "capas_03"
+  const url = `capas/${carpetaRegion}/${archivo}`;
+
   try {
     const resp = await fetch(url);
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      console.warn("No se pudo abrir el KML:", url);
+      return;
+    }
     const txt = await resp.text();
 
     const xml = new DOMParser().parseFromString(txt, "application/xml");
@@ -167,110 +152,102 @@ async function zoomAlInstrumento(regionCode, archivo) {
       map.fitBounds(L.latLngBounds(puntos), { padding: [30, 30] });
     }
   } catch (e) {
-    console.warn("No se pudo abrir el KML:", e);
+    console.warn("No se pudo procesar el KML:", e);
   }
 }
 
 // -------------------------
-// DETECCIÓN AUTOMÁTICA DE REGIÓN SEGÚN VIEWPORT
+//   MAPA BASE + EVENTOS
 // -------------------------
-function detectarRegionVisible() {
-  if (!regionesData || !regionesData.length) return;
-
-  const b = map.getBounds();
-  const view = {
-    minLat: b.getSouth(),
-    maxLat: b.getNorth(),
-    minLon: b.getWest(),
-    maxLon: b.getEast(),
-  };
-
-  let mejorRegion = null;
-  let mayorSolape = 0;
-
-  regionesData.forEach((reg) => {
-    if (!reg.bbox || reg.bbox.length !== 4) return;
-
-    const [minLon, minLat, maxLon, maxLat] = reg.bbox;
-
-    const solapeLon = Math.max(0, Math.min(view.maxLon, maxLon) - Math.max(view.minLon, minLon));
-    const solapeLat = Math.max(0, Math.min(view.maxLat, maxLat) - Math.max(view.minLat, minLat));
-    const areaSolape = solapeLon * solapeLat;
-
-    if (areaSolape > mayorSolape) {
-      mayorSolape = areaSolape;
-      mejorRegion = reg;
-    }
-  });
-
-  if (mejorRegion && regionSelect.value !== mejorRegion.codigo_ine) {
-    // Actualiza combo y lista de instrumentos, pero NO recentra el mapa
-    regionSelect.value = mejorRegion.codigo_ine;
-    cargarInstrumentos(mejorRegion.codigo_ine);
-    console.log("Región detectada automáticamente:", mejorRegion.nombre);
-  }
-}
-
-// Vincular evento al mapa
-map.on("moveend", detectarRegionVisible);
-
-// -------------------------
-// EVENTOS DE CONTROLES
-// -------------------------
-regionSelect.addEventListener("change", async () => {
-  const code = regionSelect.value;
-  const reg = regionesData.find((r) => r.codigo_ine === code);
-
-  if (reg) {
-    map.setView(reg.centro, reg.zoom || 7);
-  }
-
-  cargarInstrumentos(code);
-});
-
-instrumentoSelect.addEventListener("change", () => {
-  zoomAlInstrumento(regionSelect.value, instrumentoSelect.value);
-});
-
-// Click en el mapa → abrir info.html
-map.on("click", (e) => {
-  const url = new URL("info.html", window.location.href);
-  url.searchParams.set("lat", e.latlng.lat);
-  url.searchParams.set("lon", e.latlng.lng);
-  // Pasamos el identificador de carpeta como "region"
-  url.searchParams.set("region", regionSelect.value);
-  window.open(url.toString(), "_blank");
-});
-
-// -------------------------
-// MIRA DE RIFLE (CENTRAR SIN MARCADOR)
-// -------------------------
-document.getElementById("mira-rifle").addEventListener("click", () => {
-  if (!navigator.geolocation) {
-    alert("La geolocalización no es compatible con este navegador.");
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-      map.setView([lat, lon], 16); // escala aprox 1:10.000
-    },
-    (err) => {
-      alert("No se pudo obtener tu ubicación.");
-      console.error(err);
-    },
+function initMapa() {
+  const mapaCalle = L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     {
-      enableHighAccuracy: true,
-      timeout: 10000,
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors",
     }
   );
-});
+
+  const mapaSatelite = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+      maxZoom: 19,
+      attribution:
+        "Tiles © Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP",
+    }
+  );
+
+  map = L.map("map", {
+    center: [-27.5, -70.25],
+    zoom: 7,
+    minZoom: 4,
+    maxZoom: 19,
+    layers: [mapaCalle],
+  });
+
+  L.control
+    .layers(
+      {
+        "Mapa calle": mapaCalle,
+        Satélite: mapaSatelite,
+      },
+      {},
+      { position: "topright" }
+    )
+    .addTo(map);
+
+  // Click → abrir info.html con lat, lon y región
+  map.on("click", (e) => {
+    const url = new URL("info.html", window.location.href);
+    url.searchParams.set("lat", e.latlng.lat);
+    url.searchParams.set("lon", e.latlng.lng);
+    url.searchParams.set("region", regionSelect.value);
+    window.open(url, "_blank");
+  });
+
+  // Mira de rifle
+  const mira = document.getElementById("mira-rifle");
+  if (mira) {
+    mira.addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        alert("La geolocalización no es compatible con este navegador.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          map.setView([lat, lon], 16);
+        },
+        (err) => {
+          console.error(err);
+          alert("No se pudo obtener tu ubicación.");
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        }
+      );
+    });
+  }
+}
 
 // -------------------------
-// INICIO
+//   INICIO
 // -------------------------
-(async function init() {
-  await cargarRegiones();
-})();
+document.addEventListener("DOMContentLoaded", () => {
+  initMapa();
+
+  regionSelect.addEventListener("change", () => {
+    const code = regionSelect.value;
+    centrarEnRegion(code);
+    cargarInstrumentos(code);
+  });
+
+  instrumentoSelect.addEventListener("change", () => {
+    zoomAlInstrumento(regionSelect.value, instrumentoSelect.value);
+  });
+
+  cargarRegiones();
+});
