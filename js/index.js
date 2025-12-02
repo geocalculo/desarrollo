@@ -1,6 +1,12 @@
 const regionSelect = document.getElementById("region-select");
 const instrumentoSelect = document.getElementById("instrumento-select");
 
+// Guardamos las regiones leídas del JSON (incluyendo bbox)
+let regionesData = [];
+
+// Bandera para distinguir cambio automático vs cambio del usuario
+let ajusteAutomaticoRegion = false;
+
 // -------------------------
 // MAPA BASE + CAPAS
 // -------------------------
@@ -38,6 +44,48 @@ L.control
   .addTo(map);
 
 // -------------------------
+// HELPERS BBOX REGIONES
+// -------------------------
+function pointInRegionBBox(lat, lon, reg) {
+  if (!reg.bbox || reg.bbox.length !== 4) return false;
+  const [minLon, minLat, maxLon, maxLat] = reg.bbox.map(Number);
+  return (
+    lat >= minLat &&
+    lat <= maxLat &&
+    lon >= minLon &&
+    lon <= maxLon
+  );
+}
+
+// Detectar región según el centro de pantalla
+// Solo ajusta el combo si hay UNA sola región candidata
+function detectarRegionPorPantalla() {
+  if (!regionesData.length) return;
+
+  const center = map.getCenter();
+  const lat = center.lat;
+  const lon = center.lng;
+
+  const candidatas = regionesData.filter((reg) =>
+    pointInRegionBBox(lat, lon, reg)
+  );
+
+  // Si no hay o hay más de una (RM / V Región), no tocamos el combo
+  if (candidatas.length !== 1) return;
+
+  const regionDetectada = candidatas[0];
+  const nuevoCodigo = regionDetectada.codigo_ine;
+
+  if (regionSelect.value === nuevoCodigo) return;
+
+  // Marcamos que el cambio es automático para no hacer setView doble
+  ajusteAutomaticoRegion = true;
+  regionSelect.value = nuevoCodigo;
+  cargarInstrumentos(nuevoCodigo);
+  ajusteAutomaticoRegion = false;
+}
+
+// -------------------------
 // CARGAR REGIONES
 // -------------------------
 async function cargarRegiones() {
@@ -48,10 +96,13 @@ async function cargarRegiones() {
       return;
     }
 
-    const regiones = await resp.json();
+    const data = await resp.json();
+    // Soportar {regiones:[...]} o array directo
+    regionesData = Array.isArray(data) ? data : (data.regiones || []);
+
     regionSelect.innerHTML = "";
 
-    regiones
+    regionesData
       .filter((r) => r.activo)
       .forEach((r) => {
         const opt = document.createElement("option");
@@ -137,17 +188,15 @@ async function zoomAlInstrumento(regionCode, archivo) {
 // -------------------------
 // EVENTOS
 // -------------------------
-regionSelect.addEventListener("change", async () => {
+regionSelect.addEventListener("change", () => {
   const code = regionSelect.value;
 
-  try {
-    const resp = await fetch("capas/regiones.json");
-    const regiones = await resp.json();
-    const r = regiones.find((x) => x.codigo_ine === code);
-
-    if (r) map.setView(r.centro, r.zoom);
-  } catch (e) {
-    console.warn("No se pudo leer regiones.json en cambio de región:", e);
+  // Si el cambio viene del ajuste automático, no movemos la vista (ya está donde debe)
+  if (!ajusteAutomaticoRegion) {
+    const r = regionesData.find((x) => x.codigo_ine === code);
+    if (r && Array.isArray(r.centro)) {
+      map.setView(r.centro, r.zoom || 7);
+    }
   }
 
   cargarInstrumentos(code);
@@ -157,11 +206,27 @@ instrumentoSelect.addEventListener("change", () => {
   zoomAlInstrumento(regionSelect.value, instrumentoSelect.value);
 });
 
+// Al mover el mapa (pan/zoom), intentamos detectar región solo si hay una candidata
+map.on("moveend", () => {
+  detectarRegionPorPantalla();
+});
+
+// Al hacer clic, abrimos el reporte con punto y bbox de la pantalla
 map.on("click", (e) => {
   const url = new URL("info.html", window.location.href);
   url.searchParams.set("lat", e.latlng.lat);
   url.searchParams.set("lon", e.latlng.lng);
   url.searchParams.set("region", regionSelect.value);
+
+  const b = map.getBounds();
+  const bboxParam = [
+    b.getWest(),  // minLon
+    b.getSouth(), // minLat
+    b.getEast(),  // maxLon
+    b.getNorth()  // maxLat
+  ].join(",");
+  url.searchParams.set("bbox", bboxParam);
+
   window.open(url, "_blank");
 });
 
