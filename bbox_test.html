@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Prueba BBOX - GeoIPT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Helvetica, Arial, sans-serif;
+      background: #0b1120;
+      color: #e5e7eb;
+      min-height: 100vh;
+      display: flex;
+    }
+
+    #map {
+      flex: 2;
+      height: 100vh;
+    }
+
+    #sidebar {
+      flex: 1;
+      max-width: 420px;
+      background: #020617;
+      border-left: 1px solid #111827;
+      padding: 12px 16px;
+      overflow-y: auto;
+    }
+
+    h1 {
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+    }
+
+    .sub {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-bottom: 10px;
+    }
+
+    .section-title {
+      font-size: 0.9rem;
+      margin: 10px 0 4px;
+      border-bottom: 1px solid #1f2937;
+      padding-bottom: 2px;
+    }
+
+    .log {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+      font-size: 0.8rem;
+      white-space: pre-wrap;
+      background: #020617;
+      border-radius: 6px;
+      padding: 6px 8px;
+      border: 1px solid #111827;
+      margin-top: 6px;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      font-size: 0.7rem;
+      margin-right: 4px;
+      margin-bottom: 4px;
+      background: #020617;
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-top: 6px;
+    }
+
+    ul {
+      margin-left: 16px;
+      font-size: 0.8rem;
+    }
+
+    li {
+      margin-bottom: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <aside id="sidebar">
+    <h1>Prueba de BBOX</h1>
+    <div class="sub">
+      Click en el mapa ⇒ motor recibe:
+      <strong>(1)</strong> punto clickeado y
+      <strong>(2)</strong> extent visible del mapa.
+    </div>
+
+    <div class="section-title">Parámetros de la última consulta</div>
+    <div id="params" class="log">Aún no hay clics.</div>
+
+    <div class="section-title">Regiones que intersectan el frame</div>
+    <div id="regiones"></div>
+
+    <div class="section-title">Instrumentos candidatos (por región)</div>
+    <div id="instrumentos-candidatos"></div>
+
+    <div class="section-title">Instrumentos cuyo BBOX contiene el punto</div>
+    <div id="instrumentos-match"></div>
+
+    <p class="hint">
+      Nota: este entorno no carga KML reales. Solo prueba lógica de BBOX y filtrado.
+      Reemplaza los BBOX de ejemplo por los de producción.
+    </p>
+  </aside>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // ==============================
+    // 1. Datos de prueba (BBOX)
+    // ==============================
+
+    // Formato BBOX: [[south, west], [north, east]]
+    // ⚠ Reemplazar por los BBOX reales de regiones_ipt
+    const regionesIpt = [
+      {
+        id: "AT",
+        nombre: "Región de Atacama",
+        bbox: [[-29.9, -71.5], [-25.0, -68.0]], // EJEMPLO
+      },
+      {
+        id: "AN",
+        nombre: "Región de Antofagasta",
+        bbox: [[-26.5, -71.0], [-21.0, -67.0]], // EJEMPLO
+      },
+      {
+        id: "CO",
+        nombre: "Región de Coquimbo",
+        bbox: [[-32.5, -72.5], [-29.0, -70.0]], // EJEMPLO
+      },
+    ];
+
+    // ⚠ Ejemplos de instrumentos con BBOX
+    //    En producción esto debería venir de un JSON tipo instrumentos.json
+    const instrumentosIpt = [
+      {
+        id: "PRC_AT_01",
+        nombre: "PRC Chañaral (demo)",
+        regionId: "AT",
+        bbox: [[-26.7, -70.9], [-26.0, -70.2]], // EJEMPLO
+      },
+      {
+        id: "PRC_AT_02",
+        nombre: "PRC Copiapó (demo)",
+        regionId: "AT",
+        bbox: [[-27.6, -70.4], [-27.1, -69.9]], // EJEMPLO
+      },
+      {
+        id: "PRC_AN_01",
+        nombre: "PRC Antofagasta (demo)",
+        regionId: "AN",
+        bbox: [[-24.1, -70.6], [-23.2, -69.3]], // EJEMPLO
+      },
+      {
+        id: "PRC_CO_01",
+        nombre: "PRC La Serena (demo)",
+        regionId: "CO",
+        bbox: [[-30.1, -71.4], [-29.7, -71.0]], // EJEMPLO
+      },
+    ];
+
+    // ==============================
+    // 2. Inicializar mapa
+    // ==============================
+    const map = L.map("map").setView([-27.5, -70.25], 7); // centrado en Atacama
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(map);
+
+    // Capas para depuración visual
+    const layerRegiones = L.layerGroup().addTo(map);
+    const layerInstrumentos = L.layerGroup().addTo(map);
+    let markerClick = null;
+
+    // ==============================
+    // 3. Funciones geométricas
+    // ==============================
+
+    function bboxFromArray(arr) {
+      // arr: [[south, west], [north, east]]
+      return {
+        minLat: arr[0][0],
+        minLng: arr[0][1],
+        maxLat: arr[1][0],
+        maxLng: arr[1][1],
+      };
+    }
+
+    function bboxFromLeafletBounds(bounds) {
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
+      return {
+        minLat: sw.lat,
+        minLng: sw.lng,
+        maxLat: ne.lat,
+        maxLng: ne.lng,
+      };
+    }
+
+    function intersecta(b1, b2) {
+      return !(
+        b1.maxLat < b2.minLat ||
+        b1.minLat > b2.maxLat ||
+        b1.maxLng < b2.minLng ||
+        b1.minLng > b2.maxLng
+      );
+    }
+
+    function contienePunto(b, lat, lng) {
+      return (
+        lat >= b.minLat &&
+        lat <= b.maxLat &&
+        lng >= b.minLng &&
+        lng <= b.maxLng
+      );
+    }
+
+    function rectFromBbox(b) {
+      return [
+        [b.minLat, b.minLng],
+        [b.maxLat, b.maxLng],
+      ];
+    }
+
+    // ==============================
+    // 4. Motor de consulta BBOX
+    // ==============================
+
+    function motorConsulta(lat, lng, leafletBounds) {
+      const frame = bboxFromLeafletBounds(leafletBounds);
+
+      // 1) Regiones cuyo BBOX intersecta el frame
+      const regionesEnFrame = regionesIpt
+        .map((r) => ({
+          ...r,
+          bboxObj: bboxFromArray(r.bbox),
+        }))
+        .filter((r) => intersecta(r.bboxObj, frame));
+
+      // 2) Instrumentos de esas regiones (candidatos)
+      const regionesIds = new Set(regionesEnFrame.map((r) => r.id));
+
+      const instrumentosCandidatos = instrumentosIpt
+        .filter((inst) => regionesIds.has(inst.regionId))
+        .map((inst) => ({
+          ...inst,
+          bboxObj: bboxFromArray(inst.bbox),
+        }));
+
+      // 3) Instrumentos cuyo BBOX contiene el punto clickeado
+      const instrumentosMatch = instrumentosCandidatos.filter((inst) =>
+        contienePunto(inst.bboxObj, lat, lng)
+      );
+
+      return {
+        frame,
+        regionesEnFrame,
+        instrumentosCandidatos,
+        instrumentosMatch,
+      };
+    }
+
+    // ==============================
+    // 5. UI / Debug
+    // ==============================
+
+    const elParams = document.getElementById("params");
+    const elRegiones = document.getElementById("regiones");
+    const elInstCandidatos = document.getElementById("instrumentos-candidatos");
+    const elInstMatch = document.getElementById("instrumentos-match");
+
+    function renderPillsRegiones(regiones) {
+      if (!regiones.length) return "<span class='hint'>Ninguna región intersecta el frame.</span>";
+      return regiones
+        .map(
+          (r) =>
+            `<span class="pill">${r.id} · ${r.nombre}</span>`
+        )
+        .join("");
+    }
+
+    function renderListaInstrumentos(insts) {
+      if (!insts.length) return "<span class='hint'>Sin instrumentos.</span>";
+      return `
+        <ul>
+          ${insts
+            .map(
+              (i) =>
+                `<li><strong>${i.id}</strong> · ${i.nombre} <span class="hint">(región ${i.regionId})</span></li>`
+            )
+            .join("")}
+        </ul>
+      `;
+    }
+
+    function renderParams(clickLat, clickLng, frame) {
+      elParams.textContent =
+`Punto clickeado:
+  lat: ${clickLat.toFixed(5)}
+  lng: ${clickLng.toFixed(5)}
+
+Frame (extent del mapa):
+  minLat: ${frame.minLat.toFixed(5)}
+  minLng: ${frame.minLng.toFixed(5)}
+  maxLat: ${frame.maxLat.toFixed(5)}
+  maxLng: ${frame.maxLng.toFixed(5)}`;
+    }
+
+    function dibujarDebug(regiones, instrumentos) {
+      layerRegiones.clearLayers();
+      layerInstrumentos.clearLayers();
+
+      // BBOX de regiones que intersectan el frame
+      regiones.forEach((r) => {
+        const rect = rectFromBbox(r.bboxObj);
+        L.rectangle(rect, {
+          weight: 1,
+          fillOpacity: 0,
+          dashArray: "4 2",
+        }).addTo(layerRegiones).bindTooltip(`Región: ${r.id}`);
+      });
+
+      // BBOX de instrumentos candidatos
+      instrumentos.forEach((i) => {
+        const rect = rectFromBbox(i.bboxObj);
+        L.rectangle(rect, {
+          weight: 2,
+          fillOpacity: 0,
+        }).addTo(layerInstrumentos).bindTooltip(`Inst: ${i.id}`);
+      });
+    }
+
+    // ==============================
+    // 6. Evento de click en el mapa
+    // ==============================
+
+    map.on("click", (e) => {
+      const { lat, lng } = e.latlng;
+      const bounds = map.getBounds();
+
+      const res = motorConsulta(lat, lng, bounds);
+
+      // Actualizar textos
+      renderParams(lat, lng, res.frame);
+      elRegiones.innerHTML = renderPillsRegiones(res.regionesEnFrame);
+      elInstCandidatos.innerHTML = renderListaInstrumentos(
+        res.instrumentosCandidatos
+      );
+      elInstMatch.innerHTML = renderListaInstrumentos(res.instrumentosMatch);
+
+      // Depuración visual
+      dibujarDebug(res.regionesEnFrame, res.instrumentosCandidatos);
+
+      // Marcar punto clickeado
+      if (markerClick) map.removeLayer(markerClick);
+      markerClick = L.circleMarker([lat, lng], {
+        radius: 5,
+        weight: 2,
+        fillOpacity: 0.9,
+      }).addTo(map);
+    });
+  </script>
+</body>
+</html>
