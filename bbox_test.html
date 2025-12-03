@@ -72,6 +72,32 @@
       border-radius: 999px;
       font-size: 0.75rem;
     }
+
+    .inst-item {
+      margin-bottom: 6px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      background: #020617;
+      border: 1px solid #1f2937;
+      font-size: 0.78rem;
+    }
+
+    .inst-item strong {
+      font-size: 0.8rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      margin-right: 4px;
+      border: 1px solid #4b5563;
+    }
+
+    .badge-hit {
+      border-color: #22c55e;
+    }
   </style>
 </head>
 
@@ -87,6 +113,12 @@
 
     <div class="section-title">Regiones que intersectan el frame</div>
     <div id="regiones"></div>
+
+    <div class="section-title">Instrumentos en pantalla</div>
+    <div id="instrumentos"></div>
+
+    <div class="section-title">Instrumentos donde “cae” el punto</div>
+    <div id="hits"></div>
   </div>
 
   <!-- Leaflet JS -->
@@ -97,6 +129,7 @@
     // 1. Cargar capas/regiones.json
     // ===================================
     let REGIONES = [];
+    const LISTADOS = {}; // cache de listado.json
 
     fetch("capas/regiones.json")
       .then(r => r.json())
@@ -114,12 +147,15 @@
       maxZoom: 18
     }).addTo(map);
 
-    const layerBBox = L.layerGroup().addTo(map);
+    const layerBBoxRegiones = L.layerGroup().addTo(map);
+    const layerInstrumentos = L.layerGroup().addTo(map);
+    let clickMarker = null;
 
     // ===================================
     // 3. Funciones geométricas
     // ===================================
     function bboxFromArray(arr) {
+      // [[minLat, minLng], [maxLat, maxLng]]
       return {
         minLat: arr[0][0],
         minLng: arr[0][1],
@@ -146,13 +182,24 @@
       );
     }
 
+    function pointInBbox(b, lat, lng) {
+      return (
+        lat >= b.minLat &&
+        lat <= b.maxLat &&
+        lng >= b.minLng &&
+        lng <= b.maxLng
+      );
+    }
+
     // ===================================
     // 4. Render a panel
     // ===================================
     const elParams = document.getElementById("params");
     const elRegiones = document.getElementById("regiones");
+    const elInstrumentos = document.getElementById("instrumentos");
+    const elHits = document.getElementById("hits");
 
-    function showParams(lat, lng, f) {
+    function showParams(lat, lng, f, nReg, nInst, nHits) {
       elParams.textContent =
 `Punto clickeado:
  lat: ${lat.toFixed(5)}
@@ -162,7 +209,12 @@ Frame (extent visible):
  minLat: ${f.minLat.toFixed(5)}
  minLng: ${f.minLng.toFixed(5)}
  maxLat: ${f.maxLat.toFixed(5)}
- maxLng: ${f.maxLng.toFixed(5)}`;
+ maxLng: ${f.maxLng.toFixed(5)}
+
+Resumen:
+ Regiones en frame: ${nReg}
+ IPT en pantalla:   ${nInst}
+ IPT con punto:     ${nHits}`;
     }
 
     function showRegiones(lista) {
@@ -175,9 +227,55 @@ Frame (extent visible):
         .join("");
     }
 
-    function drawBBox(lista) {
-      layerBBox.clearLayers();
+    function showInstrumentos(lista) {
+      if (!lista.length) {
+        elInstrumentos.innerHTML = "<em>No hay IPT en el área visible</em>";
+        return;
+      }
+      elInstrumentos.innerHTML = lista
+        .map(inst => {
+          const nombre = inst.nombre || "(sin nombre)";
+          const comuna = inst.comuna || "-";
+          const tipo = inst.tipo || "-";
+          const region = inst.regionNombre || inst.regionId || "-";
+          return `
+            <div class="inst-item">
+              <strong>${nombre}</strong><br/>
+              <span>${tipo} · ${comuna} · ${region}</span>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function showHits(lista) {
+      if (!lista.length) {
+        elHits.innerHTML = "<em>El punto no cae dentro de ningún IPT visible</em>";
+        return;
+      }
+      elHits.innerHTML = lista
+        .map(inst => {
+          const nombre = inst.nombre || "(sin nombre)";
+          const comuna = inst.comuna || "-";
+          const tipo = inst.tipo || "-";
+          const region = inst.regionNombre || inst.regionId || "-";
+          const archivo = inst.archivo || "";
+          return `
+            <div class="inst-item">
+              <div class="badge badge-hit">contiene punto</div>
+              <strong>${nombre}</strong><br/>
+              <span>${tipo} · ${comuna} · ${region}</span><br/>
+              <small>archivo: ${archivo}</small>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function drawBBoxRegiones(lista) {
+      layerBBoxRegiones.clearLayers();
       lista.forEach(r => {
+        if (!r.bbox) return;
         const b = bboxFromArray(r.bbox);
         const rect = [
           [b.minLat, b.minLng],
@@ -188,26 +286,135 @@ Frame (extent visible):
           weight: 2,
           dashArray: "4 3",
           fillOpacity: 0
-        }).addTo(layerBBox);
+        }).addTo(layerBBoxRegiones);
+      });
+    }
+
+    function drawInstrumentos(lista) {
+      layerInstrumentos.clearLayers();
+      lista.forEach(inst => {
+        if (!inst.bbox) return;
+        const b = bboxFromArray(inst.bbox);
+        const rect = [
+          [b.minLat, b.minLng],
+          [b.maxLat, b.maxLng]
+        ];
+        L.rectangle(rect, {
+          color: inst.containsPoint ? "#22c55e" : "#f97316",
+          weight: inst.containsPoint ? 3 : 2,
+          dashArray: inst.containsPoint ? null : "4 3",
+          fillOpacity: 0
+        }).addTo(layerInstrumentos);
       });
     }
 
     // ===================================
-    // 5. Click en el mapa
+    // 5. Cargar listado de una región (con cache)
+    // ===================================
+    function loadListado(region) {
+      const key = region.id || region.carpeta;
+      if (LISTADOS[key]) {
+        return Promise.resolve(LISTADOS[key]);
+      }
+
+      const carpeta = region.carpeta; // ej: "capas_03"
+      if (!carpeta) {
+        return Promise.resolve(null);
+      }
+
+      const url = `capas/${carpeta}/listado.json`;
+      console.log("Cargando listado:", url);
+
+      return fetch(url)
+        .then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status} al cargar ${url}`);
+          return r.json();
+        })
+        .then(data => {
+          LISTADOS[key] = data;
+          return data;
+        })
+        .catch(err => {
+          console.error("Error cargando listado para región", region.id, err);
+          return null;
+        });
+    }
+
+    // ===================================
+    // 6. Click en el mapa
     // ===================================
     map.on("click", e => {
       const { lat, lng } = e.latlng;
       const frame = bboxFromLeaflet(map.getBounds());
 
+      // Marcar el punto clickeado
+      if (clickMarker) {
+        map.removeLayer(clickMarker);
+      }
+      clickMarker = L.circleMarker([lat, lng], {
+        radius: 5,
+        weight: 2
+      }).addTo(map);
+
+      // 1) Regiones cuyo BBOX intersecta el frame
       const regionesVisibles = REGIONES.filter(r => {
         if (!r.bbox) return false;
         const b = bboxFromArray(r.bbox);
         return intersecta(b, frame);
       });
 
-      showParams(lat, lng, frame);
       showRegiones(regionesVisibles);
-      drawBBox(regionesVisibles);
+      drawBBoxRegiones(regionesVisibles);
+
+      if (!regionesVisibles.length) {
+        layerInstrumentos.clearLayers();
+        showInstrumentos([]);
+        showHits([]);
+        showParams(lat, lng, frame, 0, 0, 0);
+        return;
+      }
+
+      // 2) Cargar listados de esas regiones y filtrar IPT por frame + punto
+      Promise.all(regionesVisibles.map(loadListado))
+        .then(listados => {
+          const instrumentosCandidatos = [];
+
+          listados.forEach((listado, idx) => {
+            if (!listado) return;
+            const region = regionesVisibles[idx];
+            const instrumentos = listado.instrumentos || [];
+
+            instrumentos.forEach(inst => {
+              if (!inst.bbox) return;
+              const b = bboxFromArray(inst.bbox);
+              const enFrame = intersecta(b, frame);
+              if (!enFrame) return; // solo IPT que tocan la pantalla
+
+              const hit = pointInBbox(b, lat, lng);
+
+              instrumentosCandidatos.push({
+                regionId: region.id,
+                regionNombre: region.nombre,
+                ...inst,
+                containsPoint: hit
+              });
+            });
+          });
+
+          const hits = instrumentosCandidatos.filter(i => i.containsPoint);
+
+          drawInstrumentos(instrumentosCandidatos);
+          showInstrumentos(instrumentosCandidatos);
+          showHits(hits);
+          showParams(
+            lat,
+ lng,
+            frame,
+            regionesVisibles.length,
+            instrumentosCandidatos.length,
+            hits.length
+          );
+        });
     });
 
   </script>
