@@ -73,13 +73,25 @@
       font-size: 0.75rem;
     }
 
+    .region-bloque {
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px dashed #1f2937;
+    }
+
+    .region-titulo {
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
     .inst-item {
-      margin-bottom: 6px;
-      padding: 6px;
+      margin-bottom: 4px;
+      padding: 4px 6px;
       border-radius: 4px;
       background: #020617;
       border: 1px solid #1f2937;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
     }
 
     .badge {
@@ -113,7 +125,7 @@
     <div class="section-title">Regiones que intersectan el frame</div>
     <div id="regiones"></div>
 
-    <div class="section-title">Instrumentos en el frame</div>
+    <div class="section-title">Instrumentos dentro del área visible</div>
     <div id="instrumentos"></div>
   </div>
 
@@ -215,25 +227,50 @@ Frame (extent visible):
         .join("");
     }
 
+    // 👉 Aquí agrupamos los IPT por región: Atacama: (Chañaral, Caldera), Antofagasta: (Taltal), etc.
     function showInstrumentos(lista) {
       if (!lista.length) {
-        elInstrumentos.innerHTML = "<em>No hay instrumentos en el frame</em>";
+        elInstrumentos.innerHTML = "<em>No hay instrumentos en el área visible</em>";
         return;
       }
-      elInstrumentos.innerHTML = lista.map(inst => {
-        const hit = inst.containsPoint;
-        return `
-          <div class="inst-item">
-            <div><strong>${inst.nombre}</strong></div>
-            <div>${inst.tipo} · ${inst.comuna}</div>
-            <div>Región: ${inst.regionNombre}</div>
-            <div style="margin-top:4px;">
-              <span class="badge badge-frame">en frame</span>
-              ${hit ? '<span class="badge badge-hit">contiene punto</span>' : ""}
-            </div>
-          </div>
+
+      // Agrupar por región
+      const grupos = {};
+      lista.forEach(inst => {
+        const key = inst.regionNombre || inst.regionId || "Sin región";
+        if (!grupos[key]) grupos[key] = [];
+        grupos[key].push(inst);
+      });
+
+      // Ordenar alfabéticamente por nombre de región
+      const regionesOrdenadas = Object.keys(grupos).sort();
+
+      let html = "";
+      regionesOrdenadas.forEach(regionNombre => {
+        const instrumentosRegion = grupos[regionNombre];
+
+        html += `<div class="region-bloque">
+          <div class="region-titulo">${regionNombre}</div>
         `;
-      }).join("");
+
+        instrumentosRegion.forEach(inst => {
+          const hit = inst.containsPoint;
+          html += `
+            <div class="inst-item">
+              <div><strong>${inst.nombre}</strong></div>
+              <div>${inst.tipo} · ${inst.comuna}</div>
+              <div style="margin-top:4px;">
+                <span class="badge badge-frame">en frame</span>
+                ${hit ? '<span class="badge badge-hit">contiene punto</span>' : ""}
+              </div>
+            </div>
+          `;
+        });
+
+        html += `</div>`;
+      });
+
+      elInstrumentos.innerHTML = html;
     }
 
     function drawRegiones(lista) {
@@ -282,7 +319,8 @@ Frame (extent visible):
       }
 
       const carpeta = region.carpeta || `capas_${region.codigo_ine}`;
-      const url = `capas/${carpeta}/listado.json`;
+      // ⚠ Ajusta esta línea si tus listados están en otra ruta:
+      const url = `${carpeta}/listado.json`; // ej: "capas_03/listado.json"
 
       return fetch(url)
         .then(r => {
@@ -325,7 +363,7 @@ Frame (extent visible):
         return;
       }
 
-      // 2) cargar listados de esas regiones y filtrar instrumentos
+      // 2) cargar listados de esas regiones y filtrar instrumentos por BBOX
       Promise.all(regionesVisibles.map(loadListado))
         .then(listados => {
           const instrumentosCandidatos = [];
@@ -339,7 +377,7 @@ Frame (extent visible):
               if (!inst.bbox) return;
               const b = bboxFromArray(inst.bbox);
               const enFrame = intersecta(b, frame);
-              if (!enFrame) return;
+              if (!enFrame) return;  // IPT fuera de pantalla se descarta
 
               const hit = pointInBbox(b, lat, lng);
 
