@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Prueba de BBOX - GeoIPT</title>
+  <title>BBOX Debug - GeoIPT</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet CSS -->
@@ -12,404 +12,121 @@
   />
 
   <style>
-    * {
-      box-sizing: border-box;
+    body {
       margin: 0;
       padding: 0;
-    }
-
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-        Roboto, Helvetica, Arial, sans-serif;
+      font-family: Arial, sans-serif;
       background: #0b1120;
       color: #e5e7eb;
-      display: flex;
-      min-height: 100vh;
     }
 
     #map {
-      width: 70%;
-      height: 100vh;
+      width: 100vw;
+      height: 70vh;
     }
 
-    #sidebar {
-      width: 30%;
-      background: #020617;
-      border-left: 1px solid #111827;
-      padding: 15px;
-      overflow-y: auto;
+    #panel {
+      padding: 12px;
+      background: #111827;
+      border-top: 1px solid #1f2937;
+      font-size: 14px;
+      line-height: 1.5;
     }
 
-    h1 {
-      font-size: 1.15rem;
-      margin-bottom: 6px;
-    }
-
-    .section-title {
-      margin-top: 16px;
-      margin-bottom: 6px;
-      font-size: 0.9rem;
-      border-bottom: 1px solid #1f2937;
-      padding-bottom: 2px;
-    }
-
-    .log {
-      background: #0b1120;
-      border: 1px solid #1f2937;
-      border-radius: 5px;
+    .bbox-box {
+      margin-top: 6px;
       padding: 8px;
-      font-family: monospace;
-      font-size: 0.8rem;
-      white-space: pre-wrap;
-    }
-
-    .pill {
-      display: inline-block;
-      padding: 3px 8px;
-      margin: 2px;
-      background: #0b1120;
-      border: 1px solid #1f2937;
-      border-radius: 999px;
-      font-size: 0.75rem;
-    }
-
-    .region-bloque {
-      margin-bottom: 10px;
-      padding-bottom: 6px;
-      border-bottom: 1px dashed #1f2937;
-    }
-
-    .region-titulo {
-      font-size: 0.85rem;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-
-    .inst-item {
-      margin-bottom: 4px;
-      padding: 4px 6px;
-      border-radius: 4px;
-      background: #020617;
-      border: 1px solid #1f2937;
-      font-size: 0.78rem;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 2px 6px;
-      border-radius: 999px;
-      font-size: 0.7rem;
-      margin-right: 4px;
-    }
-
-    .badge-frame {
-      border: 1px solid #38bdf8;
-    }
-
-    .badge-hit {
-      border: 1px solid #22c55e;
+      background: #1f2937;
+      border-radius: 6px;
     }
   </style>
 </head>
 
 <body>
-
   <div id="map"></div>
 
-  <div id="sidebar">
-    <h1>Prueba de BBOX</h1>
-
-    <div class="section-title">Parámetros de la última consulta</div>
-    <div id="params" class="log">Haz click en el mapa…</div>
-
-    <div class="section-title">Regiones que intersectan el frame</div>
-    <div id="regiones"></div>
-
-    <div class="section-title">Instrumentos dentro del área visible</div>
-    <div id="instrumentos"></div>
+  <div id="panel">
+    <b>📌 DEBUG BBOX + CLICK</b>
+    <div class="bbox-box">
+      <div><b>Lat/Lon clic:</b> <span id="latlon"></span></div>
+      <div><b>BBOX visible:</b></div>
+      <div id="bbox"></div>
+    </div>
   </div>
 
-  <!-- Leaflet JS -->
+  <!-- Leaflet -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // ===================================
-    // 1. Cargar capas/regiones.json
-    // ===================================
-    let REGIONES = [];
-    const LISTADOS = {};   // cache de listado.json por región (id)
+    // ---------------------------
+    // MAPA BASE
+    // ---------------------------
+    const map = L.map("map").setView([-33.45, -70.66], 12);
 
-    fetch("capas/regiones.json")
-      .then(r => r.json())
-      .then(data => {
-        REGIONES = Array.isArray(data) ? data : (data.regiones_ipt || []);
-        console.log("Regiones cargadas:", REGIONES);
-      })
-      .catch(err => {
-        console.error("Error cargando regiones.json", err);
-      });
-
-    // ===================================
-    // 2. Inicializar mapa
-    // ===================================
-    const map = L.map("map").setView([-27.5, -70.25], 6);
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 18
+    L.tileLayer("https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}", {
+      maxZoom: 20,
+      attribution: "Google Roads"
     }).addTo(map);
 
-    const layerRegiones = L.layerGroup().addTo(map);
-    const layerInstrumentos = L.layerGroup().addTo(map);
-    let clickMarker = null;
+    // Rectángulo del BBOX
+    let bboxLayer = L.rectangle([[0, 0],[0, 0]], {
+      color: "red",
+      weight: 1
+    }).addTo(map);
 
-    // ===================================
-    // 3. Funciones geométricas
-    // ===================================
-    function bboxFromArray(arr) {
-      // Se asume formato [[minLat, minLng], [maxLat, maxLng]]
-      return {
-        minLat: arr[0][0],
-        minLng: arr[0][1],
-        maxLat: arr[1][0],
-        maxLng: arr[1][1]
+    // ---------------------------
+    // FUNCIÓN: ACTUALIZA EL BBOX
+    // ---------------------------
+    function actualizarBBOX() {
+      const b = map.getBounds();
+
+      const bbox = {
+        minLat: b.getSouth(),
+        minLon: b.getWest(),
+        maxLat: b.getNorth(),
+        maxLon: b.getEast()
       };
-    }
 
-    function bboxFromLeaflet(bounds) {
-      return {
-        minLat: bounds.getSouth(),
-        minLng: bounds.getWest(),
-        maxLat: bounds.getNorth(),
-        maxLng: bounds.getEast()
-      };
-    }
+      // actualiza rectángulo
+      bboxLayer.setBounds([
+        [bbox.minLat, bbox.minLon],
+        [bbox.maxLat, bbox.maxLon]
+      ]);
 
-    function intersecta(a, b) {
-      return !(
-        a.maxLat < b.minLat ||
-        a.minLat > b.maxLat ||
-        a.maxLng < b.minLng ||
-        a.minLng > b.maxLng
-      );
-    }
-
-    function pointInBbox(b, lat, lng) {
-      return (
-        lat >= b.minLat &&
-        lat <= b.maxLat &&
-        lng >= b.minLng &&
-        lng <= b.maxLng
-      );
-    }
-
-    // ===================================
-    // 4. Render a panel
-    // ===================================
-    const elParams = document.getElementById("params");
-    const elRegiones = document.getElementById("regiones");
-    const elInstrumentos = document.getElementById("instrumentos");
-
-    function showParams(lat, lng, f) {
-      elParams.textContent =
-`Punto clickeado:
- lat: ${lat.toFixed(5)}
- lng: ${lng.toFixed(5)}
-
-Frame (extent visible):
- minLat: ${f.minLat.toFixed(5)}
- minLng: ${f.minLng.toFixed(5)}
- maxLat: ${f.maxLat.toFixed(5)}
- maxLng: ${f.maxLng.toFixed(5)}`;
-    }
-
-    function showRegiones(lista) {
-      if (!lista.length) {
-        elRegiones.innerHTML = "<em>No hay intersecciones</em>";
-        return;
-      }
-      elRegiones.innerHTML = lista
-        .map(r => `<span class="pill">${r.id} · ${r.nombre}</span>`)
-        .join("");
-    }
-
-    // Agrupamos los IPT por región: Atacama: (Chañaral, Caldera), etc.
-    function showInstrumentos(lista) {
-      if (!lista.length) {
-        elInstrumentos.innerHTML = "<em>No hay instrumentos en el área visible</em>";
-        return;
-      }
-
-      // Agrupar por región
-      const grupos = {};
-      lista.forEach(inst => {
-        const key = inst.regionNombre || inst.regionId || "Sin región";
-        if (!grupos[key]) grupos[key] = [];
-        grupos[key].push(inst);
-      });
-
-      // Ordenar alfabéticamente por nombre de región
-      const regionesOrdenadas = Object.keys(grupos).sort();
-
-      let html = "";
-      regionesOrdenadas.forEach(regionNombre => {
-        const instrumentosRegion = grupos[regionNombre];
-
-        html += `<div class="region-bloque">
-          <div class="region-titulo">${regionNombre}</div>
+      // muestra en pantalla
+      document.getElementById("bbox").innerHTML =
+        `
+        minLat: ${bbox.minLat.toFixed(6)}<br>
+        minLon: ${bbox.minLon.toFixed(6)}<br>
+        maxLat: ${bbox.maxLat.toFixed(6)}<br>
+        maxLon: ${bbox.maxLon.toFixed(6)}
         `;
 
-        instrumentosRegion.forEach(inst => {
-          const hit = inst.containsPoint;
-          html += `
-            <div class="inst-item">
-              <div><strong>${inst.nombre}</strong></div>
-              <div>${inst.tipo} · ${inst.comuna}</div>
-              <div style="margin-top:4px;">
-                <span class="badge badge-frame">en frame</span>
-                ${hit ? '<span class="badge badge-hit">contiene punto</span>' : ""}
-              </div>
-            </div>
-          `;
-        });
-
-        html += `</div>`;
-      });
-
-      elInstrumentos.innerHTML = html;
+      return bbox;
     }
 
-    function drawRegiones(lista) {
-      layerRegiones.clearLayers();
-      lista.forEach(r => {
-        if (!r.bbox) return;
-        const b = bboxFromArray(r.bbox);
-        const rect = [
-          [b.minLat, b.minLng],
-          [b.maxLat, b.maxLng]
-        ];
-        L.rectangle(rect, {
-          color: "#3399ff",
-          weight: 2,
-          dashArray: "4 3",
-          fillOpacity: 0
-        }).addTo(layerRegiones);
+    map.on("moveend", actualizarBBOX);
+    map.whenReady(actualizarBBOX);
+
+    // ---------------------------
+    // CAPTURA CLIC
+    // ---------------------------
+    map.on("click", function (e) {
+      const lat = e.latlng.lat.toFixed(6);
+      const lon = e.latlng.lng.toFixed(6);
+
+      document.getElementById("latlon").innerText = `${lat}, ${lon}`;
+
+      // Obtener BBOX actual
+      const bbox = actualizarBBOX();
+
+      console.log("CLICK →", {
+        lat,
+        lon,
+        bbox
       });
-    }
-
-    function drawInstrumentos(lista) {
-      layerInstrumentos.clearLayers();
-      lista.forEach(inst => {
-        if (!inst.bbox) return;
-        const b = bboxFromArray(inst.bbox);
-        const rect = [
-          [b.minLat, b.minLng],
-          [b.maxLat, b.maxLng]
-        ];
-        L.rectangle(rect, {
-          color: inst.containsPoint ? "#22c55e" : "#f97316",
-          weight: inst.containsPoint ? 3 : 2,
-          dashArray: inst.containsPoint ? null : "4 3",
-          fillOpacity: 0
-        }).addTo(layerInstrumentos);
-      });
-    }
-
-    // ===================================
-    // 5. Cargar listado de una región (con cache)
-    // ===================================
-    function loadListado(region) {
-      const key = region.id || region.carpeta;
-      if (LISTADOS[key]) {
-        return Promise.resolve(LISTADOS[key]);
-      }
-
-      const carpeta = region.carpeta || `capas_${region.codigo_ine}`;
-      // Ruta ajustada a la estructura: capas/capas_XX/listado.json
-      const url = `capas/${carpeta}/listado.json`;
-
-      console.log("Cargando listado:", url);
-
-      return fetch(url)
-        .then(r => {
-          if (!r.ok) {
-            throw new Error(`HTTP ${r.status} al cargar ${url}`);
-          }
-          return r.json();
-        })
-        .then(data => {
-          LISTADOS[key] = data;
-          return data;
-        })
-        .catch(err => {
-          console.error("Error cargando listado para región", region.id, err);
-          return null;
-        });
-    }
-
-    // ===================================
-    // 6. Click en el mapa
-    // ===================================
-    map.on("click", e => {
-      const { lat, lng } = e.latlng;
-      const frame = bboxFromLeaflet(map.getBounds());
-
-      // Marcar el punto clickeado
-      if (clickMarker) {
-        map.removeLayer(clickMarker);
-      }
-      clickMarker = L.circleMarker([lat, lng], {
-        radius: 5,
-        weight: 2
-      }).addTo(map);
-
-      // 1) regiones cuyo bbox intersecta el frame
-      const regionesVisibles = REGIONES.filter(r => {
-        if (!r.bbox) return false;
-        const b = bboxFromArray(r.bbox);
-        return intersecta(b, frame);
-      });
-
-      showParams(lat, lng, frame);
-      showRegiones(regionesVisibles);
-      drawRegiones(regionesVisibles);
-
-      if (!regionesVisibles.length) {
-        elInstrumentos.innerHTML = "<em>No hay regiones en el frame</em>";
-        layerInstrumentos.clearLayers();
-        return;
-      }
-
-      // 2) cargar listados de esas regiones y filtrar instrumentos por BBOX
-      Promise.all(regionesVisibles.map(loadListado))
-        .then(listados => {
-          const instrumentosCandidatos = [];
-
-          listados.forEach((listado, idx) => {
-            if (!listado) return;
-            const region = regionesVisibles[idx];
-            const instrumentos = listado.instrumentos || [];
-
-            instrumentos.forEach(inst => {
-              if (!inst.bbox) return;
-              const b = bboxFromArray(inst.bbox);
-              const enFrame = intersecta(b, frame);
-              if (!enFrame) return;  // IPT fuera de pantalla se descarta
-
-              const hit = pointInBbox(b, lat, lng);
-
-              instrumentosCandidatos.push({
-                regionId: region.id,
-                regionNombre: region.nombre,
-                ...inst,
-                containsPoint: hit
-              });
-            });
-          });
-
-          showInstrumentos(instrumentosCandidatos);
-          drawInstrumentos(instrumentosCandidatos);
-        });
     });
+
   </script>
 </body>
 </html>
