@@ -129,13 +129,16 @@
     // 1. Cargar capas/regiones.json
     // ===================================
     let REGIONES = [];
-    const LISTADOS = {}; // cache de listado.json
+    const LISTADOS = {}; // cache de listado.json por región
 
     fetch("capas/regiones.json")
       .then(r => r.json())
       .then(data => {
         REGIONES = Array.isArray(data) ? data : (data.regiones_ipt || []);
-        console.log("Regiones cargadas:", REGIONES);
+        console.log("DEBUG · Regiones cargadas:", REGIONES);
+      })
+      .catch(err => {
+        console.error("DEBUG · Error cargando regiones.json", err);
       });
 
     // ===================================
@@ -192,7 +195,7 @@
     }
 
     // ===================================
-    // 4. Render a panel
+    // 4. Elementos del panel
     // ===================================
     const elParams = document.getElementById("params");
     const elRegiones = document.getElementById("regiones");
@@ -323,7 +326,7 @@ Resumen:
       }
 
       const url = `capas/${carpeta}/listado.json`;
-      console.log("Cargando listado:", url);
+      console.log("DEBUG · Cargando listado:", url);
 
       return fetch(url)
         .then(r => {
@@ -335,13 +338,17 @@ Resumen:
           return data;
         })
         .catch(err => {
-          console.error("Error cargando listado para región", region.id, err);
+          console.error("DEBUG · Error cargando listado para región", region.id, err);
           return null;
         });
     }
 
     // ===================================
-    // 6. Click en el mapa
+    // 6. Click en el mapa:
+    //    - Detectar regiones cuyo BBOX toca el frame
+    //    - De esas, cargar listados
+    //    - Quedarse con IPT cuyo BBOX intersecta frame
+    //    - De esos IPT, ver cuáles contienen el punto
     // ===================================
     map.on("click", e => {
       const { lat, lng } = e.latlng;
@@ -363,6 +370,8 @@ Resumen:
         return intersecta(b, frame);
       });
 
+      console.log("DEBUG · Regiones en frame:", regionesVisibles);
+
       showRegiones(regionesVisibles);
       drawBBoxRegiones(regionesVisibles);
 
@@ -374,7 +383,7 @@ Resumen:
         return;
       }
 
-      // 2) Cargar listados de esas regiones y filtrar IPT por frame + punto
+      // 2) Para esas regiones, cargar listado.json y filtrar IPT por frame
       Promise.all(regionesVisibles.map(loadListado))
         .then(listados => {
           const instrumentosCandidatos = [];
@@ -403,12 +412,15 @@ Resumen:
 
           const hits = instrumentosCandidatos.filter(i => i.containsPoint);
 
+          console.log("DEBUG · IPT en pantalla:", instrumentosCandidatos);
+          console.log("DEBUG · IPT con punto:", hits);
+
           drawInstrumentos(instrumentosCandidatos);
           showInstrumentos(instrumentosCandidatos);
           showHits(hits);
           showParams(
             lat,
- lng,
+            lng,
             frame,
             regionesVisibles.length,
             instrumentosCandidatos.length,
@@ -416,7 +428,6 @@ Resumen:
           );
         });
     });
-
   </script>
 </body>
 </html>
