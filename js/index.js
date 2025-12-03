@@ -1,14 +1,18 @@
-// js/index.js
+// ===============================
+//   GeoIPT - index.js (Versión BBOX)
+//   Lucky 2025
+// ===============================
 
+// DOM
 const regionSelect = document.getElementById("region-select");
 const instrumentoSelect = document.getElementById("instrumento-select");
 
 let regionesData = [];
 let map;
 
-// -------------------------------------
-//   CARGAR REGIONES DESDE regiones.json
-// -------------------------------------
+// --------------------------------------------------
+//   1) Cargar regiones desde capas/regiones.json
+// --------------------------------------------------
 async function cargarRegiones() {
   try {
     const resp = await fetch("capas/regiones.json");
@@ -16,7 +20,7 @@ async function cargarRegiones() {
 
     const data = await resp.json();
 
-    // Soporta tanto arreglo plano como {regiones_ipt: [...]} o {regiones: [...]}
+    // Soporta: arreglo plano / {regiones_ipt:[...]} / {regiones:[...]}
     regionesData = Array.isArray(data)
       ? data
       : data.regiones_ipt || data.regiones || [];
@@ -27,13 +31,13 @@ async function cargarRegiones() {
       .filter((r) => r.activo !== false)
       .forEach((r) => {
         const opt = document.createElement("option");
-        opt.value = r.codigo_ine; // "01", "02", "03", ...
+        opt.value = r.codigo_ine; // "01", "02", etc.
         const nombreCorto = r.nombre.replace(/^Región( de)? /i, "");
         opt.textContent = `${r.codigo_ine} - ${nombreCorto}`;
         regionSelect.appendChild(opt);
       });
 
-    // Por defecto intentamos Atacama ("03"), si no existe tomamos la primera
+    // Región por defecto (Atacama)
     let defaultCode = "03";
     if (!regionesData.some((r) => r.codigo_ine === defaultCode)) {
       defaultCode = regionesData[0]?.codigo_ine;
@@ -49,10 +53,16 @@ async function cargarRegiones() {
   }
 }
 
+// --------------------------------------------------
+//   2) Obtener región por código
+// --------------------------------------------------
 function obtenerRegionPorCodigo(cod) {
   return regionesData.find((r) => r.codigo_ine === cod) || null;
 }
 
+// --------------------------------------------------
+//   3) Centrar mapa según región seleccionada
+// --------------------------------------------------
 function centrarEnRegion(cod) {
   const reg = obtenerRegionPorCodigo(cod);
   if (!reg || !Array.isArray(reg.centro)) return;
@@ -61,9 +71,9 @@ function centrarEnRegion(cod) {
   map.setView([lat, lon], zoom);
 }
 
-// -------------------------------------
-//   CARGAR INSTRUMENTOS PARA UNA REGIÓN
-// -------------------------------------
+// --------------------------------------------------
+//   4) Cargar instrumentos de la región seleccionada
+// --------------------------------------------------
 async function cargarInstrumentos(regionCode) {
   instrumentoSelect.innerHTML = "";
   instrumentoSelect.disabled = true;
@@ -79,8 +89,7 @@ async function cargarInstrumentos(regionCode) {
     return;
   }
 
-  // En regiones.json viene algo como "capas_03"
-  const carpetaRegion = reg.carpeta;
+  const carpetaRegion = reg.carpeta; // ej: "capas_03"
   const url = `capas/${carpetaRegion}/listado.json`;
 
   try {
@@ -119,9 +128,9 @@ async function cargarInstrumentos(regionCode) {
   }
 }
 
-// -------------------------
-//   ZOOM AL EXTENT DEL KML
-// -------------------------
+// --------------------------------------------------
+//   5) Zoom óptico a un instrumento KML
+// --------------------------------------------------
 async function zoomAlInstrumento(regionCode, archivo) {
   if (!archivo) return;
 
@@ -161,9 +170,9 @@ async function zoomAlInstrumento(regionCode, archivo) {
   }
 }
 
-// -------------------------
-//   MAPA BASE + EVENTOS
-// -------------------------
+// --------------------------------------------------
+//   6) Inicializar mapa base
+// --------------------------------------------------
 function initMapa() {
   const mapaCalle = L.tileLayer(
     "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -178,7 +187,7 @@ function initMapa() {
     {
       maxZoom: 19,
       attribution:
-        "Tiles © Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP",
+        "Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP",
     }
   );
 
@@ -201,72 +210,66 @@ function initMapa() {
     )
     .addTo(map);
 
-  // Click → abrir info.html con lat, lon y bbox (extent visible)
+  // ---------------------------------------
+  // CLICK → abrir info.html con lat/lon/bbox
+  // ---------------------------------------
   map.on("click", (e) => {
     const url = new URL("info.html", window.location.href);
 
-    // 1) Punto de consulta
+    // 1) Punto consultado
     url.searchParams.set("lat", e.latlng.lat.toFixed(6));
     url.searchParams.set("lon", e.latlng.lng.toFixed(6));
 
-    // 2) Extent visible del mapa (bbox)
-    // Formato: bbox = minLon,minLat,maxLon,maxLat
+    // 2) BBOX visible (minLon,minLat,maxLon,maxLat)
     const bounds = map.getBounds();
-    const sw = bounds.getSouthWest(); // esquina inferior izquierda
-    const ne = bounds.getNorthEast(); // esquina superior derecha
-
-    const minLon = sw.lng;
-    const minLat = sw.lat;
-    const maxLon = ne.lng;
-    const maxLat = ne.lat;
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
 
     url.searchParams.set(
       "bbox",
       [
-        minLon.toFixed(6),
-        minLat.toFixed(6),
-        maxLon.toFixed(6),
-        maxLat.toFixed(6),
+        sw.lng.toFixed(6),
+        sw.lat.toFixed(6),
+        ne.lng.toFixed(6),
+        ne.lat.toFixed(6),
       ].join(",")
     );
 
-    // (por ahora seguimos enviando la región para compatibilidad con info.html)
-    url.searchParams.set("region", regionSelect.value);
+    // NOTA IMPORTANTE:
+    // Ya NO enviamos la región.
+    // El info.html detectará todo por BBOX automáticamente.
 
     window.open(url, "_blank");
   });
 
-  // Mira de rifle (geolocalización opcional)
+  // ---------------------------------------
+  // Mira de rifle (geolocalización)
+  // ---------------------------------------
   const mira = document.getElementById("mira-rifle");
   if (mira) {
     mira.addEventListener("click", () => {
       if (!navigator.geolocation) {
-        alert("La geolocalización no es compatible con este navegador.");
+        alert("Tu navegador no soporta geolocalización.");
         return;
       }
 
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const lat = pos.coords.latitude;
-          const lon = pos.coords.longitude;
-          map.setView([lat, lon], 16);
+          map.setView([pos.coords.latitude, pos.coords.longitude], 16);
         },
         (err) => {
           console.error(err);
           alert("No se pudo obtener tu ubicación.");
         },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-        }
+        { enableHighAccuracy: true, timeout: 10000 }
       );
     });
   }
 }
 
-// -------------------------
-//   INICIO
-// -------------------------
+// --------------------------------------------------
+//   7) INICIO
+// --------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
   initMapa();
 
