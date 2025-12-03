@@ -15,7 +15,12 @@ async function cargarRegiones() {
     if (!resp.ok) throw new Error("No se pudo leer capas/regiones.json");
 
     const data = await resp.json();
-    regionesData = data.regiones || [];
+
+    // Soporta tanto arreglo plano como {regiones_ipt: [...]} o {regiones: [...]}
+    regionesData = Array.isArray(data)
+      ? data
+      : data.regiones_ipt || data.regiones || [];
+
     regionSelect.innerHTML = "";
 
     regionesData
@@ -196,16 +201,42 @@ function initMapa() {
     )
     .addTo(map);
 
-  // Click → abrir info.html con lat, lon y región
+  // Click → abrir info.html con lat, lon y bbox (extent visible)
   map.on("click", (e) => {
     const url = new URL("info.html", window.location.href);
-    url.searchParams.set("lat", e.latlng.lat);
-    url.searchParams.set("lon", e.latlng.lng);
+
+    // 1) Punto de consulta
+    url.searchParams.set("lat", e.latlng.lat.toFixed(6));
+    url.searchParams.set("lon", e.latlng.lng.toFixed(6));
+
+    // 2) Extent visible del mapa (bbox)
+    // Formato: bbox = minLon,minLat,maxLon,maxLat
+    const bounds = map.getBounds();
+    const sw = bounds.getSouthWest(); // esquina inferior izquierda
+    const ne = bounds.getNorthEast(); // esquina superior derecha
+
+    const minLon = sw.lng;
+    const minLat = sw.lat;
+    const maxLon = ne.lng;
+    const maxLat = ne.lat;
+
+    url.searchParams.set(
+      "bbox",
+      [
+        minLon.toFixed(6),
+        minLat.toFixed(6),
+        maxLon.toFixed(6),
+        maxLat.toFixed(6),
+      ].join(",")
+    );
+
+    // (por ahora seguimos enviando la región para compatibilidad con info.html)
     url.searchParams.set("region", regionSelect.value);
+
     window.open(url, "_blank");
   });
 
-  // Mira de rifle
+  // Mira de rifle (geolocalización opcional)
   const mira = document.getElementById("mira-rifle");
   if (mira) {
     mira.addEventListener("click", () => {
