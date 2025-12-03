@@ -144,6 +144,9 @@
       .then(data => {
         REGIONES = Array.isArray(data) ? data : (data.regiones_ipt || []);
         console.log("Regiones cargadas:", REGIONES);
+      })
+      .catch(err => {
+        console.error("Error cargando regiones.json", err);
       });
 
     // ===================================
@@ -157,11 +160,13 @@
 
     const layerRegiones = L.layerGroup().addTo(map);
     const layerInstrumentos = L.layerGroup().addTo(map);
+    let clickMarker = null;
 
     // ===================================
     // 3. Funciones geométricas
     // ===================================
     function bboxFromArray(arr) {
+      // Se asume formato [[minLat, minLng], [maxLat, maxLng]]
       return {
         minLat: arr[0][0],
         minLng: arr[0][1],
@@ -227,7 +232,7 @@ Frame (extent visible):
         .join("");
     }
 
-    // 👉 Aquí agrupamos los IPT por región: Atacama: (Chañaral, Caldera), Antofagasta: (Taltal), etc.
+    // Agrupamos los IPT por región: Atacama: (Chañaral, Caldera), etc.
     function showInstrumentos(lista) {
       if (!lista.length) {
         elInstrumentos.innerHTML = "<em>No hay instrumentos en el área visible</em>";
@@ -319,8 +324,10 @@ Frame (extent visible):
       }
 
       const carpeta = region.carpeta || `capas_${region.codigo_ine}`;
-      // ⚠ Ajusta esta línea si tus listados están en otra ruta:
-      const url = `${carpeta}/listado.json`; // ej: "capas_03/listado.json"
+      // Ruta ajustada a la estructura: capas/capas_XX/listado.json
+      const url = `capas/${carpeta}/listado.json`;
+
+      console.log("Cargando listado:", url);
 
       return fetch(url)
         .then(r => {
@@ -345,6 +352,15 @@ Frame (extent visible):
     map.on("click", e => {
       const { lat, lng } = e.latlng;
       const frame = bboxFromLeaflet(map.getBounds());
+
+      // Marcar el punto clickeado
+      if (clickMarker) {
+        map.removeLayer(clickMarker);
+      }
+      clickMarker = L.circleMarker([lat, lng], {
+        radius: 5,
+        weight: 2
+      }).addTo(map);
 
       // 1) regiones cuyo bbox intersecta el frame
       const regionesVisibles = REGIONES.filter(r => {
