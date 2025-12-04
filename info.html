@@ -248,8 +248,8 @@
         <strong>Documentos adjuntos:</strong>
         <ul>
           <li>
-            <a href="#" id="link-kml" target="_blank" rel="noopener">
-              Descargar KML original del instrumento
+            <a href="#" id="link-kml">
+              Descargar KML de la zona consultada
             </a>
           </li>
           <li>
@@ -511,13 +511,108 @@
 
       // ================================
       // 9. Documentos adjuntos
+      //      - JSON ya existía
+      //      - KML AHORA solo del polígono azul
       // ================================
-      const carpeta = instrumento.regionCarpeta || instrumento.carpeta || "";
-      const archivoKml = instrumento.archivo || "";
-      const rutaKml = carpeta ? `capas/${carpeta}/${archivoKml}` : archivoKml;
+
+      // Helper para escapar texto XML
+      function escapeXml(str) {
+        return String(str || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&apos;");
+      }
+
+      function construirKmlZona(inst, zonaObj) {
+        if (!zonaObj || !zonaObj.geometry) return null;
+        const geom = zonaObj.geometry;
+
+        let ring = [];
+        if (geom.type === "Polygon" && Array.isArray(geom.coordinates) && geom.coordinates.length > 0) {
+          ring = geom.coordinates[0];
+        } else if (
+          geom.type === "MultiPolygon" &&
+          Array.isArray(geom.coordinates) &&
+          geom.coordinates.length > 0 &&
+          geom.coordinates[0].length > 0
+        ) {
+          ring = geom.coordinates[0][0];
+        }
+
+        if (!ring || ring.length < 3) return null;
+
+        const coordsStr = ring
+          .map(par => `${par[0]},${par[1]},0`)
+          .join(" ");
+
+        const nombreInstrumento = inst.nombre || inst.archivo || "Zona GeoIPT";
+        const nombreZona =
+          zonaObj.NOM || zonaObj.ZONA || zonaObj.NOMBRE_PM || "Zona consultada";
+
+        const attrsXml = Object.entries(zonaObj)
+          .filter(([k]) => k !== "geometry" && k !== "geojson" && k !== "coords")
+          .map(([k, v]) =>
+            `        <Data name="${escapeXml(k)}"><value>${escapeXml(v)}</value></Data>`
+          )
+          .join("\n");
+
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${escapeXml(nombreInstrumento)}</name>
+    <Style id="geoipt_poly">
+      <LineStyle>
+        <color>ffeb6325</color>
+        <width>2</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>66f6823b</color>
+      </PolyStyle>
+    </Style>
+    <Placemark>
+      <name>${escapeXml(nombreZona)}</name>
+      <styleUrl>#geoipt_poly</styleUrl>
+      <ExtendedData>
+${attrsXml}
+      </ExtendedData>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              ${coordsStr}
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>`;
+      }
 
       const linkKml = document.getElementById("link-kml");
-      linkKml.href = rutaKml;
+      linkKml.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        const kmlStr = construirKmlZona(instrumento, zona);
+        if (!kmlStr) {
+          alert("No se pudo construir el KML de la zona consultada.");
+          return;
+        }
+        const blob = new Blob(
+          [kmlStr],
+          { type: "application/vnd.google-earth.kml+xml" }
+        );
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const baseName = (instrumento.archivo || "zona").replace(/\.kml$/i, "");
+        a.download = `geoipt_zona_${baseName}.kml`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
 
       const linkJsonZona = document.getElementById("link-json-zona");
       linkJsonZona.addEventListener("click", function (ev) {
