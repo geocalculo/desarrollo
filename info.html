@@ -5,7 +5,7 @@
   <title>GeoIPT - Reporte del punto consultado</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Leaflet -->
+  <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -211,8 +211,9 @@
         (se abrirá en una pestaña adicional).
       </p>
       <div id="map"></div>
-      <div id="vertices-poligono" style="margin-top:10px; font-size:0.85rem; color:#111827;"></div>
 
+      <!-- Lista de vértices al pinchar el polígono -->
+      <div id="vertices-poligono" style="margin-top:10px; font-size:0.85rem; color:#111827;"></div>
 
       <h2>Consulta PRC / SCC (punto sobre polígonos del área visible)</h2>
       <p class="texto">
@@ -361,6 +362,7 @@
 
       // ================================
       // 5b. Dibujar polígono de la zona (azul semitransparente)
+      //     y mostrar vértices al hacer click sobre él
       // ================================
       (function dibujarPoligonoZona() {
         if (!zona) return;
@@ -410,6 +412,44 @@
 
           const bounds = capaZona.getBounds().extend([lat, lon]);
           map.fitBounds(bounds.pad(0.15));
+
+          // Mostrar vértices al hacer click sobre el polígono
+          const contenedorVertices = document.getElementById("vertices-poligono");
+
+          capaZona.on("click", function (e) {
+            // Evitar que el click llegue al mapa (para que NO abra nuevo index.html)
+            L.DomEvent.stop(e);
+
+            let coords = [];
+
+            if (geom.type === "Polygon") {
+              coords = geom.coordinates[0]; // primer anillo
+            } else if (geom.type === "MultiPolygon") {
+              if (
+                Array.isArray(geom.coordinates) &&
+                geom.coordinates.length > 0 &&
+                Array.isArray(geom.coordinates[0]) &&
+                geom.coordinates[0].length > 0
+              ) {
+                coords = geom.coordinates[0][0];
+              }
+            }
+
+            if (!coords || !coords.length) return;
+
+            const items = coords.map(function (par, idx) {
+              const lonV = Number(par[0]) || 0;
+              const latV = Number(par[1]) || 0;
+              return `<li>${idx + 1}. Lon: ${lonV.toFixed(6)} – Lat: ${latV.toFixed(6)}</li>`;
+            }).join("");
+
+            contenedorVertices.innerHTML = `
+              <h3 style="margin:10px 0 4px; font-size:0.95rem;">Vértices del polígono seleccionado</h3>
+              <ol style="margin-left:18px;">
+                ${items}
+              </ol>
+            `;
+          });
         } catch (e) {
           console.error("Error dibujando polígono de zona:", e);
         }
@@ -417,7 +457,7 @@
 
       // ================================
       // 5c. Nueva consulta desde overview
-      //     Cada click abre index.html?lat=..&lon=.. en pestaña nueva
+      //     Cada click en el mapa (fuera del polígono) abre index.html?lat=..&lon=..
       // ================================
       map.on("click", function (e) {
         const newLat = e.latlng.lat.toFixed(6);
