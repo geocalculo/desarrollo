@@ -2,582 +2,413 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Prueba de BBOX - GeoIPT</title>
+  <title>GeoIPT - BBOX Test</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Leaflet CSS -->
+  <!-- Leaflet -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   />
-
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
         Roboto, Helvetica, Arial, sans-serif;
-      background: #0b1120;
-      color: #e5e7eb;
-      display: flex;
-      min-height: 100vh;
-    }
-
-    #map {
-      width: 70%;
-      height: 100vh;
-    }
-
-    #sidebar {
-      width: 30%;
       background: #020617;
-      border-left: 1px solid #111827;
-      padding: 15px;
+      color: #e5e7eb;
+      min-height: 100vh;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    h1 { font-size: 1.1rem; }
+    #map {
+      width: 1100px;
+      max-width: 100%;
+      height: 480px;
+      border-radius: 12px;
+      border: 1px solid #1f2937;
+      margin-top: 6px;
+    }
+    .panel {
+      width: 1100px;
+      max-width: 100%;
+      background: #0b1120;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 0.86rem;
+    }
+    pre {
+      background: #020617;
+      padding: 8px 10px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.8rem;
+      max-height: 220px;
       overflow-y: auto;
     }
-
-    h1 {
-      font-size: 1.15rem;
-      margin-bottom: 6px;
-    }
-
-    .section-title {
-      margin-top: 16px;
-      margin-bottom: 6px;
-      font-size: 0.9rem;
-      border-bottom: 1px solid #1f2937;
-      padding-bottom: 2px;
-    }
-
-    .log {
-      background: #0b1120;
-      border: 1px solid #1f2937;
-      border-radius: 5px;
-      padding: 8px;
-      font-family: monospace;
-      font-size: 0.8rem;
-      white-space: pre-wrap;
-    }
-
-    .pill {
-      display: inline-block;
-      padding: 3px 8px;
-      margin: 2px;
-      background: #0b1120;
-      border: 1px solid #1f2937;
+    button {
+      margin-top: 8px;
+      padding: 6px 14px;
       border-radius: 999px;
-      font-size: 0.75rem;
+      border: none;
+      background: #22c55e;
+      color: #022c22;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.86rem;
     }
-
-    .inst-item {
-      margin-bottom: 6px;
-      padding: 6px 8px;
-      border-radius: 4px;
-      background: #020617;
-      border: 1px solid #1f2937;
-      font-size: 0.78rem;
-    }
-
-    .inst-item strong {
-      font-size: 0.8rem;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 2px 6px;
-      border-radius: 999px;
-      font-size: 0.7rem;
-      margin-right: 4px;
-      border: 1px solid #4b5563;
-    }
-
-    .badge-hit {
-      border-color: #22c55e;
-    }
-
-    .msg-error {
-      color: #f97316;
-      font-size: 0.8rem;
-      margin-top: 4px;
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
     }
   </style>
 </head>
-
 <body>
-
+  <h1>GeoIPT – Motor BBOX intermedio</h1>
   <div id="map"></div>
 
-  <div id="sidebar">
-    <h1>Prueba de BBOX</h1>
+  <div class="panel">
+    <p>
+      Punto consultado: <span id="txt-punto"></span><br/>
+      BBOX de la pantalla (N, E, S, W): <span id="txt-bbox"></span>
+    </p>
+    <p style="margin-top:6px;">
+      Instrumentos IPT.kml que intersectan este BBOX:
+    </p>
+    <pre id="txt-instrumentos">(cargando...)</pre>
 
-    <div class="section-title">Parámetros de la última consulta</div>
-    <div id="params" class="log">Haz click en el mapa…</div>
-
-    <div class="section-title">Regiones que intersectan el frame</div>
-    <div id="regiones"></div>
-
-    <div class="section-title">Instrumentos en pantalla</div>
-    <div id="instrumentos"></div>
-
-    <div class="section-title">Instrumentos donde “cae” el punto (por BBOX)</div>
-    <div id="hits"></div>
-
-    <div class="section-title">Resultado exacto (KML)</div>
-    <div id="hits-kml"></div>
+    <button id="btn-reporte" disabled>Generar reporte en info.html</button>
   </div>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- toGeoJSON -->
-  <script src="https://unpkg.com/togeojson@0.16.0"></script>
-  <!-- Turf.js -->
-  <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
   <script>
-    // ===================================
-    // 1. Cargar capas/regiones.json
-    // ===================================
-    let REGIONES = [];
-    const LISTADOS = {}; // cache de listado.json por región
-
-    fetch("capas/regiones.json")
-      .then(r => r.json())
-      .then(data => {
-        REGIONES = Array.isArray(data) ? data : (data.regiones_ipt || []);
-        console.log("DEBUG · Regiones cargadas:", REGIONES);
-      })
-      .catch(err => {
-        console.error("DEBUG · Error cargando regiones.json", err);
-      });
-
-    // ===================================
-    // 2. Inicializar mapa
-    // ===================================
-    const map = L.map("map").setView([-27.5, -70.25], 6);
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 18
-    }).addTo(map);
-
-    const layerBBoxRegiones = L.layerGroup().addTo(map);
-    const layerInstrumentos = L.layerGroup().addTo(map);
-    let clickMarker = null;
-
-    // guardamos el último listado de instrumentos en pantalla
-    let ULTIMOS_INSTRUMENTOS = [];
-
-    // ===================================
-    // 3. Funciones geométricas
-    // ===================================
-    function bboxFromArray(arr) {
-      // [[minLat, minLng], [maxLat, maxLng]]
-      return {
-        minLat: arr[0][0],
-        minLng: arr[0][1],
-        maxLat: arr[1][0],
-        maxLng: arr[1][1]
-      };
-    }
-
-    function bboxFromLeaflet(bounds) {
-      return {
-        minLat: bounds.getSouth(),
-        minLng: bounds.getWest(),
-        maxLat: bounds.getNorth(),
-        maxLng: bounds.getEast()
-      };
-    }
-
-    function intersecta(a, b) {
-      return !(
-        a.maxLat < b.minLat ||
-        a.minLat > b.maxLat ||
-        a.maxLng < b.minLng ||
-        a.minLng > b.maxLng
-      );
-    }
-
-    function pointInBbox(b, lat, lng) {
-      return (
-        lat >= b.minLat &&
-        lat <= b.maxLat &&
-        lng >= b.minLng &&
-        lng <= b.maxLng
-      );
-    }
-
-    // ===================================
-    // 4. Elementos del panel
-    // ===================================
-    const elParams      = document.getElementById("params");
-    const elRegiones    = document.getElementById("regiones");
-    const elInstrumentos= document.getElementById("instrumentos");
-    const elHits        = document.getElementById("hits");
-    const elHitsKml     = document.getElementById("hits-kml");
-
-    function showParams(lat, lng, f, nReg, nInst, nHits) {
-      elParams.textContent =
-`Punto clickeado:
- lat: ${lat.toFixed(5)}
- lng: ${lng.toFixed(5)}
-
-Frame (extent visible):
- minLat: ${f.minLat.toFixed(5)}
- minLng: ${f.minLng.toFixed(5)}
- maxLat: ${f.maxLat.toFixed(5)}
- maxLng: ${f.maxLng.toFixed(5)}
-
-Resumen:
- Regiones en frame: ${nReg}
- IPT en pantalla:   ${nInst}
- IPT con punto (BBOX): ${nHits}`;
-    }
-
-    function showRegiones(lista) {
-      if (!lista.length) {
-        elRegiones.innerHTML = "<em>No hay intersecciones</em>";
-        return;
+    function getParams() {
+      const p = new URLSearchParams(window.location.search);
+      const lat = parseFloat(p.get("lat"));
+      const lon = parseFloat(p.get("lon"));
+      const bboxStr = p.get("bbox") || "";
+      let north, east, south, west;
+      if (bboxStr) {
+        const parts = bboxStr.split(",").map(Number);
+        if (parts.length === 4) {
+          [north, east, south, west] = parts;
+        }
       }
-      elRegiones.innerHTML = lista
-        .map(r => `<span class="pill">${r.id} · ${r.nombre}</span>`)
-        .join("");
+      return { lat, lon, north, east, south, west, bboxStr };
     }
 
-    function showInstrumentos(lista) {
-      if (!lista.length) {
-        elInstrumentos.innerHTML = "<em>No hay IPT en el área visible</em>";
-        return;
-      }
-      elInstrumentos.innerHTML = lista
-        .map(inst => {
-          const nombre = inst.nombre || "(sin nombre)";
-          const comuna = inst.comuna || "-";
-          const tipo   = inst.tipo || "-";
-          const region = inst.regionNombre || inst.regionId || "-";
-          return `
-            <div class="inst-item">
-              <strong>${nombre}</strong><br/>
-              <span>${tipo} · ${comuna} · ${region}</span>
-            </div>
-          `;
-        })
-        .join("");
-    }
-
-    function showHits(lista) {
-      if (!lista.length) {
-        elHits.innerHTML = "<em>El punto no cae dentro de ningún IPT (según BBOX)</em>";
-        return;
-      }
-      elHits.innerHTML = lista
-        .map(inst => {
-          const nombre = inst.nombre || "(sin nombre)";
-          const comuna = inst.comuna || "-";
-          const tipo   = inst.tipo || "-";
-          const region = inst.regionNombre || inst.regionId || "-";
-          const archivo= inst.archivo || "";
-          return `
-            <div class="inst-item">
-              <div class="badge badge-hit">contiene punto (BBOX)</div>
-              <strong>${nombre}</strong><br/>
-              <span>${tipo} · ${comuna} · ${region}</span><br/>
-              <small>archivo: ${archivo}</small>
-            </div>
-          `;
-        })
-        .join("");
-    }
-
-    function showHitsKml(lista) {
-      if (!lista.length) {
-        elHitsKml.innerHTML =
-          `<em>No se encontró un polígono PRC para este punto.</em>
-           <div class="msg-error">Debe hacer clic sobre una zona urbana.</div>`;
-        return;
-      }
-      elHitsKml.innerHTML = lista
-        .map(res => {
-          const inst = res.instrumento;
-          const props = res.propiedadesZona || {};
-          const nombreInst = inst.nombre || "(sin nombre)";
-          const zonaCodigo = res.zonaCodigo ||
-                             props.ZONA || props.zona || "";
-          const zonaNombre = props.NOM || props.NOMBRE || props.nom || "";
-          const textoZona = zonaCodigo || zonaNombre
-            ? `Zona: ${zonaCodigo} ${zonaNombre}`.trim()
-            : "Zona: (sin nombre)";
-          return `
-            <div class="inst-item">
-              <div class="badge badge-hit">Punto en PRC</div>
-              <strong>${nombreInst}</strong><br/>
-              <span>${textoZona}</span>
-            </div>
-          `;
-        })
-        .join("");
-    }
-
-    function drawBBoxRegiones(lista) {
-      layerBBoxRegiones.clearLayers();
-      lista.forEach(r => {
-        if (!r.bbox) return;
-        const b = bboxFromArray(r.bbox);
-        const rect = [
-          [b.minLat, b.minLng],
-          [b.maxLat, b.maxLng]
-        ];
-        L.rectangle(rect, {
-          color: "#3399ff",
-          weight: 2,
-          dashArray: "4 3",
-          fillOpacity: 0
-        }).addTo(layerBBoxRegiones);
-      });
-    }
-
-    function drawInstrumentos(lista) {
-      layerInstrumentos.clearLayers();
-      lista.forEach(inst => {
-        if (!inst.bbox) return;
-        const b = bboxFromArray(inst.bbox);
-        const rect = [
-          [b.minLat, b.minLng],
-          [b.maxLat, b.maxLng]
-        ];
-        L.rectangle(rect, {
-          color: inst.containsPoint ? "#22c55e" : "#f97316",
-          weight: inst.containsPoint ? 3 : 2,
-          dashArray: inst.containsPoint ? null : "4 3",
-          fillOpacity: 0
-        }).addTo(layerInstrumentos);
-      });
-    }
-
-    // ===================================
-    // 5. Cargar listado de una región (con cache)
-    // ===================================
-    function loadListado(region) {
-      const key = region.id || region.carpeta;
-      if (LISTADOS[key]) {
-        return Promise.resolve(LISTADOS[key]);
-      }
-
-      const carpeta = region.carpeta; // ej: "capas_03"
-      if (!carpeta) {
-        return Promise.resolve(null);
-      }
-
-      const url = `capas/${carpeta}/listado.json`;
-      console.log("DEBUG · Cargando listado:", url);
-
-      return fetch(url)
-        .then(r => {
-          if (!r.ok) throw new Error(`HTTP ${r.status} al cargar ${url}`);
-          return r.json();
-        })
-        .then(data => {
-          LISTADOS[key] = data;
-          return data;
-        })
-        .catch(err => {
-          console.error("DEBUG · Error cargando listado para región", region.id, err);
+    async function cargarJSON(url, descripcion) {
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          console.error(\`Error al cargar \${descripcion} desde \${url}: \`, resp.status);
           return null;
-        });
+        }
+        return await resp.json();
+      } catch (err) {
+        console.error(\`Excepción al cargar \${descripcion} desde \${url}: \`, err);
+        return null;
+      }
     }
 
-    // ===================================
-    // 6. Paso dummy → enviar datos a info.html
-    // ===================================
-    function enviarAInfo(lat, lng, resultadoKml, instrumentosCandidatos) {
-      // armamos una estructura compacta para el reporte
-      const instrumento = resultadoKml.instrumento;
-      const zona        = resultadoKml.propiedadesZona || {};
+    function filtrarInstrumentosPorBbox(lista, bbox) {
+      const { north, east, south, west } = bbox;
+      if (
+        typeof north !== "number" || typeof east !== "number" ||
+        typeof south !== "number" || typeof west !== "number"
+      ) {
+        return [];
+      }
 
-      const tabla = instrumentosCandidatos.map(i => ({
-        nombre: i.nombre,
-        tipo: i.tipo,
-        comuna: i.comuna,
-        region: i.regionNombre,
-        archivo: i.archivo,
-        contienePuntoBBOX: i.containsPoint
-      }));
+      return lista.filter(inst => {
+        if (!inst.bbox || inst.bbox.length !== 4) return false;
+        const [iMinLat, iMinLon, iMaxLat, iMaxLon] = inst.bbox;
 
-      const payload = {
-        click: { lat, lng },
-        instrumento,
-        zona,
-        tabla
-      };
+        const minLat = south;
+        const maxLat = north;
+        const minLon = west;
+        const maxLon = east;
 
-      // paso dummy: guardamos en localStorage
-      localStorage.setItem("geoipt_reporte_actual", JSON.stringify(payload));
+        const noIntersecta =
+          iMaxLat < minLat ||
+          iMinLat > maxLat ||
+          iMaxLon < minLon ||
+          iMinLon > maxLon;
 
-      // aquí recién llamamos a info.html
-      window.location.href = "info.html";
+        return !noIntersecta;
+      });
     }
 
-    // ===================================
-    // 7. Análisis KML: punto dentro de polígono
-    // ===================================
-    function analizarKmlInstrumento(inst, lat, lng) {
-      const carpeta = inst.regionCarpeta;
+    async function buscarPoligonoQueContienePunto(inst, click) {
+      const carpeta = inst.regionCarpeta || inst.carpeta || "";
       const archivo = inst.archivo;
-      if (!carpeta || !archivo) {
-        return Promise.resolve(null);
+      if (!archivo) {
+        console.warn("Instrumento sin archivo KML:", inst);
+        return null;
       }
 
-      const url = `capas/${carpeta}/${archivo}`;
-      console.log("DEBUG · Leyendo KML:", url);
+      const rutaKml = carpeta ? \`capas/\${carpeta}/\${archivo}\` : archivo;
 
-      return fetch(url)
-        .then(r => {
-          if (!r.ok) throw new Error(`HTTP ${r.status} al cargar ${url}`);
-          return r.text();
-        })
-        .then(xmlText => {
-          const parser = new DOMParser();
-          const kmlDoc = parser.parseFromString(xmlText, "text/xml");
-          const geojson = toGeoJSON.kml(kmlDoc);
-          if (!geojson || !geojson.features) return null;
+      let textoKml = "";
+      try {
+        const resp = await fetch(rutaKml);
+        if (!resp.ok) {
+          console.error("No se pudo cargar KML:", rutaKml, resp.status);
+          return null;
+        }
+        textoKml = await resp.text();
+      } catch (err) {
+        console.error("Error de red cargando KML:", rutaKml, err);
+        return null;
+      }
 
-          const pt = turf.point([lng, lat]);
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(textoKml, "text/xml");
+      const placemarks = Array.from(xml.getElementsByTagName("Placemark"));
+      if (!placemarks.length) {
+        console.warn("KML sin placemarks:", rutaKml);
+        return null;
+      }
 
-          for (const feat of geojson.features) {
-            if (!feat || !feat.geometry) continue;
-            const tipo = feat.geometry.type;
-            if (tipo !== "Polygon" && tipo !== "MultiPolygon") continue;
+      const pt = [click.lng, click.lat];
 
-            const inside = turf.booleanPointInPolygon(pt, feat);
-            if (inside) {
-              return {
-                instrumento: inst,
-                zonaCodigo: feat.properties && (feat.properties.ZONA || feat.properties.zona || ""),
-                propiedadesZona: feat.properties || {}
-              };
+      for (const pm of placemarks) {
+        const coordsNode = pm.getElementsByTagName("coordinates")[0];
+        if (!coordsNode) continue;
+
+        const coordsText = coordsNode.textContent.trim();
+        if (!coordsText) continue;
+
+        const puntos = coordsText
+          .split(/\s+/)
+          .map((token) => {
+            const parts = token.split(",");
+            const lon = parseFloat(parts[0]);
+            const lat = parseFloat(parts[1]);
+            return [lon, lat];
+          })
+          .filter((p) => !Number.isNaN(p[0]) && !Number.isNaN(p[1]));
+
+        if (puntos.length < 3) continue;
+
+        const ring = puntos;
+
+        if (puntoEnPoligono(pt, ring)) {
+          const dataNodes = Array.from(pm.getElementsByTagName("Data"));
+          const attrsZona = {};
+
+          dataNodes.forEach((d) => {
+            const nombreAttr = d.getAttribute("name");
+            const valNode = d.getElementsByTagName("value")[0];
+            const valorAttr = valNode ? valNode.textContent.trim() : "";
+            if (nombreAttr) {
+              attrsZona[nombreAttr] = valorAttr;
             }
-          }
-          return null;
-        })
-        .catch(err => {
-          console.error("DEBUG · Error analizando KML", url, err);
-          return null;
-        });
-    }
-
-    function analizarKmls(hits, lat, lng) {
-      if (!hits.length) {
-        showHitsKml([]);
-        return;
-      }
-
-      Promise.all(hits.map(inst => analizarKmlInstrumento(inst, lat, lng)))
-        .then(resultados => {
-          const confirmados = resultados.filter(r => r !== null);
-          console.log("DEBUG · Resultados KML:", confirmados);
-          showHitsKml(confirmados);
-
-          // 👇 SOLO si hay match real llamamos a info.html
-          if (confirmados.length > 0) {
-            // usamos el primer match (en la práctica debiera ser uno)
-            enviarAInfo(lat, lng, confirmados[0], ULTIMOS_INSTRUMENTOS);
-          }
-        });
-    }
-
-    // ===================================
-    // 8. Click en el mapa
-    // ===================================
-    map.on("click", e => {
-      const { lat, lng } = e.latlng;
-      const frame = bboxFromLeaflet(map.getBounds());
-
-      // Marcar el punto clickeado
-      if (clickMarker) {
-        map.removeLayer(clickMarker);
-      }
-      clickMarker = L.circleMarker([lat, lng], {
-        radius: 5,
-        weight: 2
-      }).addTo(map);
-
-      // 1) Regiones cuyo BBOX intersecta el frame
-      const regionesVisibles = REGIONES.filter(r => {
-        if (!r.bbox) return false;
-        const b = bboxFromArray(r.bbox);
-        return intersecta(b, frame);
-      });
-
-      console.log("DEBUG · Regiones en frame:", regionesVisibles);
-
-      showRegiones(regionesVisibles);
-      drawBBoxRegiones(regionesVisibles);
-
-      if (!regionesVisibles.length) {
-        layerInstrumentos.clearLayers();
-        ULTIMOS_INSTRUMENTOS = [];
-        showInstrumentos([]);
-        showHits([]);
-        showHitsKml([]);
-        showParams(lat, lng, frame, 0, 0, 0);
-        return;
-      }
-
-      // 2) Para esas regiones, cargar listado.json y filtrar IPT por frame
-      Promise.all(regionesVisibles.map(loadListado))
-        .then(listados => {
-          const instrumentosCandidatos = [];
-
-          listados.forEach((listado, idx) => {
-            if (!listado) return;
-            const region = regionesVisibles[idx];
-            const instrumentos = listado.instrumentos || [];
-
-            instrumentos.forEach(inst => {
-              if (!inst.bbox) return;
-              const b = bboxFromArray(inst.bbox);
-              const enFrame = intersecta(b, frame);
-              if (!enFrame) return; // solo IPT que tocan la pantalla
-
-              const hit = pointInBbox(b, lat, lng);
-
-              instrumentosCandidatos.push({
-                regionId: region.id,
-                regionNombre: region.nombre,
-                regionCarpeta: region.carpeta,
-                ...inst,
-                containsPoint: hit
-              });
-            });
           });
 
-          ULTIMOS_INSTRUMENTOS = instrumentosCandidatos;
+          const nameNode = pm.getElementsByTagName("name")[0];
+          if (nameNode && nameNode.textContent) {
+            attrsZona["NOMBRE_PM"] = nameNode.textContent.trim();
+          }
 
-          const hits = instrumentosCandidatos.filter(i => i.containsPoint);
+          const geometryZona = {
+            type: "Polygon",
+            coordinates: [ring]
+          };
 
-          console.log("DEBUG · IPT en pantalla:", instrumentosCandidatos);
-          console.log("DEBUG · IPT con punto (BBOX):", hits);
+          return { attrsZona, geometryZona };
+        }
+      }
 
-          drawInstrumentos(instrumentosCandidatos);
-          showInstrumentos(instrumentosCandidatos);
-          showHits(hits);
-          showParams(
-            lat,
-            lng,
-            frame,
-            regionesVisibles.length,
-            instrumentosCandidatos.length,
-            hits.length
+      return null;
+    }
+
+    function puntoEnPoligono(pt, polygon) {
+      const x = pt[0];
+      const y = pt[1];
+      let dentro = false;
+
+      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i][0];
+        const yi = polygon[i][1];
+        const xj = polygon[j][0];
+        const yj = polygon[j][1];
+
+        const intersecta =
+          yi > y !== yj > y &&
+          x < ((xj - xi) * (y - yi)) / (yj - yi + 0.0) + xi;
+
+        if (intersecta) dentro = !dentro;
+      }
+
+      return dentro;
+    }
+
+    async function ejecutarMotor(click, bbox, candidatos) {
+      if (!candidatos.length) return null;
+
+      const tabla = candidatos.map(inst => ({
+        nombre: inst.nombre || inst.archivo,
+        tipo: inst.tipo || "",
+        comuna: inst.comuna || "",
+        contienePuntoBBOX: true
+      }));
+
+      for (const inst of candidatos) {
+        try {
+          const resultadoInstrumento = await buscarPoligonoQueContienePunto(inst, click);
+          if (resultadoInstrumento) {
+            const { attrsZona, geometryZona } = resultadoInstrumento;
+
+            const instrumentoReporte = {
+              nombre: inst.nombre || inst.archivo,
+              archivo: inst.archivo,
+              tipo: inst.tipo || "",
+              comuna: inst.comuna || "",
+              regionNombre: inst.regionNombre || "",
+              regionCarpeta: inst.regionCarpeta || inst.carpeta || ""
+            };
+
+            const zona = Object.assign({}, attrsZona || {});
+            zona.geometry = geometryZona;
+
+            return {
+              click: { lat: click.lat, lng: click.lng },
+              instrumento: instrumentoReporte,
+              zona,
+              tabla
+            };
+          }
+        } catch (err) {
+          console.error("Error evaluando instrumento", inst, err);
+        }
+      }
+
+      return null;
+    }
+
+    (async function main() {
+      const { lat, lon, north, east, south, west, bboxStr } = getParams();
+      const txtPunto = document.getElementById("txt-punto");
+      const txtBbox  = document.getElementById("txt-bbox");
+      const txtInst  = document.getElementById("txt-instrumentos");
+      const btnReporte = document.getElementById("btn-reporte");
+
+      if (Number.isNaN(lat) || Number.isNaN(lon)) {
+        txtPunto.textContent = "(parámetros lat/lon inválidos)";
+        return;
+      }
+
+      txtPunto.textContent = `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}`;
+      txtBbox.textContent  = bboxStr || "(sin bbox)";
+
+      // Mapa
+      const map = L.map("map");
+      if (
+        typeof north === "number" && typeof east === "number" &&
+        typeof south === "number" && typeof west === "number"
+      ) {
+        const bounds = L.latLngBounds([south, west], [north, east]);
+        map.fitBounds(bounds);
+      } else {
+        map.setView([lat, lon], 15);
+      }
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 20
+      }).addTo(map);
+
+      L.circleMarker([lat, lon], {
+        radius: 6,
+        weight: 2,
+        color: "#f97316",
+        fillColor: "#ffffff",
+        fillOpacity: 0.9
+      }).addTo(map);
+
+      // Cargar listado nacional
+      const data = await cargarJSON("capas/prc_bbox_nacional.json", "listado nacional");
+      if (!data) {
+        txtInst.textContent = "No se pudo cargar prc_bbox_nacional.json";
+        return;
+      }
+      const instrumentos = data.instrumentos || data;
+
+      const bbox = { north, east, south, west };
+      const candidatos = filtrarInstrumentosPorBbox(instrumentos, bbox);
+
+      if (!candidatos.length) {
+        txtInst.textContent = "No hay instrumentos que intersecten este BBOX.";
+      } else {
+        txtInst.textContent = JSON.stringify(
+          candidatos.map(c => ({
+            nombre: c.nombre,
+            archivo: c.archivo,
+            carpeta: c.regionCarpeta || c.carpeta,
+            comuna: c.comuna,
+            region: c.regionNombre
+          })),
+          null,
+          2
+        );
+      }
+
+      // Guardar parámetros "mínimos" en localStorage
+      const payloadMinimo = {
+        click: { lat, lon },
+        bbox: { north, east, south, west },
+        instrumentos: candidatos.map(c => ({
+          archivo: c.archivo,
+          carpeta: c.regionCarpeta || c.carpeta,
+          nombre: c.nombre,
+          comuna: c.comuna,
+          region: c.regionNombre
+        }))
+      };
+      localStorage.setItem("geoipt_bbox_parametros", JSON.stringify(payloadMinimo));
+
+      // Habilitar botón
+      btnReporte.disabled = false;
+
+      btnReporte.addEventListener("click", async () => {
+        btnReporte.disabled = true;
+        btnReporte.textContent = "Buscando polígono...";
+
+        const click = { lat, lng: lon };
+        const resultado = await ejecutarMotor(click, bbox, candidatos);
+
+        if (!resultado) {
+          alert(
+            "No se encontró ningún polígono PRC/SCC que contenga el punto.\n" +
+            "Por favor, haz clic sobre un área urbana."
           );
+          btnReporte.textContent = "Generar reporte en info.html";
+          btnReporte.disabled = false;
+          return;
+        }
 
-          // 3) Análisis fino: punto en polígono usando KML.
-          //    SOLO si encuentra polígono, llama a info.html.
-          analizarKmls(hits, lat, lng);
-        });
-    });
+        // Resultado final para info.html
+        localStorage.setItem("geoipt_reporte_actual", JSON.stringify(resultado));
+
+        const bboxStrOut = [north, east, south, west].join(",");
+        const urlInfo =
+          "info.html?lat=" +
+          encodeURIComponent(lat) +
+          "&lon=" +
+          encodeURIComponent(lon) +
+          "&bbox=" +
+          encodeURIComponent(bboxStrOut);
+
+        window.open(urlInfo, "_blank");
+        btnReporte.textContent = "Reporte generado";
+      });
+    })();
   </script>
 </body>
 </html>
