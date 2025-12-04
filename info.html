@@ -14,11 +14,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.2/proj4.js"></script>
 
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -104,9 +100,7 @@
       margin-bottom: 4px;
     }
 
-    .texto strong {
-      font-weight: 600;
-    }
+    .texto strong { font-weight: 600; }
 
     .resultado-ok {
       color: #16a34a;
@@ -154,9 +148,7 @@
       text-decoration: none;
     }
 
-    .adjuntos a:hover {
-      text-decoration: underline;
-    }
+    .adjuntos a:hover { text-decoration: underline; }
 
     .btn-volver {
       display: inline-block;
@@ -215,7 +207,8 @@
 
       <h2>Mapa de referencia</h2>
       <p class="tip">
-        Tip: puedes hacer clic nuevamente en este mapa para abrir un nuevo reporte sobre un nuevo punto (se abrirá en una pestaña adicional).
+        Tip: puedes hacer clic nuevamente en este mapa para abrir un nuevo reporte sobre un nuevo punto
+        (se abrirá en una pestaña adicional).
       </p>
       <div id="map"></div>
 
@@ -273,7 +266,7 @@
 
   <script>
     // ================================
-    // 1. Recuperar datos desde localStorage (motor BBOX+KML)
+    // 1. Recuperar datos desde localStorage
     // ================================
     function cargarDatosGeoipt() {
       try {
@@ -311,7 +304,7 @@
         instrumento.nombre || "";
 
       document.getElementById("region-texto").textContent =
-        instrumento.regionNombre || (zona && zona.REG) || "";
+        instrumento.regionNombre || (zona && zona.REG) || "Región no especificada";
 
       document.getElementById("instrumentos-texto").textContent =
         instrumento.nombre || instrumento.archivo || "(sin nombre)";
@@ -323,9 +316,9 @@
       document.getElementById("wgs-lon").textContent = lon.toFixed(6);
 
       // ================================
-      // 4. Cálculo simple de UTM: zona automática por longitud
+      // 4. Cálculo de UTM (zona automática)
       // ================================
-      let utmZone = Math.floor((lon + 180) / 6) + 1;   // zona UTM
+      let utmZone = Math.floor((lon + 180) / 6) + 1;
       if (utmZone < 1) utmZone = 1;
       if (utmZone > 60) utmZone = 60;
 
@@ -356,7 +349,7 @@
       }).addTo(map);
 
       // Punto consultado
-      const marcador = L.circleMarker([lat, lon], {
+      L.circleMarker([lat, lon], {
         radius: 7,
         weight: 3,
         color: "#0f172a",
@@ -365,7 +358,7 @@
       }).addTo(map);
 
       // ================================
-      // 5.b  Dibujar polígono de la zona (si viene en JSON)
+      // 5b. Dibujar polígono de la zona (azul semitransparente)
       // ================================
       (function dibujarPoligonoZona() {
         if (!zona) return;
@@ -380,27 +373,25 @@
         else if (zona.geojson) {
           if (zona.geojson.type === "Feature") {
             geom = zona.geojson.geometry;
-          } else if (zona.geojson.type === "FeatureCollection" &&
-                     zona.geojson.features &&
-                     zona.geojson.features.length > 0) {
+          } else if (
+            zona.geojson.type === "FeatureCollection" &&
+            zona.geojson.features &&
+            zona.geojson.features.length > 0
+          ) {
             geom = zona.geojson.features[0].geometry;
           }
         }
-        // Caso 3: zona.coords = array de [lon, lat] -> construimos Polygon
+        // Caso 3: zona.coords = array de [lon, lat]
         else if (Array.isArray(zona.coords) && zona.coords.length > 2) {
           const ring = zona.coords.map(function (par) {
-            return [par[0], par[1]]; // se asume [lon, lat]
+            return [par[0], par[1]]; // [lon, lat]
           });
-          // cerramos el anillo si hace falta
           const first = ring[0];
           const last = ring[ring.length - 1];
           if (first[0] !== last[0] || first[1] !== last[1]) {
             ring.push([first[0], first[1]]);
           }
-          geom = {
-            type: "Polygon",
-            coordinates: [ring]
-          };
+          geom = { type: "Polygon", coordinates: [ring] };
         }
 
         if (!geom) return;
@@ -408,14 +399,13 @@
         try {
           const capaZona = L.geoJSON(geom, {
             style: {
-              color: "#2563eb",
+              color: "#2563eb",     // borde azul
               weight: 2,
-              fillColor: "#60a5fa",
-              fillOpacity: 0.30
+              fillColor: "#3b82f6", // relleno azul
+              fillOpacity: 0.30     // semitransparente
             }
           }).addTo(map);
 
-          // Ajustar vista para incluir punto + polígono
           const bounds = capaZona.getBounds().extend([lat, lon]);
           map.fitBounds(bounds.pad(0.15));
         } catch (e) {
@@ -423,11 +413,14 @@
         }
       })();
 
-      // Tip opcional: abrir nuevo bbox_test en clic
-      map.on("click", function(e) {
-        const qLat = e.latlng.lat.toFixed(6);
-        const qLon = e.latlng.lng.toFixed(6);
-        const url = `bbox_test.html#lat=${qLat}&lon=${qLon}`;
+      // ================================
+      // 5c. Nueva consulta desde overview
+      //     Cada click abre index.html?lat=..&lon=.. en pestaña nueva
+      // ================================
+      map.on("click", function (e) {
+        const newLat = e.latlng.lat.toFixed(6);
+        const newLon = e.latlng.lng.toFixed(6);
+        const url = `index.html?lat=${newLat}&lon=${newLon}`;
         window.open(url, "_blank");
       });
 
@@ -457,13 +450,9 @@
             <th style="width: 180px;">${k}</th>
             <td>${v}</td>
           </tr>
-        `)
-        .join("");
-      tablaZona.innerHTML = `
-        <tbody>
-          ${filasZona}
-        </tbody>
-      `;
+        `).join("");
+
+      tablaZona.innerHTML = `<tbody>${filasZona}</tbody>`;
 
       // ================================
       // 8. Tabla de instrumentos en pantalla
@@ -483,15 +472,13 @@
       // ================================
       const carpeta = instrumento.regionCarpeta || instrumento.carpeta || "";
       const archivoKml = instrumento.archivo || "";
-      const rutaKml = carpeta
-        ? `capas/${carpeta}/${archivoKml}`
-        : archivoKml;
+      const rutaKml = carpeta ? `capas/${carpeta}/${archivoKml}` : archivoKml;
 
       const linkKml = document.getElementById("link-kml");
       linkKml.href = rutaKml;
 
       const linkJsonZona = document.getElementById("link-json-zona");
-      linkJsonZona.addEventListener("click", function(ev) {
+      linkJsonZona.addEventListener("click", function (ev) {
         ev.preventDefault();
         const blob = new Blob(
           [JSON.stringify(zona, null, 2)],
