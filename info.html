@@ -10,6 +10,8 @@
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   />
+  <!-- Proj4 para convertir a UTM -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.2/proj4.js"></script>
 
   <style>
     * {
@@ -25,196 +27,425 @@
       color: #0f172a;
       min-height: 100vh;
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
+      justify-content: center;
+      padding: 24px 8px;
     }
 
-    h1, h2, h3 {
-      margin-bottom: 10px;
+    .card {
+      width: 1100px;
+      max-width: 100%;
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 24px 24px 32px;
+      box-shadow: 0 8px 30px rgba(15, 23, 42, 0.18);
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      margin-bottom: 4px;
       color: #0f172a;
     }
 
-    #contenedor {
-      width: 900px;
-      max-width: 100%;
-      background: white;
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    h2 {
+      font-size: 1.2rem;
+      margin: 18px 0 10px;
+      color: #0f172a;
+    }
+
+    h3 {
+      font-size: 1rem;
+      margin: 16px 0 8px;
+      color: #0f172a;
+    }
+
+    .subtitulo {
+      font-size: 0.9rem;
+      color: #4b5563;
+      margin-bottom: 18px;
+    }
+
+    .grid-header {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+    }
+
+    .grid-header h4 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #6b7280;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    .grid-header div span.label {
+      font-weight: 600;
     }
 
     #map {
-      height: 300px;
+      height: 420px;
       width: 100%;
-      margin: 12px 0;
-      border-radius: 10px;
+      margin: 12px 0 4px;
+      border-radius: 12px;
       border: 1px solid #cbd5e1;
+    }
+
+    .tip {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-bottom: 6px;
+    }
+
+    .texto {
+      font-size: 0.88rem;
+      line-height: 1.4;
+      margin-bottom: 4px;
+    }
+
+    .texto strong {
+      font-weight: 600;
+    }
+
+    .resultado-ok {
+      color: #16a34a;
+      font-weight: 600;
+    }
+
+    ul {
+      margin: 4px 0 10px 18px;
+      font-size: 0.86rem;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 12px;
+      margin-top: 8px;
+      font-size: 0.86rem;
     }
 
     table th {
       background: #f1f5f9;
       text-align: left;
-      padding: 8px;
+      padding: 6px 8px;
       border-bottom: 2px solid #cbd5e1;
+      font-weight: 600;
     }
 
     table td {
-      padding: 8px;
+      padding: 6px 8px;
       border-bottom: 1px solid #e2e8f0;
     }
 
-    .btn {
-      padding: 8px 16px;
-      background: #0f172a;
-      color: white;
-      border-radius: 6px;
+    .nota {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 10px;
+    }
+
+    .adjuntos {
+      margin-top: 10px;
+      font-size: 0.86rem;
+    }
+
+    .adjuntos a {
+      color: #2563eb;
       text-decoration: none;
+    }
+
+    .adjuntos a:hover {
+      text-decoration: underline;
+    }
+
+    .btn-volver {
       display: inline-block;
-      margin-top: 20px;
+      margin-top: 18px;
+      padding: 7px 16px;
+      background: #0f172a;
+      color: #ffffff;
+      border-radius: 999px;
+      font-size: 0.86rem;
+      text-decoration: none;
     }
 
     .msg-error {
       color: #dc2626;
       background: #fee2e2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
       padding: 12px;
-      border-radius: 6px;
-      margin-bottom: 20px;
+      font-size: 0.86rem;
+      margin-top: 12px;
     }
   </style>
 </head>
+
 <body>
+  <div class="card">
+    <h1>GeoIPT - Reporte del punto consultado</h1>
+    <p class="subtitulo" id="subtitulo-instrumento"></p>
 
-<div id="contenedor">
-  <h1>Reporte GeoIPT</h1>
+    <div id="mensaje"></div>
 
-  <div id="mensaje"></div>
+    <div id="contenido" style="display:none;">
 
-  <div id="area-reporte" style="display:none;">
+      <!-- Encabezado con coordenadas / región / instrumento -->
+      <div class="grid-header">
+        <div>
+          <h4>Coordenadas WGS84</h4>
+          <div><span class="label">Lat:</span> <span id="wgs-lat"></span></div>
+          <div><span class="label">Lon:</span> <span id="wgs-lon"></span></div>
+        </div>
+        <div>
+          <h4>Coordenadas UTM (WGS84)</h4>
+          <div><span class="label">Este:</span> <span id="utm-e"></span></div>
+          <div><span class="label">Norte:</span> <span id="utm-n"></span></div>
+          <div><span class="label">EPSG:</span> <span id="utm-epsg"></span></div>
+        </div>
+        <div>
+          <h4>Región</h4>
+          <div><span id="region-texto"></span></div>
+        </div>
+        <div>
+          <h4>Instrumento(s) consultado(s)</h4>
+          <div id="instrumentos-texto"></div>
+        </div>
+      </div>
 
-    <h2 id="titulo-instrumento"></h2>
+      <h2>Mapa de referencia</h2>
+      <p class="tip">
+        Tip: puedes hacer clic nuevamente en este mapa para abrir un nuevo reporte sobre un nuevo punto (se abrirá en una pestaña adicional).
+      </p>
+      <div id="map"></div>
 
-    <div id="map"></div>
+      <h2>Consulta PRC / SCC (punto sobre polígonos del área visible)</h2>
+      <p class="texto">
+        Evaluación del punto sobre los polígonos de los instrumentos PRC/SCC detectados por el BBOX
+        en el área visible. El mapa principal se usa solo para zoom óptico; aquí se revisan
+        <strong>solo los KML que intersectan el frame actual</strong>.
+      </p>
+      <p class="texto resultado-ok" id="texto-resultado"></p>
+      <ul id="lista-coincidencias"></ul>
 
-    <h3>Zona donde cae el punto</h3>
-    <table id="tabla-zona"></table>
+      <h2 id="titulo-detalle-poligono"></h2>
+      <table id="tabla-zona"></table>
+      <p class="nota">
+        Nota: los atributos corresponden al polígono PRC/SCC que contiene el punto consultado,
+        según los campos declarados en el archivo KML de origen.
+      </p>
 
-    <h3>Instrumento</h3>
-    <table id="tabla-instrumento"></table>
+      <h3>Instrumentos en pantalla</h3>
+      <table id="tabla-lista">
+        <thead>
+          <tr>
+            <th>Instrumento</th>
+            <th>Tipo</th>
+            <th>Comuna</th>
+            <th>Match BBOX</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
 
-    <h3>Instrumentos en pantalla</h3>
-    <table id="tabla-lista"></table>
+      <div class="adjuntos">
+        <strong>Documentos adjuntos:</strong>
+        <ul>
+          <li>
+            <a href="#" id="link-kml" target="_blank" rel="noopener">
+              Descargar KML original del instrumento
+            </a>
+          </li>
+          <li>
+            <a href="#" id="link-json-zona">
+              Descargar atributos de la zona (JSON)
+            </a>
+          </li>
+        </ul>
+      </div>
 
-    <a href="index.html" class="btn">Volver al mapa</a>
-  </div>
-</div>
-
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<script>
-// ================================
-// 1. Recuperar datos del motor BBOX (bbox_test)
-// ================================
-function cargarDatosGeoipt() {
-  try {
-    const raw = localStorage.getItem("geoipt_reporte_actual");
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (e) {
-    console.error("Error leyendo localStorage", e);
-    return null;
-  }
-}
-
-const data = cargarDatosGeoipt();
-const msg  = document.getElementById("mensaje");
-const area = document.getElementById("area-reporte");
-
-if (!data) {
-  msg.innerHTML = `
-    <div class="msg-error">
-      No existe una consulta activa.  
-      Por favor, vuelva al mapa y seleccione un punto válido.
+      <a href="index.html" class="btn-volver">Volver al mapa</a>
     </div>
-  `;
-} else {
-  area.style.display = "block";
+  </div>
 
-  const { click, instrumento, zona, tabla } = data;
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  // ================================
-  // 2. Título del instrumento
-  // ================================
-  document.getElementById("titulo-instrumento").textContent =
-    instrumento.nombre || "Instrumento sin nombre";
+  <script>
+    // ================================
+    // 1. Recuperar datos desde localStorage (motor BBOX+KML)
+    // ================================
+    function cargarDatosGeoipt() {
+      try {
+        const raw = localStorage.getItem("geoipt_reporte_actual");
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch (e) {
+        console.error("Error leyendo geoipt_reporte_actual", e);
+        return null;
+      }
+    }
 
-  // ================================
-  // 3. Mapa centrado en el punto
-  // ================================
-  const map = L.map("map").setView([click.lat, click.lng], 16);
+    const data = cargarDatosGeoipt();
+    const mensaje = document.getElementById("mensaje");
+    const contenido = document.getElementById("contenido");
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 20
-  }).addTo(map);
+    if (!data) {
+      mensaje.innerHTML = `
+        <div class="msg-error">
+          No se encontraron datos de reporte activos.<br/>
+          Por favor, vuelva al mapa principal y seleccione un punto sobre una zona urbana.
+        </div>
+      `;
+    } else {
+      contenido.style.display = "block";
 
-  L.circleMarker([click.lat, click.lng], {
-    radius: 6,
-    weight: 3,
-    color: "#0f172a"
-  }).addTo(map);
+      const { click, instrumento, zona, tabla } = data;
+      const lat = click.lat;
+      const lon = click.lng;
 
-  // ================================
-  // 4. Tabla de zona PRC
-  // ================================
-  const tablaZona = document.getElementById("tabla-zona");
-  tablaZona.innerHTML = Object.entries(zona)
-    .map(([k,v]) => `<tr><th>${k}</th><td>${v}</td></tr>`)
-    .join("");
+      // ================================
+      // 2. Subtítulo, región, instrumento
+      // ================================
+      document.getElementById("subtitulo-instrumento").textContent =
+        instrumento.nombre || "";
 
-  // ================================
-  // 5. Tabla de instrumento (metadatos)
-  // ================================
-  const tablaInstr = document.getElementById("tabla-instrumento");
-  tablaInstr.innerHTML = `
-    <tr><th>Nombre</th><td>${instrumento.nombre}</td></tr>
-    <tr><th>Tipo</th><td>${instrumento.tipo}</td></tr>
-    <tr><th>Comuna</th><td>${instrumento.comuna}</td></tr>
-    <tr><th>Región</th><td>${instrumento.regionNombre}</td></tr>
-    <tr><th>Archivo</th><td>${instrumento.archivo}</td></tr>
-  `;
+      document.getElementById("region-texto").textContent =
+        instrumento.regionNombre || (zona.REG || "");
 
-  // ================================
-  // 6. Tabla de instrumentos en pantalla
-  // ================================
-  const tablaLista = document.getElementById("tabla-lista");
+      document.getElementById("instrumentos-texto").textContent =
+        instrumento.nombre || instrumento.archivo || "(sin nombre)";
 
-  tablaLista.innerHTML = `
-    <tr>
-      <th>Instrumento</th>
-      <th>Tipo</th>
-      <th>Comuna</th>
-      <th>Match</th>
-    </tr>
-    ${
-      tabla.map(i => `
+      // ================================
+      // 3. WGS84
+      // ================================
+      document.getElementById("wgs-lat").textContent = lat.toFixed(6);
+      document.getElementById("wgs-lon").textContent = lon.toFixed(6);
+
+      // ================================
+      // 4. Cálculo simple de UTM: zona automática por longitud
+      // ================================
+      let utmZone = Math.floor((lon + 180) / 6) + 1;   // zona UTM
+      if (utmZone < 1) utmZone = 1;
+      if (utmZone > 60) utmZone = 60;
+
+      const epsg = 32700 + utmZone; // hemisferio sur
+      const utmDef = `+proj=utm +zone=${utmZone} +south +datum=WGS84 +units=m +no_defs`;
+
+      let este = "";
+      let norte = "";
+      try {
+        const res = proj4("EPSG:4326", utmDef, [lon, lat]);
+        este = res[0].toFixed(3);
+        norte = res[1].toFixed(3);
+      } catch (e) {
+        console.error("Error en transformación UTM", e);
+      }
+
+      document.getElementById("utm-e").textContent = este;
+      document.getElementById("utm-n").textContent = norte;
+      document.getElementById("utm-epsg").textContent = `EPSG:${epsg}`;
+
+      // ================================
+      // 5. Mapa de referencia
+      // ================================
+      const map = L.map("map").setView([lat, lon], 17);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 20
+      }).addTo(map);
+
+      L.circleMarker([lat, lon], {
+        radius: 7,
+        weight: 3,
+        color: "#0f172a",
+        fillColor: "#ffffff",
+        fillOpacity: 0.9
+      }).addTo(map);
+
+      // Tip opcional: abrir nuevo bbox_test en clic
+      map.on("click", function(e) {
+        const qLat = e.latlng.lat.toFixed(6);
+        const qLon = e.latlng.lng.toFixed(6);
+        const url = `bbox_test.html#lat=${qLat}&lon=${qLon}`;
+        window.open(url, "_blank");
+      });
+
+      // ================================
+      // 6. Resultado de la consulta
+      // ================================
+      const textoResultado = document.getElementById("texto-resultado");
+      textoResultado.textContent =
+        "Resultado: el punto consultado se encuentra dentro de al menos un polígono PRC/SCC.";
+
+      const listaCoincidencias = document.getElementById("lista-coincidencias");
+      listaCoincidencias.innerHTML = `
+        <li>Coincidencia en archivo: <strong>${instrumento.archivo}</strong></li>
+      `;
+
+      // ================================
+      // 7. Detalle de atributos de la zona
+      // ================================
+      document.getElementById("titulo-detalle-poligono").textContent =
+        `Detalle de atributos del/los polígono(s) – ${instrumento.archivo}`;
+
+      const tablaZona = document.getElementById("tabla-zona");
+      const filasZona = Object.entries(zona)
+        .map(([k, v]) => `
+          <tr>
+            <th style="width: 180px;">${k}</th>
+            <td>${v}</td>
+          </tr>
+        `)
+        .join("");
+      tablaZona.innerHTML = `
+        <tbody>
+          ${filasZona}
+        </tbody>
+      `;
+
+      // ================================
+      // 8. Tabla de instrumentos en pantalla
+      // ================================
+      const cuerpoLista = document.querySelector("#tabla-lista tbody");
+      cuerpoLista.innerHTML = tabla.map(i => `
         <tr>
-          <td>${i.nombre}</td>
-          <td>${i.tipo}</td>
-          <td>${i.comuna}</td>
+          <td>${i.nombre || ""}</td>
+          <td>${i.tipo || ""}</td>
+          <td>${i.comuna || ""}</td>
           <td>${i.contienePuntoBBOX ? "✔" : ""}</td>
         </tr>
-      `).join("")
-    }
-  `;
-}
-</script>
+      `).join("");
 
+      // ================================
+      // 9. Documentos adjuntos
+      // ================================
+      const carpeta = instrumento.regionCarpeta || instrumento.carpeta || "";
+      const archivoKml = instrumento.archivo || "";
+      const rutaKml = carpeta
+        ? `capas/${carpeta}/${archivoKml}`
+        : archivoKml;
+
+      const linkKml = document.getElementById("link-kml");
+      linkKml.href = rutaKml;
+
+      const linkJsonZona = document.getElementById("link-json-zona");
+      linkJsonZona.addEventListener("click", function(ev) {
+        ev.preventDefault();
+        const blob = new Blob(
+          [JSON.stringify(zona, null, 2)],
+          { type: "application/json" }
+        );
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `geoipt_zona_${instrumento.archivo.replace(/\.kml$/i, "")}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    }
+  </script>
 </body>
 </html>
