@@ -3,7 +3,10 @@
 // Consulta PRC / SCC usando BBOX + click
 // Genera geoipt_reporte_actual en localStorage
 // y abre info.html?lat=..&lon=..&bbox=.. en pestaña nueva
-// Además: si index.html recibe ?lat&lon, ejecuta consulta automática.
+//
+// NOTA IMPORTANTE:
+// - Si index.html recibe ?lat&lon, SOLO se centra el mapa ahí.
+//   La consulta SIEMPRE se dispara únicamente al hacer click en el mapa.
 // =======================================================
 
 let map;
@@ -79,9 +82,8 @@ async function initGeoIPT() {
   configurarEventosMapa();
   actualizarListaInstrumentosEnPantalla();
 
-  // Si index.html llegó con ?lat&lon desde el overview,
-  // ejecutamos la consulta automáticamente.
-  consultaInicialDesdeParametros();
+  // Si index.html llegó con ?lat&lon, SOLO centramos el mapa.
+  centrarMapaDesdeParametros();
 }
 
 // --------------------------
@@ -185,6 +187,7 @@ function poblarComboInstrumentosPorRegion(regionObj) {
 // Eventos del mapa
 // --------------------------
 function configurarEventosMapa() {
+  // Click en el mapa SIEMPRE dispara la consulta
   map.on("click", async (e) => {
     const clickLat = e.latlng.lat;
     const clickLon = e.latlng.lng;
@@ -196,7 +199,7 @@ function configurarEventosMapa() {
   });
 }
 
-// Procesa una consulta (tanto desde click directo como desde parámetros)
+// Procesa una consulta (tanto desde click directo como desde otros eventuales usos futuros)
 async function procesarConsulta(lat, lon) {
   const bounds = map.getBounds();
   const bboxPantalla = {
@@ -342,7 +345,7 @@ async function ejecutarConsultaPRC(click, bboxPantalla) {
         };
 
         const zona = Object.assign({}, attrsZona || {});
-        zona.geometry = geometryZona;   // 👈 clave para dibujar el polígono
+        zona.geometry = geometryZona;   // CLAVE: para dibujar el polígono en info.html
 
         return {
           click: { lat: click.lat, lng: click.lng },
@@ -471,9 +474,10 @@ function puntoEnPoligono(pt, polygon) {
 }
 
 // --------------------------
-// Consulta automática desde parámetros (?lat&lon)
+// Centrar mapa desde parámetros (?lat&lon)
+// (SOLO centra, NO consulta)
 // --------------------------
-function consultaInicialDesdeParametros() {
+function centrarMapaDesdeParametros() {
   const params = new URLSearchParams(window.location.search);
   const latStr = params.get("lat");
   const lonStr = params.get("lon");
@@ -484,11 +488,6 @@ function consultaInicialDesdeParametros() {
   if (Number.isNaN(lat) || Number.isNaN(lon)) return;
 
   map.setView([lat, lon], 17);
-
-  // Pequeño delay para que Leaflet ajuste los bounds
-  setTimeout(() => {
-    procesarConsulta(lat, lon);
-  }, 300);
 }
 
 // --------------------------
