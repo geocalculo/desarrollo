@@ -1,1 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>GeoIPT – Reporte del punto consultado</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0b1120;
+      color: #e2e8f0;
+      font-family: system-ui, sans-serif;
+    }
+
+    .panel {
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #1e293b;
+      border-radius: 14px;
+      border: 1px solid #334155;
+    }
+
+    #map {
+      width: 100%;
+      height: 520px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #0f172a;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 20px;
+    }
+
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #1e293b;
+      font-size: 0.9rem;
+    }
+
+    th {
+      background: #1e293b;
+      color: #f1f5f9;
+      text-align: left;
+    }
+
+    h2 {
+      margin-top: 0;
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+
+    button {
+      padding: 10px 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      margin-right: 10px;
+      font-size: 0.95rem;
+    }
+
+    .btn-kml { background: #22c55e; color: black; }
+    .btn-json { background: #38bdf8; color: black; }
+  </style>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+
+<body>
+
+  <div class="panel">
+    <h2>Reporte del punto consultado</h2>
+    <div id="map"></div>
+
+    <div id="zona-info"></div>
+
+    <div style="margin-top:18px;">
+      <button class="btn-kml" id="btnKML">Descargar KML</button>
+      <button class="btn-json" id="btnJSON">Descargar JSON</button>
+    </div>
+
+  </div>
+
+<script>
+  //--------------------------------------------
+  // Recuperar datos desde bbox_test.html
+  //--------------------------------------------
+  let data = localStorage.getItem("geoipt_reporte_actual");
+  if (!data) {
+    document.body.innerHTML =
+      "<h2 style='color:white;text-align:center'>No hay reporte disponible.</h2>";
+  }
+
+  data = JSON.parse(data);
+
+  const lat = data.click.lat;
+  const lon = data.click.lon;
+  const zona = data.zona;
+  const inst = data.instrumento;
+
+  //--------------------------------------------
+  // Crear mapa
+  //--------------------------------------------
+  const map = L.map("map").setView([lat, lon], 17);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png")
+    .addTo(map);
+
+  //--------------------------------------------
+  // Dibujar polígono azul
+  //--------------------------------------------
+  function coordsLeaflet(geom) {
+    if (geom.type === "Polygon") {
+      return geom.coordinates[0].map(p => [p[1], p[0]]);
+    }
+    if (geom.type === "MultiPolygon") {
+      return geom.coordinates[0][0].map(p => [p[1], p[0]]);
+    }
+    return [];
+  }
+
+  const polyCoords = coordsLeaflet(zona.geometry);
+
+  const poly = L.polygon(polyCoords, {
+    color: "#2563eb",
+    weight: 2,
+    fillColor: "#60a5fa",
+    fillOpacity: 0.35
+  }).addTo(map);
+
+  map.fitBounds(poly.getBounds(), { animate: true });
+
+  //--------------------------------------------
+  // Contenido zona y atributos
+  //--------------------------------------------
+  let html = `
+    <h3>Instrumento: ${inst.nombre}</h3>
+    <p><strong>Región:</strong> ${inst.regionNombre}</p>
+    <p><strong>Tipo de zona:</strong> ${zona.TIPO}</p>
+    <h3>Atributos de la Zona</h3>
+    <table>
+      <tr><th>Campo</th><th>Valor</th></tr>
+  `;
+
+  for (const k in zona.atributos) {
+    html += `<tr><td>${k}</td><td>${zona.atributos[k]}</td></tr>`;
+  }
+
+  html += "</table>";
+
+  document.getElementById("zona-info").innerHTML = html;
+
+
+  //--------------------------------------------
+  // Generar archivo KML SOLO de la zona
+  //--------------------------------------------
+  function generarKML() {
+    const fecha = new Date();
+    const yyyy = fecha.getFullYear();
+    const mm = String(fecha.getMonth() + 1).padStart(2, "0");
+    const dd = String(fecha.getDate()).padStart(2, "0");
+    const hh = String(fecha.getHours()).padStart(2, "0");
+    const mn = String(fecha.getMinutes()).padStart(2, "0");
+
+    const timestamp = `${yyyy}${mm}${dd}-${hh}${mn}`;
+
+    const nombreFile =
+      `${inst.nombre.replace(/\s+/g, "_")}_ZONA_${zona.TIPO}_${timestamp}.kml`;
+
+    // Convertir coords a formato lon,lat
+    const linear = zona.geometry.coordinates[0]
+      .map(c => `${c[0]},${c[1]},0`)
+      .join(" ");
+
+    const kml = `
+      <?xml version="1.0" encoding="UTF-8"?>
+      <kml xmlns="http://www.opengis.net/kml/2.2">
+        <Document>
+          <name>${nombreFile}</name>
+          <Placemark>
+            <Style>
+              <LineStyle><color>ff2563eb</color><width>2</width></LineStyle>
+              <PolyStyle><color>552563eb</color></PolyStyle>
+            </Style>
+            <Polygon>
+              <outerBoundaryIs>
+                <LinearRing>
+                  <coordinates>${linear}</coordinates>
+                </LinearRing>
+              </outerBoundaryIs>
+            </Polygon>
+          </Placemark>
+        </Document>
+      </kml>
+    `;
+
+    const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombreFile;
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  document.getElementById("btnKML").onclick = generarKML;
+
+  //--------------------------------------------
+  // Descargar JSON
+  //--------------------------------------------
+  document.getElementById("btnJSON").onclick = () => {
+    const nombre =
+      `${inst.nombre.replace(/\s+/g, "_")}_ZONA_${zona.TIPO}.json`;
+
+    const blob = new Blob(
+      [JSON.stringify(data, null, 2)],
+      { type: "application/json" }
+    );
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombre;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  //--------------------------------------------
+  // Click en mapa → volver al index para nueva consulta
+  //--------------------------------------------
+  map.on("click", () => {
+    window.open("index.html", "_blank");
+  });
+
+</script>
+
+</body>
+</html>
 <!-- full info.html content here -->
