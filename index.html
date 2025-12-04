@@ -2,15 +2,13 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>GeoIPT - Mapa de consulta Instrumentos de Planificación Territorial</title>
+  <title>GeoIPT - Mapa de consulta Instrumentos PRC / SCC</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
   />
 
   <style>
@@ -18,8 +16,8 @@
 
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-      Roboto, Helvetica, Arial, sans-serif;
-      background: #0b1120;
+        Roboto, Helvetica, Arial, sans-serif;
+      background: #020617;
       color: #e5e7eb;
       min-height: 100vh;
       display: flex;
@@ -36,120 +34,135 @@
       max-width: 1200px;
       margin: 0 auto;
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 0.75rem;
+      gap: 12px;
     }
 
-    .brand { display: flex; flex-direction: column; gap: 0.15rem; }
-    .brand-title { font-size: 1.1rem; font-weight: 600; }
-    .brand-subtitle { font-size: 0.78rem; color: #9ca3af; }
+    .brand {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .brand-subtitle {
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
 
     .controls {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.5rem;
+      gap: 8px;
       align-items: center;
+      font-size: 0.85rem;
     }
 
     .control-group {
       display: flex;
       flex-direction: column;
-      gap: 0.15rem;
-      min-width: 180px;
+      gap: 2px;
+    }
+
+    .control-group label {
+      font-size: 0.75rem;
+      color: #9ca3af;
     }
 
     select {
-      background: #020617;
+      min-width: 190px;
+      padding: 4px 8px;
       border-radius: 999px;
-      border: 1px solid #1f2937;
+      border: 1px solid #4b5563;
+      background: #020617;
       color: #e5e7eb;
-      padding: 0.3rem 0.75rem;
       font-size: 0.85rem;
     }
 
     main {
       flex: 1;
-      position: relative;
+      display: flex;
+      justify-content: center;
+      padding: 12px 8px 16px;
     }
 
-    .map-container {
-      max-width: 1200px;
-      margin: 10px auto;
-      position: relative;
+    .layout {
+      width: 1200px;
+      max-width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
-    #map {
+    #mapaGeoipt {
       width: 100%;
       height: calc(100vh - 150px);
       min-height: 420px;
-      border-radius: 1rem;
-      border: 1px solid #1f2937;
+      border-radius: 12px;
+      border: 1px solid #111827;
+      overflow: hidden;
     }
 
-    .hint {
-      margin-top: 6px;
-      font-size: 0.8rem;
+    .footer-panel {
+      font-size: 0.78rem;
       color: #9ca3af;
-    }
-
-    /* Botón mira de rifle */
-    #mira-rifle {
-      position: absolute;
-      bottom: 25px;
-      right: 25px;
-      z-index: 5000;
-      width: 46px;
-      height: 46px;
-      background: #ffffffee;
-      border-radius: 50%;
       display: flex;
-      justify-content: center;
-      align-items: center;
-      cursor: pointer;
-      border: 1px solid #d1d5db;
-      backdrop-filter: blur(6px);
+      flex-direction: column;
+      gap: 6px;
     }
 
-    #mira-rifle::before {
-      content: "";
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      border: 2px solid #111827;
-      box-shadow: 0 0 0 1px #111827;
+    .footer-panel strong {
+      color: #e5e7eb;
     }
-    #mira-rifle::after {
-      content: "";
-      position: absolute;
-      width: 2px;
-      height: 18px;
-      background: #111827;
+
+    #listaInstrumentos {
+      background: #020617;
+      border-radius: 10px;
+      border: 1px solid #111827;
+      padding: 8px 10px;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+
+    #listaInstrumentos ul {
+      list-style: disc;
+      padding-left: 18px;
+      font-size: 0.8rem;
+    }
+
+    #listaInstrumentos li {
+      margin-bottom: 2px;
+    }
+
+    .instr {
+      font-size: 0.78rem;
     }
   </style>
 </head>
-
 <body>
   <header>
     <div class="header-inner">
       <div class="brand">
-        <div class="brand-title">GeoIPT</div>
-        <div class="brand-subtitle">
+        <span class="brand-title">GeoIPT</span>
+        <span class="brand-subtitle">
           Consulta rápida de instrumentos de planificación territorial (PRC / SCC)
-        </div>
+        </span>
       </div>
-
       <div class="controls">
         <div class="control-group">
-          <label for="region-select">Región</label>
-          <select id="region-select"></select>
+          <label for="regionSelect">Región</label>
+          <select id="regionSelect">
+            <option value="">(cargando...)</option>
+          </select>
         </div>
-
         <div class="control-group">
-          <label for="instrumento-select">Instrumento (zoom óptico)</label>
-          <select id="instrumento-select" disabled>
-            <option value="">Selecciona un instrumento para hacer zoom</option>
+          <label for="instrumentoSelect">Instrumento (zoom óptico)</label>
+          <select id="instrumentoSelect">
+            <option value="">Todos los instrumentos</option>
           </select>
         </div>
       </div>
@@ -157,284 +170,272 @@
   </header>
 
   <main>
-    <div class="map-container">
-      <div id="map"></div>
-      <p class="hint">
-        <strong>Instrucciones:</strong>
-        Selecciona región e instrumento para ubicarte. Luego haz clic en el mapa
-        para abrir el reporte del punto (usa solo el área visible de la pantalla).
-      </p>
+    <div class="layout">
+      <div id="mapaGeoipt"></div>
 
-      <div id="mira-rifle" title="Ir a mi ubicación"></div>
+      <div class="footer-panel">
+        <div>
+          <strong>Instrucciones:</strong>
+          Selecciona región e instrumento para ubicarte. Luego haz clic en el mapa
+          para abrir el <strong>motor BBOX</strong> (bbox_test.html) con el punto consultado
+          y el área visible; allí se determinarán los IPT.kml a explorar y
+          se generará el reporte en info.html.
+        </div>
+        <div class="instr">
+          <strong>Instrumentos PRC/SCC detectados en el BBOX actual:</strong>
+        </div>
+        <div id="listaInstrumentos">
+          (cargando instrumentos…)
+        </div>
+      </div>
     </div>
   </main>
 
   <!-- Leaflet JS -->
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
-  ></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    const regionSelect = document.getElementById("region-select");
-    const instrumentoSelect = document.getElementById("instrumento-select");
-    let regionesData = [];
     let map;
+    let regiones = [];
+    let instrumentosNacionales = [];
 
-    // -------------------------
-    // MAPA BASE
-    // -------------------------
-    function initMapa() {
-      const mapaCalle = L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {
-          maxZoom: 19,
-          attribution: "&copy; OpenStreetMap contributors",
-        }
-      );
+    const REGION_SELECT_ID = "regionSelect";
+    const INSTRUMENTO_SELECT_ID = "instrumentoSelect";
+    const LISTA_INSTRUMENTOS_ID = "listaInstrumentos";
 
-      const mapaSatelite = L.tileLayer(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        {
-          maxZoom: 19,
-          attribution:
-            "Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP",
-        }
-      );
-
-      map = L.map("map", {
-        center: [-27.5, -70.25],
-        zoom: 7,
-        minZoom: 4,
-        maxZoom: 19,
-        layers: [mapaCalle],
-      });
-
-      L.control
-        .layers(
-          {
-            "Mapa calle": mapaCalle,
-            Satélite: mapaSatelite,
-          },
-          {},
-          { position: "topright" }
-        )
-        .addTo(map);
-
-      // CLICK → info.html con lat, lon y BBOX (sin región)
-      map.on("click", (e) => {
-        const url = new URL("info.html", window.location.href);
-
-        // 1) Punto consultado
-        url.searchParams.set("lat", e.latlng.lat.toFixed(6));
-        url.searchParams.set("lon", e.latlng.lng.toFixed(6));
-
-        // 2) BBOX visible (minLon,minLat,maxLon,maxLat)
-        const bounds = map.getBounds();
-        const sw = bounds.getSouthWest();
-        const ne = bounds.getNorthEast();
-
-        url.searchParams.set(
-          "bbox",
-          [
-            sw.lng.toFixed(6),
-            sw.lat.toFixed(6),
-            ne.lng.toFixed(6),
-            ne.lat.toFixed(6),
-          ].join(",")
-        );
-
-        // Importante: NO enviamos la región
-        window.open(url, "_blank");
-      });
-
-      // Mira de rifle (geolocalización)
-      const mira = document.getElementById("mira-rifle");
-      if (mira) {
-        mira.addEventListener("click", () => {
-          if (!navigator.geolocation) {
-            alert("Tu navegador no soporta geolocalización.");
-            return;
-          }
-
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              map.setView([pos.coords.latitude, pos.coords.longitude], 16);
-            },
-            (err) => {
-              console.error(err);
-              alert("No se pudo obtener tu ubicación.");
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-          );
-        });
-      }
-    }
-
-    // -------------------------
-    // REGIONES
-    // -------------------------
-    async function cargarRegiones() {
+    async function cargarJSON(url, descripcion) {
       try {
-        const resp = await fetch("capas/regiones.json");
-        if (!resp.ok) throw new Error("No se pudo leer capas/regiones.json");
-
-        const data = await resp.json();
-        regionesData = Array.isArray(data)
-          ? data
-          : data.regiones_ipt || data.regiones || [];
-
-        regionSelect.innerHTML = "";
-
-        regionesData
-          .filter((r) => r.activo !== false)
-          .forEach((r) => {
-            const opt = document.createElement("option");
-            opt.value = r.codigo_ine;
-            const nombreCorto = r.nombre.replace(/^Región( de)? /i, "");
-            opt.textContent = `${r.codigo_ine} - ${nombreCorto}`;
-            regionSelect.appendChild(opt);
-          });
-
-        let defaultCode = "03";
-        if (!regionesData.some((r) => r.codigo_ine === defaultCode)) {
-          defaultCode = regionesData[0]?.codigo_ine;
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          console.error(\`Error al cargar \${descripcion} desde \${url}: \`, resp.status);
+          return null;
         }
-
-        if (defaultCode) {
-          regionSelect.value = defaultCode;
-          centrarEnRegion(defaultCode);
-          cargarInstrumentos(defaultCode);
-        }
+        return await resp.json();
       } catch (err) {
-        console.error("Error cargando regiones:", err);
+        console.error(\`Excepción al cargar \${descripcion} desde \${url}: \`, err);
+        return null;
       }
     }
 
-    function obtenerRegionPorCodigo(cod) {
-      return regionesData.find((r) => r.codigo_ine === cod) || null;
-    }
-
-    function centrarEnRegion(cod) {
-      const reg = obtenerRegionPorCodigo(cod);
-      if (!reg || !Array.isArray(reg.centro)) return;
-      const [lat, lon] = reg.centro;
-      const zoom = reg.zoom || 7;
-      map.setView([lat, lon], zoom);
-    }
-
-    // -------------------------
-    // INSTRUMENTOS
-    // -------------------------
-    async function cargarInstrumentos(regionCode) {
-      instrumentoSelect.innerHTML = "";
-      instrumentoSelect.disabled = true;
-
-      const def = document.createElement("option");
-      def.value = "";
-      def.textContent = "Selecciona un instrumento para hacer zoom";
-      instrumentoSelect.appendChild(def);
-
-      const reg = obtenerRegionPorCodigo(regionCode);
-      if (!reg) {
-        console.warn("No se encontró la región", regionCode);
+    async function initGeoIPT() {
+      const mapDiv = document.getElementById("mapaGeoipt");
+      if (!mapDiv) {
+        console.error("No se encontró el DIV del mapa");
         return;
       }
 
-      const carpetaRegion = reg.carpeta; // ej: "capas_03"
-      const url = `capas/${carpetaRegion}/listado.json`;
+      map = L.map("mapaGeoipt", {
+        center: [-30.5, -71.0],
+        zoom: 5,
+        minZoom: 4,
+        maxZoom: 19
+      });
 
-      try {
-        const resp = await fetch(url);
-        if (!resp.ok) {
-          console.warn("No se pudo leer", url, resp.status);
-          return;
-        }
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 20,
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(map);
 
-        const data = await resp.json();
-        const lista = data.instrumentos || data.kml || [];
-
-        lista.forEach((entry) => {
-          let archivo = "";
-          let nombre = "";
-
-          if (typeof entry === "string") {
-            archivo = entry;
-            nombre = entry.replace(/\.kml$/i, "");
-          } else if (entry && typeof entry === "object") {
-            archivo = entry.archivo || entry.kml || "";
-            nombre = (entry.nombre || archivo || "").replace(/\.kml$/i, "");
-          }
-
-          if (!archivo) return;
-
-          const opt = document.createElement("option");
-          opt.value = archivo;
-          opt.textContent = nombre;
-          instrumentoSelect.appendChild(opt);
-        });
-
-        instrumentoSelect.disabled = instrumentoSelect.options.length <= 1;
-      } catch (e) {
-        console.error("Error leyendo instrumentos:", e);
+      // Cargar regiones
+      const regionesData = await cargarJSON("regiones.json", "regiones");
+      if (regionesData) {
+        regiones = regionesData.regiones_ipt || regionesData.regiones || [];
       }
+
+      // Cargar listado nacional de instrumentos PRC/SCC
+      const instrumentosData = await cargarJSON(
+        "capas/prc_bbox_nacional.json",
+        "listado nacional de instrumentos"
+      );
+      if (instrumentosData) {
+        instrumentosNacionales = instrumentosData.instrumentos || instrumentosData;
+      } else {
+        instrumentosNacionales = [];
+      }
+
+      poblarComboRegiones();
+      poblarComboInstrumentosPorRegion(null);
+      actualizarListaInstrumentosEnPantalla();
+
+      // Click: envía lat, lon, bbox a bbox_test.html
+      map.on("click", function (e) {
+        const lat = e.latlng.lat.toFixed(6);
+        const lon = e.latlng.lng.toFixed(6);
+
+        const bounds = map.getBounds();
+        const north = bounds.getNorth();
+        const south = bounds.getSouth();
+        const east  = bounds.getEast();
+        const west  = bounds.getWest();
+
+        const bboxStr = [north, east, south, west].join(",");
+
+        const url = \`bbox_test.html?lat=\${lat}&lon=\${lon}&bbox=\${encodeURIComponent(bboxStr)}\`;
+        window.open(url, "_blank");
+      });
+
+      // Cuando se mueve el mapa, actualizamos lista visual de instrumentos
+      map.on("moveend", () => {
+        actualizarListaInstrumentosEnPantalla();
+      });
     }
 
-    async function zoomAlInstrumento(regionCode, archivo) {
-      if (!archivo) return;
+    function poblarComboRegiones() {
+      const regionSelect = document.getElementById(REGION_SELECT_ID);
+      if (!regionSelect) return;
 
-      const reg = obtenerRegionPorCodigo(regionCode);
-      if (!reg) return;
+      regionSelect.innerHTML = "";
 
-      const carpetaRegion = reg.carpeta;
-      const url = `capas/${carpetaRegion}/${archivo}`;
+      const optDefault = document.createElement("option");
+      optDefault.value = "";
+      optDefault.textContent = "Todas las regiones";
+      regionSelect.appendChild(optDefault);
 
-      try {
-        const resp = await fetch(url);
-        if (!resp.ok) {
-          console.warn("No se pudo abrir el KML:", url);
-          return;
-        }
-        const txt = await resp.text();
-
-        const xml = new DOMParser().parseFromString(txt, "application/xml");
-        const coords = xml.querySelectorAll("coordinates");
-
-        const puntos = [];
-        coords.forEach((c) => {
-          c.textContent
-            .trim()
-            .split(/\s+/)
-            .forEach((par) => {
-              const [lon, lat] = par.split(",").map(Number);
-              if (!isNaN(lat) && !isNaN(lon)) puntos.push([lat, lon]);
-            });
-        });
-
-        if (puntos.length) {
-          map.fitBounds(L.latLngBounds(puntos), { padding: [30, 30] });
-        }
-      } catch (e) {
-        console.warn("No se pudo procesar el KML:", e);
-      }
-    }
-
-    // -------------------------
-    // INICIO
-    // -------------------------
-    document.addEventListener("DOMContentLoaded", () => {
-      initMapa();
-      cargarRegiones();
+      regiones.forEach((reg) => {
+        const opt = document.createElement("option");
+        opt.value = reg.id || reg.nombre;
+        opt.textContent = reg.nombre || reg.id;
+        regionSelect.appendChild(opt);
+      });
 
       regionSelect.addEventListener("change", () => {
-        const code = regionSelect.value;
-        centrarEnRegion(code);
-        cargarInstrumentos(code);
+        const valor = regionSelect.value;
+        if (!valor) return;
+
+        const reg = regiones.find(
+          (r) => String(r.id) === valor || r.nombre === valor
+        );
+        if (!reg) return;
+
+        if (reg.centro && reg.zoom) {
+          map.setView([reg.centro[0], reg.centro[1]], reg.zoom);
+        } else if (reg.bbox && reg.bbox.length === 4) {
+          const [minLat, minLon, maxLat, maxLon] = reg.bbox;
+          const bounds = L.latLngBounds([minLat, minLon], [maxLat, maxLon]);
+          map.fitBounds(bounds);
+        }
+
+        poblarComboInstrumentosPorRegion(reg);
+        actualizarListaInstrumentosEnPantalla();
+      });
+    }
+
+    function poblarComboInstrumentosPorRegion(regionObj) {
+      const instrumentoSelect = document.getElementById(INSTRUMENTO_SELECT_ID);
+      if (!instrumentoSelect) return;
+
+      instrumentoSelect.innerHTML = "";
+
+      const optDefault = document.createElement("option");
+      optDefault.value = "";
+      optDefault.textContent = "Todos los instrumentos";
+      instrumentoSelect.appendChild(optDefault);
+
+      let filtroRegionNombre = null;
+      let filtroCarpeta = null;
+
+      if (regionObj) {
+        filtroRegionNombre = regionObj.nombre || null;
+        filtroCarpeta = regionObj.carpeta || regionObj.id || null;
+      }
+
+      const instrumentosFiltrados = instrumentosNacionales.filter((inst) => {
+        if (!regionObj) return true;
+        if (inst.regionNombre && filtroRegionNombre) {
+          return inst.regionNombre === filtroRegionNombre;
+        }
+        if (inst.regionCarpeta && filtroCarpeta) {
+          return inst.regionCarpeta === filtroCarpeta;
+        }
+        if (inst.carpeta && filtroCarpeta) {
+          return inst.carpeta === filtroCarpeta;
+        }
+        return true;
+      });
+
+      instrumentosFiltrados.forEach((inst, idx) => {
+        const opt = document.createElement("option");
+        opt.value = inst.archivo || String(idx);
+        opt.textContent = inst.nombre || inst.archivo || \`Instrumento \${idx + 1}\`;
+        instrumentoSelect.appendChild(opt);
       });
 
       instrumentoSelect.addEventListener("change", () => {
-        zoomAlInstrumento(regionSelect.value, instrumentoSelect.value);
+        const valor = instrumentoSelect.value;
+        if (!valor) return;
+        const inst = instrumentosNacionales.find((i) => i.archivo === valor);
+        if (inst && Array.isArray(inst.bbox) && inst.bbox.length === 4) {
+          const [minLat, minLon, maxLat, maxLon] = inst.bbox;
+          const bounds = L.latLngBounds([minLat, minLon], [maxLat, maxLon]);
+          map.fitBounds(bounds);
+        }
+      });
+    }
+
+    function filtrarInstrumentosPorBbox(bbox) {
+      const { north, east, south, west } = bbox;
+
+      return instrumentosNacionales.filter((inst) => {
+        if (!inst.bbox || inst.bbox.length !== 4) return false;
+        const [iMinLat, iMinLon, iMaxLat, iMaxLon] = inst.bbox;
+
+        const minLat = south;
+        const maxLat = north;
+        const minLon = west;
+        const maxLon = east;
+
+        const noIntersecta =
+          iMaxLat < minLat ||
+          iMinLat > maxLat ||
+          iMaxLon < minLon ||
+          iMinLon > maxLon;
+
+        return !noIntersecta;
+      });
+    }
+
+    function actualizarListaInstrumentosEnPantalla() {
+      const contenedor = document.getElementById(LISTA_INSTRUMENTOS_ID);
+      if (!contenedor) return;
+      if (!instrumentosNacionales.length || !map) {
+        contenedor.textContent = "(sin datos)";
+        return;
+      }
+
+      const bounds = map.getBounds();
+      const bbox = {
+        north: bounds.getNorth(),
+        east:  bounds.getEast(),
+        south: bounds.getSouth(),
+        west:  bounds.getWest()
+      };
+
+      const enPantalla = filtrarInstrumentosPorBbox(bbox);
+
+      if (!enPantalla.length) {
+        contenedor.textContent = "No hay instrumentos PRC/SCC en el área visible.";
+        return;
+      }
+
+      const ul = document.createElement("ul");
+      enPantalla.forEach((inst) => {
+        const li = document.createElement("li");
+        li.textContent =
+          (inst.regionNombre || "") +
+          " – " +
+          (inst.comuna || "") +
+          " – " +
+          (inst.nombre || inst.archivo);
+        ul.appendChild(li);
+      });
+
+      contenedor.innerHTML = "";
+      contenedor.appendChild(ul);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      initGeoIPT().catch((err) => {
+        console.error("Error inicializando GeoIPT:", err);
       });
     });
   </script>
