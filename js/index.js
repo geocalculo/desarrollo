@@ -2,25 +2,23 @@
 // GeoIPT - index.js (Desarrollo)
 // Consulta PRC / SCC usando BBOX + click
 // Genera geoipt_reporte_actual en localStorage
-// y abre info.html?lat=..&lon=..&bbox=..
+// y abre info.html?lat=..&lon=..&bbox=.. en pestaña nueva
+// Además: si index.html recibe ?lat&lon, ejecuta consulta automática.
 // =======================================================
 
-// -------------------------------------------------------
-// Variables globales
-// -------------------------------------------------------
 let map;
 let regiones = [];
 let instrumentosNacionales = [];
 
-// IDs esperados en el HTML
-const MAP_ID = "mapaGeoipt";          // <div id="mapaGeoipt"></div>
+// IDs en el HTML
+const MAP_ID = "mapaGeoipt";
 const REGION_SELECT_ID = "regionSelect";
 const INSTRUMENTO_SELECT_ID = "instrumentoSelect";
 const LISTA_INSTRUMENTOS_ID = "listaInstrumentos";
 
-// -------------------------------------------------------
-// Utilidad: cargar JSON
-// -------------------------------------------------------
+// --------------------------
+// Cargar JSON genérico
+// --------------------------
 async function cargarJSON(url, descripcion) {
   try {
     const resp = await fetch(url);
@@ -35,11 +33,10 @@ async function cargarJSON(url, descripcion) {
   }
 }
 
-// -------------------------------------------------------
+// --------------------------
 // Inicialización principal
-// -------------------------------------------------------
+// --------------------------
 async function initGeoIPT() {
-  // 1. Crear mapa
   const mapDiv = document.getElementById(MAP_ID);
   if (!mapDiv) {
     console.error(`No se encontró el DIV del mapa con id="${MAP_ID}"`);
@@ -47,7 +44,7 @@ async function initGeoIPT() {
   }
 
   map = L.map(MAP_ID, {
-    center: [-30.5, -71.0], // centro aproximado de Chile
+    center: [-30.5, -71.0],
     zoom: 5,
     minZoom: 4,
     maxZoom: 19
@@ -58,9 +55,7 @@ async function initGeoIPT() {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
   }).addTo(map);
 
-  // 2. Cargar regiones
-  //    Estructura esperada:
-  //    { "regiones_ipt": [ { id, nombre, carpeta, centro, zoom, bbox }, ... ] }
+  // Regiones
   const regionesData = await cargarJSON("regiones.json", "regiones");
   if (regionesData) {
     regiones = regionesData.regiones_ipt || regionesData.regiones || [];
@@ -68,24 +63,7 @@ async function initGeoIPT() {
     regiones = [];
   }
 
-  // 3. Cargar listado nacional de instrumentos
-  //    Ajusta el nombre si tu archivo se llama distinto.
-  //
-  //    Estructura esperada (ejemplo):
-  //    {
-  //      "instrumentos": [
-  //        {
-  //          "nombre": "PRC Copiapó",
-  //          "archivo": "IPT_03_PRC_Copiapo.kml",
-  //          "tipo": "PRC",
-  //          "comuna": "Copiapó",
-  //          "regionNombre": "Región de Atacama",
-  //          "regionCarpeta": "capas_03",
-  //          "bbox": [minLat, minLon, maxLat, maxLon]
-  //        },
-  //        ...
-  //      ]
-  //    }
+  // Listado nacional PRC/SCC (BBOX nacional)
   const instrumentosData = await cargarJSON(
     "capas/prc_bbox_nacional.json",
     "listado nacional de instrumentos"
@@ -96,20 +74,19 @@ async function initGeoIPT() {
     instrumentosNacionales = [];
   }
 
-  // 4. Poblar combos (si existen)
   poblarComboRegiones();
   poblarComboInstrumentosPorRegion(null);
-
-  // 5. Eventos del mapa
   configurarEventosMapa();
-
-  // 6. Refrescar lista visual de instrumentos en pantalla (opcional)
   actualizarListaInstrumentosEnPantalla();
+
+  // Si index.html llegó con ?lat&lon desde el overview,
+  // ejecutamos la consulta automáticamente.
+  consultaInicialDesdeParametros();
 }
 
-// -------------------------------------------------------
-// Poblar combo de regiones
-// -------------------------------------------------------
+// --------------------------
+// Poblar combo regiones
+// --------------------------
 function poblarComboRegiones() {
   const regionSelect = document.getElementById(REGION_SELECT_ID);
   if (!regionSelect || !Array.isArray(regiones)) return;
@@ -141,10 +118,7 @@ function poblarComboRegiones() {
       map.setView([reg.centro[0], reg.centro[1]], reg.zoom);
     } else if (reg.bbox && reg.bbox.length === 4) {
       const [minLat, minLon, maxLat, maxLon] = reg.bbox;
-      const bounds = L.latLngBounds(
-        [minLat, minLon],
-        [maxLat, maxLon]
-      );
+      const bounds = L.latLngBounds([minLat, minLon], [maxLat, maxLon]);
       map.fitBounds(bounds);
     }
 
@@ -152,9 +126,9 @@ function poblarComboRegiones() {
   });
 }
 
-// -------------------------------------------------------
-// Poblar combo de instrumentos según región seleccionada
-// -------------------------------------------------------
+// --------------------------
+// Poblar combo instrumentos
+// --------------------------
 function poblarComboInstrumentosPorRegion(regionObj) {
   const instrumentoSelect = document.getElementById(INSTRUMENTO_SELECT_ID);
   if (!instrumentoSelect) return;
@@ -195,89 +169,87 @@ function poblarComboInstrumentosPorRegion(regionObj) {
     instrumentoSelect.appendChild(opt);
   });
 
-  // Si eliges un instrumento en particular, hacemos zoom a su BBOX
   instrumentoSelect.addEventListener("change", () => {
     const valor = instrumentoSelect.value;
     if (!valor) return;
     const inst = instrumentosNacionales.find((i) => i.archivo === valor);
     if (inst && Array.isArray(inst.bbox) && inst.bbox.length === 4) {
       const [minLat, minLon, maxLat, maxLon] = inst.bbox;
-      const bounds = L.latLngBounds(
-        [minLat, minLon],
-        [maxLat, maxLon]
-      );
+      const bounds = L.latLngBounds([minLat, minLon], [maxLat, maxLon]);
       map.fitBounds(bounds);
     }
   });
 }
 
-// -------------------------------------------------------
-// Eventos del mapa (click y moveend)
-// -------------------------------------------------------
+// --------------------------
+// Eventos del mapa
+// --------------------------
 function configurarEventosMapa() {
-  // Click en el mapa → ejecuta consulta PRC/SCC
   map.on("click", async (e) => {
     const clickLat = e.latlng.lat;
     const clickLon = e.latlng.lng;
-    const bounds = map.getBounds();
-
-    const bboxPantalla = {
-      minLat: bounds.getSouth(),
-      minLon: bounds.getWest(),
-      maxLat: bounds.getNorth(),
-      maxLon: bounds.getEast()
-    };
-
-    try {
-      const resultado = await ejecutarConsultaPRC(
-        { lat: clickLat, lng: clickLon },
-        bboxPantalla
-      );
-
-      if (!resultado) {
-        alert("No se encontró ningún polígono PRC/SCC que contenga el punto.");
-        return;
-      }
-
-      // Guardar en localStorage para que info.html lo use
-      localStorage.setItem(
-        "geoipt_reporte_actual",
-        JSON.stringify(resultado)
-      );
-
-      // También pasamos lat, lon y bbox por URL (compatibilidad)
-      const bboxStr = [
-        bboxPantalla.maxLat,
-        bboxPantalla.maxLon,
-        bboxPantalla.minLat,
-        bboxPantalla.minLon
-      ].join(",");
-
-      const url =
-        "info.html?lat=" +
-        encodeURIComponent(clickLat) +
-        "&lon=" +
-        encodeURIComponent(clickLon) +
-        "&bbox=" +
-        encodeURIComponent(bboxStr);
-
-      window.open(url, "_blank");
-    } catch (err) {
-      console.error("Error en la consulta PRC/SCC:", err);
-      alert("Ocurrió un error al generar el reporte. Revisa la consola.");
-    }
+    await procesarConsulta(clickLat, clickLon);
   });
 
-  // Cuando el mapa se mueve, actualizamos lista de instrumentos visibles
   map.on("moveend", () => {
     actualizarListaInstrumentosEnPantalla();
   });
 }
 
-// -------------------------------------------------------
-// Lista simple de instrumentos que intersectan el BBOX de pantalla
-// (solo visual, en un DIV opcional)
-// -------------------------------------------------------
+// Procesa una consulta (tanto desde click directo como desde parámetros)
+async function procesarConsulta(lat, lon) {
+  const bounds = map.getBounds();
+  const bboxPantalla = {
+    minLat: bounds.getSouth(),
+    minLon: bounds.getWest(),
+    maxLat: bounds.getNorth(),
+    maxLon: bounds.getEast()
+  };
+
+  try {
+    const resultado = await ejecutarConsultaPRC(
+      { lat, lng: lon },
+      bboxPantalla
+    );
+
+    if (!resultado) {
+      alert(
+        "No se encontró ningún polígono PRC/SCC que contenga el punto.\n" +
+        "Por favor, haz clic sobre un área urbana."
+      );
+      return;
+    }
+
+    localStorage.setItem(
+      "geoipt_reporte_actual",
+      JSON.stringify(resultado)
+    );
+
+    const bboxStr = [
+      bboxPantalla.maxLat,
+      bboxPantalla.maxLon,
+      bboxPantalla.minLat,
+      bboxPantalla.minLon
+    ].join(",");
+
+    const url =
+      "info.html?lat=" +
+      encodeURIComponent(lat) +
+      "&lon=" +
+      encodeURIComponent(lon) +
+      "&bbox=" +
+      encodeURIComponent(bboxStr);
+
+    window.open(url, "_blank");
+  } catch (err) {
+    console.error("Error en la consulta PRC/SCC:", err);
+    alert("Ocurrió un error al generar el reporte. Revisa la consola.");
+  }
+}
+
+// --------------------------
+// Lista de instrumentos en pantalla (visual)
+// --------------------------
 function actualizarListaInstrumentosEnPantalla() {
   const contenedor = document.getElementById(LISTA_INSTRUMENTOS_ID);
   if (!contenedor) return;
@@ -314,9 +286,9 @@ function actualizarListaInstrumentosEnPantalla() {
   contenedor.appendChild(ul);
 }
 
-// -------------------------------------------------------
-// Filtro de instrumentos por BBOX
-// -------------------------------------------------------
+// --------------------------
+// Filtro por BBOX
+// --------------------------
 function filtrarInstrumentosPorBbox(bboxPantalla) {
   const { minLat, minLon, maxLat, maxLon } = bboxPantalla;
 
@@ -324,7 +296,6 @@ function filtrarInstrumentosPorBbox(bboxPantalla) {
     if (!inst.bbox || inst.bbox.length !== 4) return false;
     const [iMinLat, iMinLon, iMaxLat, iMaxLon] = inst.bbox;
 
-    // Intersección simple de rectángulos
     const noIntersecta =
       iMaxLat < minLat ||
       iMinLat > maxLat ||
@@ -335,26 +306,23 @@ function filtrarInstrumentosPorBbox(bboxPantalla) {
   });
 }
 
-// -------------------------------------------------------
-// Ejecutar la consulta PRC/SCC
-// -------------------------------------------------------
+// --------------------------
+// Ejecutar consulta PRC/SCC
+// --------------------------
 async function ejecutarConsultaPRC(click, bboxPantalla) {
   const candidatos = filtrarInstrumentosPorBbox(bboxPantalla);
-
   if (!candidatos.length) {
     console.warn("No hay instrumentos cuyos BBOX intersecten el área visible.");
     return null;
   }
 
-  // Tabla resumen (para info.html)
   const tabla = candidatos.map((inst) => ({
     nombre: inst.nombre || inst.archivo,
     tipo: inst.tipo || "",
     comuna: inst.comuna || "",
-    contienePuntoBBOX: true // por definición todos intersectan el BBOX
+    contienePuntoBBOX: true
   }));
 
-  // Recorremos candidatos hasta encontrar un polígono que contenga el punto
   for (const inst of candidatos) {
     try {
       const resultadoInstrumento = await buscarPoligonoQueContienePunto(
@@ -374,8 +342,7 @@ async function ejecutarConsultaPRC(click, bboxPantalla) {
         };
 
         const zona = Object.assign({}, attrsZona || {});
-        // 👇 CLAVE: aquí va la geometría para que info.html dibuje el polígono
-        zona.geometry = geometryZona;
+        zona.geometry = geometryZona;   // 👈 clave para dibujar el polígono
 
         return {
           click: { lat: click.lat, lng: click.lng },
@@ -389,13 +356,12 @@ async function ejecutarConsultaPRC(click, bboxPantalla) {
     }
   }
 
-  // Si ningún polígono de los candidatos contiene el punto
   return null;
 }
 
-// -------------------------------------------------------
-// Buscar polígono que contiene el punto dentro del KML
-// -------------------------------------------------------
+// --------------------------
+// Cargar KML y buscar polígono que contiene el punto
+// --------------------------
 async function buscarPoligonoQueContienePunto(inst, click) {
   const carpeta = inst.regionCarpeta || inst.carpeta || "";
   const archivo = inst.archivo;
@@ -422,7 +388,6 @@ async function buscarPoligonoQueContienePunto(inst, click) {
   const parser = new DOMParser();
   const xml = parser.parseFromString(textoKml, "text/xml");
   const placemarks = Array.from(xml.getElementsByTagName("Placemark"));
-
   if (!placemarks.length) {
     console.warn("KML sin placemarks:", rutaKml);
     return null;
@@ -431,7 +396,6 @@ async function buscarPoligonoQueContienePunto(inst, click) {
   const pt = [click.lng, click.lat]; // [lon, lat]
 
   for (const pm of placemarks) {
-    // 1. Geometría (suponemos Polygon; se puede extender a MultiGeometry)
     const coordsNode = pm.getElementsByTagName("coordinates")[0];
     if (!coordsNode) continue;
 
@@ -453,7 +417,6 @@ async function buscarPoligonoQueContienePunto(inst, click) {
     const ring = puntos;
 
     if (puntoEnPoligono(pt, ring)) {
-      // 2. Atributos (ExtendedData)
       const dataNodes = Array.from(pm.getElementsByTagName("Data"));
       const attrsZona = {};
 
@@ -466,7 +429,6 @@ async function buscarPoligonoQueContienePunto(inst, click) {
         }
       });
 
-      // Opcional: nombre del Placemark
       const nameNode = pm.getElementsByTagName("name")[0];
       if (nameNode && nameNode.textContent) {
         attrsZona["NOMBRE_PM"] = nameNode.textContent.trim();
@@ -484,11 +446,9 @@ async function buscarPoligonoQueContienePunto(inst, click) {
   return null;
 }
 
-// -------------------------------------------------------
-// Algoritmo punto en polígono (ray casting)
-// pt = [lon, lat]
-// polygon = array de [lon, lat]
-// -------------------------------------------------------
+// --------------------------
+// Punto en polígono (ray casting)
+// --------------------------
 function puntoEnPoligono(pt, polygon) {
   const x = pt[0];
   const y = pt[1];
@@ -510,9 +470,30 @@ function puntoEnPoligono(pt, polygon) {
   return dentro;
 }
 
-// -------------------------------------------------------
+// --------------------------
+// Consulta automática desde parámetros (?lat&lon)
+// --------------------------
+function consultaInicialDesdeParametros() {
+  const params = new URLSearchParams(window.location.search);
+  const latStr = params.get("lat");
+  const lonStr = params.get("lon");
+  if (!latStr || !lonStr) return;
+
+  const lat = parseFloat(latStr);
+  const lon = parseFloat(lonStr);
+  if (Number.isNaN(lat) || Number.isNaN(lon)) return;
+
+  map.setView([lat, lon], 17);
+
+  // Pequeño delay para que Leaflet ajuste los bounds
+  setTimeout(() => {
+    procesarConsulta(lat, lon);
+  }, 300);
+}
+
+// --------------------------
 // Lanzar inicialización
-// -------------------------------------------------------
+// --------------------------
 document.addEventListener("DOMContentLoaded", () => {
   initGeoIPT().catch((err) => {
     console.error("Error inicializando GeoIPT:", err);
