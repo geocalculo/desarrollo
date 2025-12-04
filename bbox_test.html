@@ -88,6 +88,9 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
+    // ---------------------------------------
+    // Utilidades de parámetros
+    // ---------------------------------------
     function getParams() {
       const p = new URLSearchParams(window.location.search);
       const lat = parseFloat(p.get("lat"));
@@ -107,16 +110,64 @@
       try {
         const resp = await fetch(url);
         if (!resp.ok) {
-          console.error(\`Error al cargar \${descripcion} desde \${url}: \`, resp.status);
+          console.error(`Error al cargar ${descripcion} desde ${url}: `, resp.status);
           return null;
         }
         return await resp.json();
       } catch (err) {
-        console.error(\`Excepción al cargar \${descripcion} desde \${url}: \`, err);
+        console.error(`Excepción al cargar ${descripcion} desde ${url}: `, err);
         return null;
       }
     }
 
+    // ---------------------------------------
+    // Normalización de BBOX de instrumentos
+    // listado.json tiene bbox por instrumento
+    // Puede venir como:
+    //  a) [minLat, minLon, maxLat, maxLon]
+    //  b) [[lat1, lon1], [lat2, lon2]]
+    // ---------------------------------------
+    function normalizarBboxInstrumento(rawBbox) {
+      if (!rawBbox) return null;
+
+      // Caso a) [minLat, minLon, maxLat, maxLon]
+      if (
+        Array.isArray(rawBbox) &&
+        rawBbox.length === 4 &&
+        rawBbox.every(v => typeof v === "number")
+      ) {
+        const [minLat, minLon, maxLat, maxLon] = rawBbox;
+        return { minLat, minLon, maxLat, maxLon };
+      }
+
+      // Caso b) [[lat1, lon1], [lat2, lon2]]
+      if (
+        Array.isArray(rawBbox) &&
+        rawBbox.length === 2 &&
+        Array.isArray(rawBbox[0]) &&
+        Array.isArray(rawBbox[1])
+      ) {
+        const p1 = rawBbox[0].map(Number);
+        const p2 = rawBbox[1].map(Number);
+        if (
+          p1.length === 2 && p2.length === 2 &&
+          !Number.isNaN(p1[0]) && !Number.isNaN(p1[1]) &&
+          !Number.isNaN(p2[0]) && !Number.isNaN(p2[1])
+        ) {
+          const minLat = Math.min(p1[0], p2[0]);
+          const maxLat = Math.max(p1[0], p2[0]);
+          const minLon = Math.min(p1[1], p2[1]);
+          const maxLon = Math.max(p1[1], p2[1]);
+          return { minLat, minLon, maxLat, maxLon };
+        }
+      }
+
+      return null;
+    }
+
+    // ---------------------------------------
+    // Filtro BBOX (N,E,S,W) contra instrumentos
+    // ---------------------------------------
     function filtrarInstrumentosPorBbox(lista, bbox) {
       const { north, east, south, west } = bbox;
       if (
@@ -126,14 +177,16 @@
         return [];
       }
 
-      return lista.filter(inst => {
-        if (!inst.bbox || inst.bbox.length !== 4) return false;
-        const [iMinLat, iMinLon, iMaxLat, iMaxLon] = inst.bbox;
+      const minLat = south;
+      const maxLat = north;
+      const minLon = west;
+      const maxLon = east;
 
-        const minLat = south;
-        const maxLat = north;
-        const minLon = west;
-        const maxLon = east;
+      return lista.filter(inst => {
+        const nb = normalizarBboxInstrumento(inst.bbox);
+        if (!nb) return false;
+
+        const { minLat: iMinLat, minLon: iMinLon, maxLat: iMaxLat, maxLon: iMaxLon } = nb;
 
         const noIntersecta =
           iMaxLat < minLat ||
@@ -145,6 +198,76 @@
       });
     }
 
+    // ---------------------------------------
+    // Leer todos los instrumentos desde
+    // capas/regiones.json + capas_xx/listado.json
+    // ---------------------------------------
+    async function cargarInstrumentosNacionales() {
+      // 1) Leer regiones
+      const dataReg = await cargarJSON("capas/regiones.json", "regiones");
+      if (!dataReg) return [];
+
+      const regiones =
+        Array.isArray(dataReg) ? dataReg :
+        dataReg.regiones_ipt || dataReg.regiones || [];
+
+      const tareas = [];
+
+      regiones.forEach(reg => {
+        const carpeta = reg.carpeta;
+        if (!carpeta) return;
+
+        const urlListado = `capas/${carpeta}/listado.json`;
+        tareas.push(
+          (async () => {
+            const listado = await cargarJSON(urlListado, `listado ${carpeta}`);
+            if (!listado) return [];
+
+            const instrumentos = listado.instrumentos || listado;
+            if (!Array.isArray(instrumentos)) return [];
+
+            // agregar metadata de región a cada instrumento
+            return instrumentos.map(inst => ({
+              ...inst,
+              regionCarpeta: carpeta,
+              regionNombre: listado.region || reg.nombre || "",
+            }));
+          })()
+        );
+      });
+
+      const resultados = await Promise.all(tareas);
+      // "aplanar" la lista
+      return resultados.reduce((acc, sub) => {
+        if (Array.isArray(sub)) acc.push(...sub);
+        return acc;
+      }, []);
+    }
+
+    // ---------------------------------------
+    // Geometría: punto en polígono
+    // ---------------------------------------
+    function puntoEnPoligono(pt, polygon) {
+      const x = pt[0];
+      const y = pt[1];
+      let dentro = false;
+
+      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i][0];
+        const yi = polygon[i][1];
+        const xj = polygon[j][0];
+        const yj = polygon[j][1];
+
+        const intersecta =
+          (yi > y) !== (yj > y) &&
+          x < ((xj - xi) * (y - yi)) / (yj - yi + 0.0) + xi;
+
+        if (intersecta) dentro = !dentro;
+      }
+
+      return dentro;
+    }
+
     async function buscarPoligonoQueContienePunto(inst, click) {
       const carpeta = inst.regionCarpeta || inst.carpeta || "";
       const archivo = inst.archivo;
@@ -153,7 +276,7 @@
         return null;
       }
 
-      const rutaKml = carpeta ? \`capas/\${carpeta}/\${archivo}\` : archivo;
+      const rutaKml = carpeta ? `capas/${carpeta}/${archivo}` : archivo;
 
       let textoKml = "";
       try {
@@ -229,27 +352,6 @@
       return null;
     }
 
-    function puntoEnPoligono(pt, polygon) {
-      const x = pt[0];
-      const y = pt[1];
-      let dentro = false;
-
-      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const xi = polygon[i][0];
-        const yi = polygon[i][1];
-        const xj = polygon[j][0];
-        const yj = polygon[j][1];
-
-        const intersecta =
-          yi > y !== yj > y &&
-          x < ((xj - xi) * (y - yi)) / (yj - yi + 0.0) + xi;
-
-        if (intersecta) dentro = !dentro;
-      }
-
-      return dentro;
-    }
-
     async function ejecutarMotor(click, bbox, candidatos) {
       if (!candidatos.length) return null;
 
@@ -293,6 +395,9 @@
       return null;
     }
 
+    // ---------------------------------------
+    // MAIN
+    // ---------------------------------------
     (async function main() {
       const { lat, lon, north, east, south, west, bboxStr } = getParams();
       const txtPunto = document.getElementById("txt-punto");
@@ -332,16 +437,15 @@
         fillOpacity: 0.9
       }).addTo(map);
 
-      // Cargar listado nacional
-      const data = await cargarJSON("capas/prc_bbox_nacional.json", "listado nacional");
-      if (!data) {
-        txtInst.textContent = "No se pudo cargar prc_bbox_nacional.json";
+      // 1) Cargar TODOS los instrumentos desde los listado.json
+      const instrumentosTodos = await cargarInstrumentosNacionales();
+      if (!instrumentosTodos.length) {
+        txtInst.textContent = "No se pudieron cargar instrumentos desde los listado.json";
         return;
       }
-      const instrumentos = data.instrumentos || data;
 
       const bbox = { north, east, south, west };
-      const candidatos = filtrarInstrumentosPorBbox(instrumentos, bbox);
+      const candidatos = filtrarInstrumentosPorBbox(instrumentosTodos, bbox);
 
       if (!candidatos.length) {
         txtInst.textContent = "No hay instrumentos que intersecten este BBOX.";
