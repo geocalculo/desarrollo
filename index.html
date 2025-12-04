@@ -1,1 +1,352 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>GeoIPT - Mapa de consulta Instrumentos de Planificación Territorial</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+      Roboto, Helvetica, Arial, sans-serif;
+      background: #0b1120;
+      color: #e5e7eb;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #020617;
+      border-bottom: 1px solid #111827;
+      padding: 8px 16px;
+    }
+
+    .header-inner {
+      max-width: 1250px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.12rem;
+    }
+
+    .brand-title {
+      font-size: 1.18rem;
+      font-weight: 600;
+    }
+
+    .brand-subtitle {
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+      align-items: center;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      min-width: 180px;
+      font-size: 0.85rem;
+    }
+
+    .control-group label {
+      color: #9ca3af;
+      font-size: 0.78rem;
+    }
+
+    select {
+      background: #1e293b;
+      border-radius: 999px;
+      border: 1px solid #334155;
+      color: #f1f5f9;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.83rem;
+      outline: none;
+    }
+
+    select:disabled {
+      opacity: 0.5;
+    }
+
+    main {
+      flex: 1;
+      position: relative;
+    }
+
+    .map-container {
+      max-width: 1250px;
+      margin: 12px auto 18px;
+      position: relative;
+    }
+
+    #map {
+      width: 100%;
+      height: 520px;
+      min-height: 520px;
+      border-radius: 1rem;
+      border: 1px solid #1e293b;
+    }
+
+    .hint {
+      margin-top: 8px;
+      font-size: 0.82rem;
+      color: #94a3b8;
+    }
+
+    #mira-rifle {
+      position: absolute;
+      bottom: 25px;
+      right: 25px;
+      z-index: 6000;
+      width: 46px;
+      height: 46px;
+      background: #ffffffcc;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      border: 1px solid #cbd5e1;
+      backdrop-filter: blur(6px);
+    }
+
+    #mira-rifle:hover {
+      background: #ffffffdd;
+    }
+
+    #mira-rifle::before {
+      content: "";
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid #1e293b;
+      box-shadow: 0 0 0 1px #1e293b;
+    }
+
+    #mira-rifle::after {
+      content: "";
+      position: absolute;
+      width: 2px;
+      height: 18px;
+      background: #1e293b;
+    }
+
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-title">GeoIPT</div>
+        <div class="brand-subtitle">
+          Consulta rápida de instrumentos de planificación territorial (PRC / SCC)
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="control-group">
+          <label for="region-select">Región</label>
+          <select id="region-select"></select>
+        </div>
+
+        <div class="control-group">
+          <label for="instrumento-select">Instrumento (zoom óptico)</label>
+          <select id="instrumento-select" disabled>
+            <option value="">Seleccione una región</option>
+          </select>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <main>
+    <div class="map-container">
+      <div id="map"></div>
+      <p class="hint">
+        Selecciona región e instrumento para referencia visual. Haz clic en el mapa para abrir el motor BBOX.
+        <br>Debe estar en escala urbana (zoom ≥ 16) para consultar el PRC.
+      </p>
+
+      <div id="mira-rifle" title="Ir a mi ubicación"></div>
+    </div>
+  </main>
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <script>
+    const regionSelect = document.getElementById("region-select");
+    const instrumentoSelect = document.getElementById("instrumento-select");
+
+    let regionesData = null;
+    let instrumentosActuales = [];
+
+    async function cargarRegiones() {
+      try {
+        const resp = await fetch("capas/regiones.json");
+        regionesData = await resp.json();
+
+        regionSelect.innerHTML = "";
+        regionesData.regiones.forEach(r => {
+          const opt = document.createElement("option");
+          opt.value = r.carpeta;
+          opt.textContent = r.nombre;
+          regionSelect.appendChild(opt);
+        });
+
+        instrumentoSelect.disabled = false;
+
+      } catch (e) {
+        console.error("Error cargando regiones:", e);
+        regionSelect.innerHTML =
+          "<option>No se pudieron cargar las regiones</option>";
+        instrumentoSelect.disabled = true;
+      }
+    }
+
+    cargarRegiones();
+
+    regionSelect.addEventListener("change", async (e) => {
+      const carpeta = e.target.value;
+      instrumentoSelect.innerHTML =
+        "<option value=''>Cargando instrumentos...</option>";
+
+      try {
+        const listado = await fetch(`capas/${carpeta}/listado.json`);
+        const data = await listado.json();
+        instrumentosActuales = data.instrumentos;
+
+        instrumentoSelect.innerHTML = "";
+        instrumentosActuales.forEach(inst => {
+          const opt = document.createElement("option");
+          opt.value = inst.archivo;
+          opt.textContent = inst.nombre;
+          instrumentoSelect.appendChild(opt);
+        });
+
+      } catch (err) {
+        instrumentoSelect.innerHTML =
+          "<option>Error cargando instrumentos</option>";
+      }
+    });
+        // Crear mapa base
+    const map = L.map("map", {
+      zoomControl: true,
+      minZoom: 4,
+      maxZoom: 19
+    }).setView([-28.5, -70.2], 6);
+
+    // Capa OSM simple
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+
+    // Zoom óptico al seleccionar instrumento
+    instrumentoSelect.addEventListener("change", (e) => {
+      const archivo = e.target.value;
+      if (!archivo) return;
+
+      const inst = instrumentosActuales.find(i => i.archivo === archivo);
+      if (!inst || !inst.bbox) return;
+
+      const [norte, este, sur, oeste] = inst.bbox;
+      const bounds = L.latLngBounds(
+        [norte, oeste],
+        [sur, este]
+      );
+      map.fitBounds(bounds, { animate: true });
+    });
+
+    // Función para obtener BBOX actual
+    function obtenerBBOX() {
+      const b = map.getBounds();
+      return [
+        b.getNorth(),
+        b.getEast(),
+        b.getSouth(),
+        b.getWest()
+      ];
+    }
+
+    // Función click en el mapa
+    map.on("click", (e) => {
+      const zoom = map.getZoom();
+
+      if (zoom < 16) {
+        alert("Debe hacer clic en sector urbano (acérquese más).");
+        return;
+      }
+
+      const bbox = obtenerBBOX();
+      const lat = e.latlng.lat;
+      const lon = e.latlng.lng;
+
+      const url =
+        `bbox_test.html?lat=${lat}&lon=${lon}&bbox=${bbox.join(",")}`;
+
+      window.open(url, "_blank");
+    });
+
+    // Control de ubicación rápida ("mira-rifle")
+    document.getElementById("mira-rifle").addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        alert("Geolocalización no soportada.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          map.setView([latitude, longitude], 17);
+
+          L.circleMarker([latitude, longitude], {
+            radius: 8,
+            color: "#38bdf8",
+            fillColor: "#38bdf8",
+            fillOpacity: 0.6
+          }).addTo(map)
+            .bindPopup("Estás aquí")
+            .openPopup();
+        },
+        () => alert("No se pudo obtener ubicación actual.")
+      );
+    });
+
+  </script>
+
+</body>
+</html>
+
+
 <!-- full index.html content here -->
