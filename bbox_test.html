@@ -117,12 +117,19 @@
     <div class="section-title">Instrumentos en pantalla</div>
     <div id="instrumentos"></div>
 
-    <div class="section-title">Instrumentos donde “cae” el punto</div>
+    <div class="section-title">Instrumentos donde “cae” el punto (por BBOX)</div>
     <div id="hits"></div>
+
+    <div class="section-title">Resultado exacto (KML)</div>
+    <div id="hits-kml"></div>
   </div>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- toGeoJSON: convierte KML a GeoJSON -->
+  <script src="https://unpkg.com/togeojson@0.16.0"></script>
+  <!-- Turf.js: análisis espacial (punto en polígono) -->
+  <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
   <script>
     // ===================================
@@ -197,10 +204,11 @@
     // ===================================
     // 4. Elementos del panel
     // ===================================
-    const elParams = document.getElementById("params");
+    const elParams   = document.getElementById("params");
     const elRegiones = document.getElementById("regiones");
     const elInstrumentos = document.getElementById("instrumentos");
-    const elHits = document.getElementById("hits");
+    const elHits     = document.getElementById("hits");
+    const elHitsKml  = document.getElementById("hits-kml");
 
     function showParams(lat, lng, f, nReg, nInst, nHits) {
       elParams.textContent =
@@ -217,7 +225,7 @@ Frame (extent visible):
 Resumen:
  Regiones en frame: ${nReg}
  IPT en pantalla:   ${nInst}
- IPT con punto:     ${nHits}`;
+ IPT con punto (BBOX): ${nHits}`;
     }
 
     function showRegiones(lista) {
@@ -239,7 +247,7 @@ Resumen:
         .map(inst => {
           const nombre = inst.nombre || "(sin nombre)";
           const comuna = inst.comuna || "-";
-          const tipo = inst.tipo || "-";
+          const tipo   = inst.tipo || "-";
           const region = inst.regionNombre || inst.regionId || "-";
           return `
             <div class="inst-item">
@@ -253,22 +261,49 @@ Resumen:
 
     function showHits(lista) {
       if (!lista.length) {
-        elHits.innerHTML = "<em>El punto no cae dentro de ningún IPT visible</em>";
+        elHits.innerHTML = "<em>El punto no cae dentro de ningún IPT (según BBOX)</em>";
         return;
       }
       elHits.innerHTML = lista
         .map(inst => {
           const nombre = inst.nombre || "(sin nombre)";
           const comuna = inst.comuna || "-";
-          const tipo = inst.tipo || "-";
+          const tipo   = inst.tipo || "-";
           const region = inst.regionNombre || inst.regionId || "-";
           const archivo = inst.archivo || "";
           return `
             <div class="inst-item">
-              <div class="badge badge-hit">contiene punto</div>
+              <div class="badge badge-hit">contiene punto (BBOX)</div>
               <strong>${nombre}</strong><br/>
               <span>${tipo} · ${comuna} · ${region}</span><br/>
               <small>archivo: ${archivo}</small>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function showHitsKml(lista) {
+      if (!lista.length) {
+        elHitsKml.innerHTML = "<em>No hay confirmación KML para el punto</em>";
+        return;
+      }
+      elHitsKml.innerHTML = lista
+        .map(res => {
+          const inst = res.instrumento;
+          const props = res.propiedadesZona || {};
+          const nombreInst = inst.nombre || "(sin nombre)";
+          const zonaCodigo = res.zonaCodigo ||
+                             props.ZONA || props.zona || "";
+          const zonaNombre = props.NOM || props.NOMBRE || props.nom || "";
+          const textoZona = zonaCodigo || zonaNombre
+            ? `Zona: ${zonaCodigo} ${zonaNombre}`.trim()
+            : "Zona: (sin nombre)";
+          return `
+            <div class="inst-item">
+              <div class="badge badge-hit">Punto en PRC</div>
+              <strong>${nombreInst}</strong><br/>
+              <span>${textoZona}</span>
             </div>
           `;
         })
@@ -344,11 +379,69 @@ Resumen:
     }
 
     // ===================================
-    // 6. Click en el mapa:
-    //    - Detectar regiones cuyo BBOX toca el frame
-    //    - De esas, cargar listados
-    //    - Quedarse con IPT cuyo BBOX intersecta frame
-    //    - De esos IPT, ver cuáles contienen el punto
+    // 6. Análisis KML: punto dentro de polígono
+    // ===================================
+    function analizarKmlInstrumento(inst, lat, lng) {
+      const carpeta = inst.regionCarpeta;
+      const archivo = inst.archivo;
+      if (!carpeta || !archivo) {
+        return Promise.resolve(null);
+      }
+
+      const url = `capas/${carpeta}/${archivo}`;
+      console.log("DEBUG · Leyendo KML:", url);
+
+      return fetch(url)
+        .then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status} al cargar ${url}`);
+          return r.text();
+        })
+        .then(xmlText => {
+          const parser = new DOMParser();
+          const kmlDoc = parser.parseFromString(xmlText, "text/xml");
+          const geojson = toGeoJSON.kml(kmlDoc);
+          if (!geojson || !geojson.features) return null;
+
+          const pt = turf.point([lng, lat]);
+
+          for (const feat of geojson.features) {
+            if (!feat || !feat.geometry) continue;
+            const tipo = feat.geometry.type;
+            if (tipo !== "Polygon" && tipo !== "MultiPolygon") continue;
+
+            const inside = turf.booleanPointInPolygon(pt, feat);
+            if (inside) {
+              return {
+                instrumento: inst,
+                zonaCodigo: feat.properties && (feat.properties.ZONA || feat.properties.zona || ""),
+                propiedadesZona: feat.properties || {}
+              };
+            }
+          }
+          return null; // no polígono contiene al punto
+        })
+        .catch(err => {
+          console.error("DEBUG · Error analizando KML", url, err);
+          return null;
+        });
+    }
+
+    function analizarKmls(hits, lat, lng) {
+      if (!hits.length) {
+        showHitsKml([]);
+        return;
+      }
+
+      Promise.all(hits.map(inst => analizarKmlInstrumento(inst, lat, lng)))
+        .then(resultados => {
+          const confirmados = resultados.filter(r => r !== null);
+          console.log("DEBUG · Resultados KML:", confirmados);
+          showHitsKml(confirmados);
+        });
+    }
+
+    // ===================================
+    // 7. Click en el mapa
     // ===================================
     map.on("click", e => {
       const { lat, lng } = e.latlng;
@@ -379,6 +472,7 @@ Resumen:
         layerInstrumentos.clearLayers();
         showInstrumentos([]);
         showHits([]);
+        showHitsKml([]);
         showParams(lat, lng, frame, 0, 0, 0);
         return;
       }
@@ -404,6 +498,7 @@ Resumen:
               instrumentosCandidatos.push({
                 regionId: region.id,
                 regionNombre: region.nombre,
+                regionCarpeta: region.carpeta,
                 ...inst,
                 containsPoint: hit
               });
@@ -413,7 +508,7 @@ Resumen:
           const hits = instrumentosCandidatos.filter(i => i.containsPoint);
 
           console.log("DEBUG · IPT en pantalla:", instrumentosCandidatos);
-          console.log("DEBUG · IPT con punto:", hits);
+          console.log("DEBUG · IPT con punto (BBOX):", hits);
 
           drawInstrumentos(instrumentosCandidatos);
           showInstrumentos(instrumentosCandidatos);
@@ -426,6 +521,9 @@ Resumen:
             instrumentosCandidatos.length,
             hits.length
           );
+
+          // 3) Análisis fino: punto en polígono usando KML
+          analizarKmls(hits, lat, lng);
         });
     });
   </script>
