@@ -1,500 +1,301 @@
-// =======================================================
-// GeoIPT - index.js (Desarrollo)
-// Consulta PRC / SCC usando BBOX + click
-// Genera geoipt_reporte_actual en localStorage
-// y abre info.html?lat=..&lon=..&bbox=.. en pestaña nueva
-//
-// NOTA IMPORTANTE:
-// - Si index.html recibe ?lat&lon, SOLO se centra el mapa ahí.
-//   La consulta SIEMPRE se dispara únicamente al hacer click en el mapa.
-// =======================================================
-
+const regionSelect = document.getElementById("region-select");
+const instrumentoSelect = document.getElementById("instrumento-select");
+let regionesData = [];
 let map;
-let regiones = [];
-let instrumentosNacionales = [];
+let marcadorPunto = null;
 
-// IDs en el HTML
-const MAP_ID = "mapaGeoipt";
-const REGION_SELECT_ID = "regionSelect";
-const INSTRUMENTO_SELECT_ID = "instrumentoSelect";
-const LISTA_INSTRUMENTOS_ID = "listaInstrumentos";
+// -------------------------
+// Utilidad: leer lat/lon si vienen por URL
+// -------------------------
+function getUrlParamsLatLon() {
+  const p = new URLSearchParams(window.location.search);
+  const lat = parseFloat(p.get("lat"));
+  const lon = parseFloat(p.get("lon"));
+  if (Number.isNaN(lat) || Number.isNaN(lon)) {
+    return null;
+  }
+  return { lat, lon };
+}
 
-// --------------------------
-// Cargar JSON genérico
-// --------------------------
-async function cargarJSON(url, descripcion) {
+// -------------------------
+// MAPA BASE
+// -------------------------
+function initMapa() {
+  const mapaCalle = L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors",
+    }
+  );
+
+  const mapaSatelite = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+      maxZoom: 19,
+      attribution:
+        "Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP",
+    }
+  );
+
+  map = L.map("map", {
+    center: [-27.5, -70.25],
+    zoom: 5,
+    minZoom: 4,
+    maxZoom: 19,
+    layers: [mapaCalle],     // OSM simple por defecto
+  });
+
+  L.control
+    .layers(
+      {
+        "Mapa calle": mapaCalle,
+        "Satélite": mapaSatelite,
+      },
+      {},
+      { position: "topright" }
+    )
+    .addTo(map);
+
+  // Si viene llamado desde info.html con lat/lon: centrar ahí
+  const p = getUrlParamsLatLon();
+  if (p) {
+    const { lat, lon } = p;
+    map.setView([lat, lon], 16);
+    marcadorPunto = L.circleMarker([lat, lon], {
+      radius: 6,
+      color: "#f97316",
+      weight: 2,
+      fillColor: "#ffffff",
+      fillOpacity: 0.9
+    }).addTo(map);
+  }
+
+  // CLICK → motor BBOX (bbox_test.html) con lat, lon y BBOX (north,east,south,west)
+  map.on("click", (e) => {
+    const lat = e.latlng.lat;
+    const lon = e.latlng.lng;
+
+    // actualizar / crear marcador
+    if (marcadorPunto) {
+      marcadorPunto.setLatLng(e.latlng);
+    } else {
+      marcadorPunto = L.circleMarker(e.latlng, {
+        radius: 6,
+        color: "#f97316",
+        weight: 2,
+        fillColor: "#ffffff",
+        fillOpacity: 0.9
+      }).addTo(map);
+    }
+
+    const bounds = map.getBounds();
+    const north = bounds.getNorth();
+    const east  = bounds.getEast();
+    const south = bounds.getSouth();
+    const west  = bounds.getWest();
+
+    const bboxStr = [
+      north.toFixed(8),
+      east.toFixed(8),
+      south.toFixed(8),
+      west.toFixed(8)
+    ].join(",");
+
+    const url = new URL("bbox_test.html", window.location.href);
+    url.searchParams.set("lat", lat.toFixed(6));
+    url.searchParams.set("lon", lon.toFixed(6));
+    url.searchParams.set("bbox", bboxStr);
+
+    // IMPORTANTE: solo enviamos lat, lon, bbox (sin región)
+    window.open(url, "_blank");
+  });
+
+  // Mira de rifle (geolocalización)
+  const mira = document.getElementById("mira-rifle");
+  if (mira) {
+    mira.addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        alert("Tu navegador no soporta geolocalización.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+        },
+        (err) => {
+          console.error(err);
+          alert("No se pudo obtener tu ubicación.");
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+  }
+}
+
+// -------------------------
+// REGIONES
+// -------------------------
+async function cargarRegiones() {
+  try {
+    const resp = await fetch("capas/regiones.json");
+    if (!resp.ok) throw new Error("No se pudo leer capas/regiones.json");
+
+    const data = await resp.json();
+    regionesData = Array.isArray(data)
+      ? data
+      : data.regiones_ipt || data.regiones || [];
+
+    regionSelect.innerHTML = "";
+
+    regionesData
+      .filter((r) => r.activo !== false)
+      .forEach((r) => {
+        const opt = document.createElement("option");
+        opt.value = r.codigo_ine;
+        const nombreCorto = (r.nombre || "").replace(/^Región( de)? /i, "");
+        opt.textContent = `${r.codigo_ine} - ${nombreCorto}`;
+        regionSelect.appendChild(opt);
+      });
+
+    let defaultCode = "03"; // Atacama como default
+    if (!regionesData.some((r) => r.codigo_ine === defaultCode)) {
+      defaultCode = regionesData[0]?.codigo_ine;
+    }
+
+    if (defaultCode) {
+      regionSelect.value = defaultCode;
+      centrarEnRegion(defaultCode);
+      cargarInstrumentos(defaultCode);
+    }
+  } catch (err) {
+    console.error("Error cargando regiones:", err);
+  }
+}
+
+function obtenerRegionPorCodigo(cod) {
+  return regionesData.find((r) => r.codigo_ine === cod) || null;
+}
+
+function centrarEnRegion(cod) {
+  const reg = obtenerRegionPorCodigo(cod);
+  if (!reg || !Array.isArray(reg.centro)) return;
+  const [lat, lon] = reg.centro;
+  const zoom = reg.zoom || 7;
+  map.setView([lat, lon], zoom);
+}
+
+// -------------------------
+// INSTRUMENTOS (zoom óptico)
+// -------------------------
+async function cargarInstrumentos(regionCode) {
+  instrumentoSelect.innerHTML = "";
+  instrumentoSelect.disabled = true;
+
+  const def = document.createElement("option");
+  def.value = "";
+  def.textContent = "Selecciona un instrumento para hacer zoom";
+  instrumentoSelect.appendChild(def);
+
+  const reg = obtenerRegionPorCodigo(regionCode);
+  if (!reg) {
+    console.warn("No se encontró la región", regionCode);
+    return;
+  }
+
+  const carpetaRegion = reg.carpeta; // ej: "capas_03"
+  const url = `capas/${carpetaRegion}/listado.json`;
+
   try {
     const resp = await fetch(url);
     if (!resp.ok) {
-      console.error(`Error al cargar ${descripcion} desde ${url}:`, resp.status);
-      return null;
-    }
-    return await resp.json();
-  } catch (err) {
-    console.error(`Excepción al cargar ${descripcion} desde ${url}:`, err);
-    return null;
-  }
-}
-
-// --------------------------
-// Inicialización principal
-// --------------------------
-async function initGeoIPT() {
-  const mapDiv = document.getElementById(MAP_ID);
-  if (!mapDiv) {
-    console.error(`No se encontró el DIV del mapa con id="${MAP_ID}"`);
-    return;
-  }
-
-  map = L.map(MAP_ID, {
-    center: [-30.5, -71.0],
-    zoom: 5,
-    minZoom: 4,
-    maxZoom: 19
-  });
-
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 20,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-  }).addTo(map);
-
-  // Regiones
-  const regionesData = await cargarJSON("regiones.json", "regiones");
-  if (regionesData) {
-    regiones = regionesData.regiones_ipt || regionesData.regiones || [];
-  } else {
-    regiones = [];
-  }
-
-  // Listado nacional PRC/SCC (BBOX nacional)
-  const instrumentosData = await cargarJSON(
-    "capas/prc_bbox_nacional.json",
-    "listado nacional de instrumentos"
-  );
-  if (instrumentosData) {
-    instrumentosNacionales = instrumentosData.instrumentos || instrumentosData;
-  } else {
-    instrumentosNacionales = [];
-  }
-
-  poblarComboRegiones();
-  poblarComboInstrumentosPorRegion(null);
-  configurarEventosMapa();
-  actualizarListaInstrumentosEnPantalla();
-
-  // Si index.html llegó con ?lat&lon, SOLO centramos el mapa.
-  centrarMapaDesdeParametros();
-}
-
-// --------------------------
-// Poblar combo regiones
-// --------------------------
-function poblarComboRegiones() {
-  const regionSelect = document.getElementById(REGION_SELECT_ID);
-  if (!regionSelect || !Array.isArray(regiones)) return;
-
-  regionSelect.innerHTML = "";
-
-  const optDefault = document.createElement("option");
-  optDefault.value = "";
-  optDefault.textContent = "Todas las regiones";
-  regionSelect.appendChild(optDefault);
-
-  regiones.forEach((reg) => {
-    const opt = document.createElement("option");
-    opt.value = reg.id || reg.nombre;
-    opt.textContent = reg.nombre || reg.id;
-    regionSelect.appendChild(opt);
-  });
-
-  regionSelect.addEventListener("change", () => {
-    const valor = regionSelect.value;
-    if (!valor) return;
-
-    const reg = regiones.find(
-      (r) => String(r.id) === valor || r.nombre === valor
-    );
-    if (!reg) return;
-
-    if (reg.centro && reg.zoom) {
-      map.setView([reg.centro[0], reg.centro[1]], reg.zoom);
-    } else if (reg.bbox && reg.bbox.length === 4) {
-      const [minLat, minLon, maxLat, maxLon] = reg.bbox;
-      const bounds = L.latLngBounds([minLat, minLon], [maxLat, maxLon]);
-      map.fitBounds(bounds);
-    }
-
-    poblarComboInstrumentosPorRegion(reg);
-  });
-}
-
-// --------------------------
-// Poblar combo instrumentos
-// --------------------------
-function poblarComboInstrumentosPorRegion(regionObj) {
-  const instrumentoSelect = document.getElementById(INSTRUMENTO_SELECT_ID);
-  if (!instrumentoSelect) return;
-
-  instrumentoSelect.innerHTML = "";
-
-  const optDefault = document.createElement("option");
-  optDefault.value = "";
-  optDefault.textContent = "Todos los instrumentos";
-  instrumentoSelect.appendChild(optDefault);
-
-  let filtroRegionNombre = null;
-  let filtroCarpeta = null;
-
-  if (regionObj) {
-    filtroRegionNombre = regionObj.nombre || null;
-    filtroCarpeta = regionObj.carpeta || regionObj.id || null;
-  }
-
-  const instrumentosFiltrados = instrumentosNacionales.filter((inst) => {
-    if (!regionObj) return true;
-    if (inst.regionNombre && filtroRegionNombre) {
-      return inst.regionNombre === filtroRegionNombre;
-    }
-    if (inst.regionCarpeta && filtroCarpeta) {
-      return inst.regionCarpeta === filtroCarpeta;
-    }
-    if (inst.carpeta && filtroCarpeta) {
-      return inst.carpeta === filtroCarpeta;
-    }
-    return true;
-  });
-
-  instrumentosFiltrados.forEach((inst, idx) => {
-    const opt = document.createElement("option");
-    opt.value = inst.archivo || String(idx);
-    opt.textContent = inst.nombre || inst.archivo || `Instrumento ${idx + 1}`;
-    instrumentoSelect.appendChild(opt);
-  });
-
-  instrumentoSelect.addEventListener("change", () => {
-    const valor = instrumentoSelect.value;
-    if (!valor) return;
-    const inst = instrumentosNacionales.find((i) => i.archivo === valor);
-    if (inst && Array.isArray(inst.bbox) && inst.bbox.length === 4) {
-      const [minLat, minLon, maxLat, maxLon] = inst.bbox;
-      const bounds = L.latLngBounds([minLat, minLon], [maxLat, maxLon]);
-      map.fitBounds(bounds);
-    }
-  });
-}
-
-// --------------------------
-// Eventos del mapa
-// --------------------------
-function configurarEventosMapa() {
-  // Click en el mapa SIEMPRE dispara la consulta
-  map.on("click", async (e) => {
-    const clickLat = e.latlng.lat;
-    const clickLon = e.latlng.lng;
-    await procesarConsulta(clickLat, clickLon);
-  });
-
-  map.on("moveend", () => {
-    actualizarListaInstrumentosEnPantalla();
-  });
-}
-
-// Procesa una consulta (tanto desde click directo como desde otros eventuales usos futuros)
-async function procesarConsulta(lat, lon) {
-  const bounds = map.getBounds();
-  const bboxPantalla = {
-    minLat: bounds.getSouth(),
-    minLon: bounds.getWest(),
-    maxLat: bounds.getNorth(),
-    maxLon: bounds.getEast()
-  };
-
-  try {
-    const resultado = await ejecutarConsultaPRC(
-      { lat, lng: lon },
-      bboxPantalla
-    );
-
-    if (!resultado) {
-      alert(
-        "No se encontró ningún polígono PRC/SCC que contenga el punto.\n" +
-        "Por favor, haz clic sobre un área urbana."
-      );
+      console.warn("No se pudo leer", url, resp.status);
       return;
     }
 
-    localStorage.setItem(
-      "geoipt_reporte_actual",
-      JSON.stringify(resultado)
-    );
+    const data = await resp.json();
+    const lista = data.instrumentos || data.kml || [];
 
-    const bboxStr = [
-      bboxPantalla.maxLat,
-      bboxPantalla.maxLon,
-      bboxPantalla.minLat,
-      bboxPantalla.minLon
-    ].join(",");
+    lista.forEach((entry) => {
+      let archivo = "";
+      let nombre = "";
 
-    const url =
-      "info.html?lat=" +
-      encodeURIComponent(lat) +
-      "&lon=" +
-      encodeURIComponent(lon) +
-      "&bbox=" +
-      encodeURIComponent(bboxStr);
-
-    window.open(url, "_blank");
-  } catch (err) {
-    console.error("Error en la consulta PRC/SCC:", err);
-    alert("Ocurrió un error al generar el reporte. Revisa la consola.");
-  }
-}
-
-// --------------------------
-// Lista de instrumentos en pantalla (visual)
-// --------------------------
-function actualizarListaInstrumentosEnPantalla() {
-  const contenedor = document.getElementById(LISTA_INSTRUMENTOS_ID);
-  if (!contenedor) return;
-  if (!instrumentosNacionales.length) return;
-
-  const bounds = map.getBounds();
-  const bbox = {
-    minLat: bounds.getSouth(),
-    minLon: bounds.getWest(),
-    maxLat: bounds.getNorth(),
-    maxLon: bounds.getEast()
-  };
-
-  const enPantalla = filtrarInstrumentosPorBbox(bbox);
-
-  contenedor.innerHTML = "";
-  if (!enPantalla.length) {
-    contenedor.textContent = "No hay instrumentos en el área visible.";
-    return;
-  }
-
-  const ul = document.createElement("ul");
-  enPantalla.forEach((inst) => {
-    const li = document.createElement("li");
-    li.textContent =
-      (inst.regionNombre || "") +
-      " – " +
-      (inst.comuna || "") +
-      " – " +
-      (inst.nombre || inst.archivo);
-    ul.appendChild(li);
-  });
-
-  contenedor.appendChild(ul);
-}
-
-// --------------------------
-// Filtro por BBOX
-// --------------------------
-function filtrarInstrumentosPorBbox(bboxPantalla) {
-  const { minLat, minLon, maxLat, maxLon } = bboxPantalla;
-
-  return instrumentosNacionales.filter((inst) => {
-    if (!inst.bbox || inst.bbox.length !== 4) return false;
-    const [iMinLat, iMinLon, iMaxLat, iMaxLon] = inst.bbox;
-
-    const noIntersecta =
-      iMaxLat < minLat ||
-      iMinLat > maxLat ||
-      iMaxLon < minLon ||
-      iMinLon > maxLon;
-
-    return !noIntersecta;
-  });
-}
-
-// --------------------------
-// Ejecutar consulta PRC/SCC
-// --------------------------
-async function ejecutarConsultaPRC(click, bboxPantalla) {
-  const candidatos = filtrarInstrumentosPorBbox(bboxPantalla);
-  if (!candidatos.length) {
-    console.warn("No hay instrumentos cuyos BBOX intersecten el área visible.");
-    return null;
-  }
-
-  const tabla = candidatos.map((inst) => ({
-    nombre: inst.nombre || inst.archivo,
-    tipo: inst.tipo || "",
-    comuna: inst.comuna || "",
-    contienePuntoBBOX: true
-  }));
-
-  for (const inst of candidatos) {
-    try {
-      const resultadoInstrumento = await buscarPoligonoQueContienePunto(
-        inst,
-        click
-      );
-      if (resultadoInstrumento) {
-        const { attrsZona, geometryZona } = resultadoInstrumento;
-
-        const instrumentoReporte = {
-          nombre: inst.nombre || inst.archivo,
-          archivo: inst.archivo,
-          tipo: inst.tipo || "",
-          comuna: inst.comuna || "",
-          regionNombre: inst.regionNombre || "",
-          regionCarpeta: inst.regionCarpeta || inst.carpeta || ""
-        };
-
-        const zona = Object.assign({}, attrsZona || {});
-        zona.geometry = geometryZona;   // CLAVE: para dibujar el polígono en info.html
-
-        return {
-          click: { lat: click.lat, lng: click.lng },
-          instrumento: instrumentoReporte,
-          zona,
-          tabla
-        };
+      if (typeof entry === "string") {
+        archivo = entry;
+        nombre = entry.replace(/\.kml$/i, "");
+      } else if (entry && typeof entry === "object") {
+        archivo = entry.archivo || entry.kml || "";
+        nombre = (entry.nombre || archivo || "").replace(/\.kml$/i, "");
       }
-    } catch (err) {
-      console.error("Error evaluando instrumento", inst, err);
-    }
-  }
 
-  return null;
+      if (!archivo) return;
+
+      const opt = document.createElement("option");
+      opt.value = archivo;
+      opt.textContent = nombre;
+      instrumentoSelect.appendChild(opt);
+    });
+
+    instrumentoSelect.disabled = instrumentoSelect.options.length <= 1;
+  } catch (e) {
+    console.error("Error leyendo instrumentos:", e);
+  }
 }
 
-// --------------------------
-// Cargar KML y buscar polígono que contiene el punto
-// --------------------------
-async function buscarPoligonoQueContienePunto(inst, click) {
-  const carpeta = inst.regionCarpeta || inst.carpeta || "";
-  const archivo = inst.archivo;
-  if (!archivo) {
-    console.warn("Instrumento sin archivo KML:", inst);
-    return null;
-  }
+async function zoomAlInstrumento(regionCode, archivo) {
+  if (!archivo) return;
 
-  const rutaKml = carpeta ? `capas/${carpeta}/${archivo}` : archivo;
+  const reg = obtenerRegionPorCodigo(regionCode);
+  if (!reg) return;
 
-  let textoKml = "";
+  const carpetaRegion = reg.carpeta;
+  const url = `capas/${carpetaRegion}/${archivo}`;
+
   try {
-    const resp = await fetch(rutaKml);
+    const resp = await fetch(url);
     if (!resp.ok) {
-      console.error("No se pudo cargar KML:", rutaKml, resp.status);
-      return null;
+      console.warn("No se pudo abrir el KML:", url);
+      return;
     }
-    textoKml = await resp.text();
-  } catch (err) {
-    console.error("Error de red cargando KML:", rutaKml, err);
-    return null;
-  }
+    const txt = await resp.text();
 
-  const parser = new DOMParser();
-  const xml = parser.parseFromString(textoKml, "text/xml");
-  const placemarks = Array.from(xml.getElementsByTagName("Placemark"));
-  if (!placemarks.length) {
-    console.warn("KML sin placemarks:", rutaKml);
-    return null;
-  }
+    const xml = new DOMParser().parseFromString(txt, "application/xml");
+    const coords = xml.querySelectorAll("coordinates");
 
-  const pt = [click.lng, click.lat]; // [lon, lat]
+    const puntos = [];
+    coords.forEach((c) => {
+      c.textContent
+        .trim()
+        .split(/\s+/)
+        .forEach((par) => {
+          const [lon, lat] = par.split(",").map(Number);
+          if (!isNaN(lat) && !isNaN(lon)) puntos.push([lat, lon]);
+        });
+    });
 
-  for (const pm of placemarks) {
-    const coordsNode = pm.getElementsByTagName("coordinates")[0];
-    if (!coordsNode) continue;
-
-    const coordsText = coordsNode.textContent.trim();
-    if (!coordsText) continue;
-
-    const puntos = coordsText
-      .split(/\s+/)
-      .map((token) => {
-        const parts = token.split(",");
-        const lon = parseFloat(parts[0]);
-        const lat = parseFloat(parts[1]);
-        return [lon, lat];
-      })
-      .filter((p) => !Number.isNaN(p[0]) && !Number.isNaN(p[1]));
-
-    if (puntos.length < 3) continue;
-
-    const ring = puntos;
-
-    if (puntoEnPoligono(pt, ring)) {
-      const dataNodes = Array.from(pm.getElementsByTagName("Data"));
-      const attrsZona = {};
-
-      dataNodes.forEach((d) => {
-        const nombreAttr = d.getAttribute("name");
-        const valNode = d.getElementsByTagName("value")[0];
-        const valorAttr = valNode ? valNode.textContent.trim() : "";
-        if (nombreAttr) {
-          attrsZona[nombreAttr] = valorAttr;
-        }
-      });
-
-      const nameNode = pm.getElementsByTagName("name")[0];
-      if (nameNode && nameNode.textContent) {
-        attrsZona["NOMBRE_PM"] = nameNode.textContent.trim();
-      }
-
-      const geometryZona = {
-        type: "Polygon",
-        coordinates: [ring]
-      };
-
-      return { attrsZona, geometryZona };
+    if (puntos.length) {
+      map.fitBounds(L.latLngBounds(puntos), { padding: [30, 30] });
     }
+  } catch (e) {
+    console.warn("No se pudo procesar el KML:", e);
   }
-
-  return null;
 }
 
-// --------------------------
-// Punto en polígono (ray casting)
-// --------------------------
-function puntoEnPoligono(pt, polygon) {
-  const x = pt[0];
-  const y = pt[1];
-  let dentro = false;
-
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i][0];
-    const yi = polygon[i][1];
-    const xj = polygon[j][0];
-    const yj = polygon[j][1];
-
-    const intersecta =
-      yi > y !== yj > y &&
-      x < ((xj - xi) * (y - yi)) / (yj - yi + 0.0) + xi;
-
-    if (intersecta) dentro = !dentro;
-  }
-
-  return dentro;
-}
-
-// --------------------------
-// Centrar mapa desde parámetros (?lat&lon)
-// (SOLO centra, NO consulta)
-// --------------------------
-function centrarMapaDesdeParametros() {
-  const params = new URLSearchParams(window.location.search);
-  const latStr = params.get("lat");
-  const lonStr = params.get("lon");
-  if (!latStr || !lonStr) return;
-
-  const lat = parseFloat(latStr);
-  const lon = parseFloat(lonStr);
-  if (Number.isNaN(lat) || Number.isNaN(lon)) return;
-
-  map.setView([lat, lon], 17);
-}
-
-// --------------------------
-// Lanzar inicialización
-// --------------------------
+// -------------------------
+// INICIO
+// -------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  initGeoIPT().catch((err) => {
-    console.error("Error inicializando GeoIPT:", err);
+  initMapa();
+  cargarRegiones();
+
+  regionSelect.addEventListener("change", () => {
+    const code = regionSelect.value;
+    centrarEnRegion(code);
+    cargarInstrumentos(code);
+  });
+
+  instrumentoSelect.addEventListener("change", () => {
+    zoomAlInstrumento(regionSelect.value, instrumentoSelect.value);
   });
 });
