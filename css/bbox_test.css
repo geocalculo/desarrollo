@@ -37,10 +37,16 @@ pre {
   background: #020617;
   padding: 8px 10px;
   border-radius: 8px;
-  overflow-x: auto;
   font-size: 0.8rem;
-  max-height: 220px;
-  overflow-y: auto;
+
+  /* Solo scroll horizontal si la línea es muy larga */
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+
+  /* Sin límite de altura, sin scroll vertical */
+  max-height: none;
+  overflow-y: visible;
 }
 
 button {
