@@ -6,7 +6,7 @@
  * 2. Muestra punto y BBOX en el mapa.
  * 3. Carga capas/regiones.json.
  * 4. Por cada región cuyo BBOX intersecta la pantalla, carga
- *    capas_xx/listado.json y junta todos los IPT.
+ *    capas/capas_xx/listado.json y junta todos los IPT.
  * 5. Filtro 1: IPT cuyo BBOX intersecta el BBOX de pantalla.
  *    - Si el IPT tiene bbox propio, se usa ese.
  *    - Si no, se usa el bbox de la región.  (OPCIÓN A)
@@ -86,8 +86,8 @@ if (bboxPantalla) {
 
 /* ---------------------------------------------------------
    3) UTILIDADES: BBOX
-   Tus JSON usan bbox como [[S,W],[N,E]] → lo normalizamos
-   a [N,E,S,W] que es lo que usa el motor.
+   Tus JSON usan bbox como [[S,W],[N,E]] → normalizamos
+   a [N,E,S,W] para el motor.
 ---------------------------------------------------------*/
 function normalizarBBoxSWNE(b) {
   if (!b || b.length !== 2) return null;
@@ -126,7 +126,9 @@ function intersectaBbox(b1, b2) {
  *
  * estructuras:
  *   capas/regiones.json -> [ { carpeta, bbox:[[S,W],[N,E]], ... } ]
- *   capas_xx/listado.json -> { instrumentos: [ { archivo, bbox:[[S,W],[N,E]], ... } ] }
+ *   capas/capas_xx/listado.json -> {
+ *       region, codigo_region, carpeta, instrumentos:[...]
+ *   }
  */
 async function cargarIptsDesdeRegiones(bboxPantalla) {
   const resp = await fetch("capas/regiones.json");
@@ -134,7 +136,7 @@ async function cargarIptsDesdeRegiones(bboxPantalla) {
     throw new Error("No se pudo cargar capas/regiones.json");
   }
 
-  const regiones = await resp.json(); // es un array 
+  const regiones = await resp.json(); // es un array
 
   const listaIpt = [];
 
@@ -153,7 +155,7 @@ async function cargarIptsDesdeRegiones(bboxPantalla) {
       continue;
     }
 
-    const urlListado = `${carpetaRegion}/listado.json`;
+    const urlListado = `capas/${carpetaRegion}/listado.json`;
 
     try {
       const respListado = await fetch(urlListado);
@@ -164,7 +166,7 @@ async function cargarIptsDesdeRegiones(bboxPantalla) {
 
       const datosListado = await respListado.json();
 
-      // Ejemplo Magallanes: { region, codigo_region, carpeta, instrumentos:[...] } 
+      // Ejemplo: { region, codigo_region, carpeta, instrumentos:[...] }
       const instrumentos =
         datosListado.instrumentos ||
         datosListado.listado ||
@@ -177,8 +179,8 @@ async function cargarIptsDesdeRegiones(bboxPantalla) {
         listaIpt.push({
           ...ipt,
           carpeta: ipt.carpeta || datosListado.carpeta || carpetaRegion,
-          region_nombre: reg.nombre || datosListado.region || "",
-          id_region: reg.id || reg.codigo_ine || datosListado.codigo_region || "",
+          region_nombre: datosListado.region || reg.nombre || "",
+          codigo_region: datosListado.codigo_region || reg.codigo_ine || "",
           bboxNorm: bboxIptNorm,
           bboxRegionNorm: bboxRegionNorm
         });
@@ -221,7 +223,7 @@ function geojsonContienePunto(geojson, punto) {
 async function iptContienePunto(ipt, punto) {
   const carpeta = ipt.carpeta || "";
   const archivo = ipt.archivo || "";
-  const url = `${carpeta}/${archivo}`;
+  const url = `capas/${carpeta}/${archivo}`;
 
   try {
     const resp = await fetch(url);
@@ -254,7 +256,7 @@ async function iptContienePunto(ipt, punto) {
 
 /**
  * Recorre todos los IPT en pantalla y devuelve los que,
- * además, tienen geometrías que contienen al punto clic.
+ * además, tienen geometrías que contienen el punto clic.
  */
 async function filtrarIptsPorGeometria(iptsEnPantalla, punto) {
   const resultado = [];
@@ -277,7 +279,7 @@ async function ejecutarFlujoBbox() {
 
   if (preListado) {
     preListado.textContent =
-      "(cargando instrumentos desde capas/regiones.json y capas_xx/listado.json...)";
+      "(cargando instrumentos desde capas/regiones.json y capas/capas_xx/listado.json...)";
   }
   if (prePunto) {
     prePunto.textContent = "(esperando resultado de la geometría...)";
@@ -342,8 +344,10 @@ async function ejecutarFlujoBbox() {
           ? `${bboxPantalla[0]},${bboxPantalla[1]},${bboxPantalla[2]},${bboxPantalla[3]}`
           : "";
 
+        // Para info.html le pasamos rutas relativas listas para hacer fetch:
+        //   capas/capas_03/IPT_03_PRC_Copiapo.kml|...
         const listaIpt = iptsConPunto
-          .map(ipt => `${ipt.carpeta}/${ipt.archivo}`)
+          .map(ipt => `capas/${ipt.carpeta}/${ipt.archivo}`)
           .join("|");
 
         const url =
@@ -358,7 +362,7 @@ async function ejecutarFlujoBbox() {
     console.error(err);
     if (preListado) {
       preListado.textContent =
-        "Error cargando capas/regiones.json o capas_xx/listado.json.";
+        "Error cargando capas/regiones.json o capas/capas_xx/listado.json.";
     }
     if (prePunto) {
       prePunto.textContent =
