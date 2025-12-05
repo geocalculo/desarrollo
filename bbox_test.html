@@ -11,42 +11,118 @@
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   />
 
-  <!-- Estilos propios -->
+  <!-- Estilos propios (puede quedar casi vacío, no usamos .panel ni .map-container) -->
   <link rel="stylesheet" href="css/bbox_test.css" />
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #020617;
+      color: #e5e7eb;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    header {
+      background: #020617;
+      border-bottom: 1px solid #111827;
+      padding: 10px 16px;
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      margin: 0;
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    #map {
+      height: 420px;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    h2 {
+      margin-top: 24px;
+      margin-bottom: 8px;
+      font-size: 1.1rem;
+      color: #38bdf8;
+    }
+
+    p {
+      margin: 4px 0;
+      line-height: 1.4;
+    }
+
+    pre {
+      margin: 0;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    #btn-reporte {
+      padding: 10px 22px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      background: #22c55e;
+      color: #ffffff;
+      cursor: pointer;
+      margin-top: 24px;
+      opacity: 0.5; /* js lo ajusta cuando se habilita */
+    }
+
+    #btn-reporte:disabled {
+      cursor: default;
+    }
+
+    .btn-container {
+      text-align: center;
+    }
+  </style>
 </head>
 
 <body>
   <header>
-    <div class="header-inner">
-      <h1>GeoIPT – Motor BBOX intermedio</h1>
-    </div>
+    <h1>GeoIPT – Motor BBOX intermedio</h1>
   </header>
 
   <main>
-    <div class="map-container">
-      <div id="map"></div>
-    </div>
+    <!-- Mapa -->
+    <div id="map"></div>
 
-    <div class="panel">
-      <p>
-        Punto consultado:
-        <span id="txt-punto"></span><br />
-        BBOX de la pantalla (N, E, S, W):
-        <span id="txt-bbox"></span>
-      </p>
+    <!-- Datos del punto y BBOX -->
+    <h2>Punto consultado</h2>
+    <p id="txt-punto">(cargando punto...)</p>
+    <p><strong>BBOX de la pantalla (N, E, S, W):</strong> <span id="txt-bbox">(cargando bbox...)</span></p>
 
-      <p style="margin-top:6px;">
-        Instrumentos IPT.kml que intersectan este BBOX:
-      </p>
-      <pre id="txt-instrumentos">(cargando...)</pre>
+    <!-- IPT que intersectan el BBOX -->
+    <h2>Instrumentos IPT.kml que intersectan este BBOX</h2>
+    <pre id="txt-instrumentos">(cargando...)</pre>
 
-      <p style="margin-top:6px;">
-        Instrumentos donde la geometría contiene el punto clic:
-      </p>
-      <pre id="txt-instrumentos-punto">(aún sin evaluar)</pre>
+    <!-- IPT cuya geometría contiene el clic -->
+    <h2>Instrumentos donde la geometría contiene el punto clic</h2>
+    <pre id="txt-instrumentos-punto">(aún sin evaluar)</pre>
 
+    <!-- Botón para ir a info.html -->
+    <div class="btn-container">
       <button id="btn-reporte" disabled>Generar reporte en info.html</button>
     </div>
+
+    <!-- Log de depuración -->
+    <h2>Log de depuración</h2>
+    <pre id="txt-log">(debug inactivo)</pre>
   </main>
 
   <!-- Leaflet JS -->
