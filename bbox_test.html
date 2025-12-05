@@ -1,223 +1,44 @@
-/************************************************************
- * GeoIPT - bbox_test.js (versión completa e integrada)
- * ----------------------------------------------------------
- * Flujo:
- * 1. Recibe lat, lon, bbox desde la URL.
- * 2. Muestra punto y BBOX en el mapa.
- * 3. Filtra IPT que intersectan el BBOX.
- * 4. Segundo filtro: de esa lista, carga cada KML/JSON
- *    y detecta si un polígono contiene el punto clic.
- * 5. Prepara llamada final a info.html
- ************************************************************/
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>GeoIPT - BBOX Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-/* ---------------------------------------------------------
-   1) LEER PARÁMETROS DE LA URL
----------------------------------------------------------*/
-const params = new URLSearchParams(window.location.search);
-const lat = parseFloat(params.get("lat"));
-const lon = parseFloat(params.get("lon"));
-const bboxParam = params.get("bbox");   // N,E,S,W
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
 
-let bbox = null;
-if (bboxParam) {
-  const s = bboxParam.split(",");
-  bbox = {
-    N: parseFloat(s[0]),
-    E: parseFloat(s[1]),
-    S: parseFloat(s[2]),
-    W: parseFloat(s[3])
-  };
-}
+  <!-- Estilos propios -->
+  <link rel="stylesheet" href="css/bbox_test.css" />
+</head>
+<body>
+  <h1>GeoIPT – Motor BBOX intermedio</h1>
 
-/* Punto clic */
-const puntoClick = { lat, lon };
+  <div id="map"></div>
 
-/* Escrbir datos del punto */
-document.getElementById("txt-punto").textContent =
-  `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}`;
+  <div class="panel">
+    <p>
+      Punto consultado:
+      <span id="txt-punto"></span><br />
+      BBOX de la pantalla (N, E, S, W):
+      <span id="txt-bbox"></span>
+    </p>
 
-document.getElementById("txt-bbox").textContent =
-  `${bbox.N.toFixed(6)}, ${bbox.E.toFixed(6)}, ${bbox.S.toFixed(6)}, ${bbox.W.toFixed(6)}`;
+    <p style="margin-top:6px;">
+      Instrumentos IPT.kml que intersectan este BBOX:
+    </p>
+    <pre id="txt-instrumentos">(cargando...)</pre>
 
+    <button id="btn-reporte" disabled>Generar reporte en info.html</button>
+  </div>
 
-/* ---------------------------------------------------------
-   2) MAPA LEAFLET
----------------------------------------------------------*/
-const map = L.map("map").setView([lat, lon], 14);
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 18
-}).addTo(map);
-
-/* Marker del clic */
-L.circleMarker([lat, lon], {
-  radius: 6,
-  color: "#ff6600",
-  weight: 3
-}).addTo(map);
-
-/* Dibujar bbox */
-if (bbox) {
-  const rect = L.rectangle([
-    [bbox.N, bbox.W],
-    [bbox.S, bbox.E]
-  ], {
-    color: "#00ff88",
-    weight: 1
-  });
-  rect.addTo(map);
-}
-
-
-/* ---------------------------------------------------------
-   3) CARGAR LISTADO NACIONAL DE IPT Y FILTRAR POR BBOX
----------------------------------------------------------*/
-async function cargarListadoIPT() {
-  // ⚠ AJUSTA LA RUTA SI CAMBIA
-  const url = "listado_nacional.json";
-
-  const resp = await fetch(url);
-  return resp.json();
-}
-
-/* IPT intersecta BBOX */
-function intersectaBbox(iptBbox, bbox) {
-  const [N, E, S, W] = iptBbox;
-
-  const noIntersecta =
-    (S > bbox.N) || // abajo > arriba
-    (N < bbox.S) || // arriba < abajo
-    (W > bbox.E) || // izquierda > derecha
-    (E < bbox.W);   // derecha < izquierda
-
-  return !noIntersecta;
-}
-
-
-/* ---------------------------------------------------------
-   4) SEGUNDO FILTRO: GEOMETRÍA CONTIENE PUNTO
----------------------------------------------------------*/
-
-/**
- * Revisar si un GeoJSON contiene el punto.
- */
-function geojsonContienePunto(geojson, punto) {
-  const pt = turf.point([punto.lon, punto.lat]);
-  const features = geojson.features || [];
-
-  for (const feat of features) {
-    if (!feat.geometry) continue;
-    const tipo = feat.geometry.type;
-
-    if (tipo === "Polygon" || tipo === "MultiPolygon") {
-      if (turf.booleanPointInPolygon(pt, feat)) return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Cargar archivo KML/JSON del IPT y chequear contención.
- */
-async function iptContienePunto(ipt, punto) {
-  const url = `${ipt.carpeta}/${ipt.archivo}`;
-  const resp = await fetch(url);
-
-  if (!resp.ok) {
-    console.warn("No se pudo leer:", url);
-    return false;
-  }
-
-  const nombre = ipt.archivo.toLowerCase();
-
-  if (nombre.endsWith(".json") || nombre.endsWith(".geojson")) {
-    const gj = await resp.json();
-    return geojsonContienePunto(gj, punto);
-  }
-
-  if (nombre.endsWith(".kml")) {
-    const txt = await resp.text();
-    const dom = new DOMParser().parseFromString(txt, "text/xml");
-    const gj = toGeoJSON.kml(dom);
-    return geojsonContienePunto(gj, punto);
-  }
-
-  console.warn("Formato no manejado:", ipt.archivo);
-  return false;
-}
-
-/**
- * Filtrar IPT "en pantalla" → aquellos cuya geometría contiene el punto clic
- */
-async function filtrarIptsPorGeometria(ipts, punto) {
-  const resultado = [];
-
-  for (const ipt of ipts) {
-    try {
-      const contiene = await iptContienePunto(ipt, punto);
-      if (contiene) resultado.push(ipt);
-    } catch (e) {
-      console.error("Error procesando IPT:", ipt, e);
-    }
-  }
-
-  return resultado;
-}
-
-
-/* ---------------------------------------------------------
-   5) FLUJO PRINCIPAL
----------------------------------------------------------*/
-async function ejecutarFlujo() {
-
-  /* 1) Cargar listado nacional de instrumentos */
-  const data = await cargarListadoIPT();
-  const todosLosIpts = data.instrumentos || data; // según formato real
-
-  /* 2) Filtrar por BBOX */
-  const iptsEnBbox = todosLosIpts.filter(ipt => {
-    if (!ipt.bbox) return false;
-    return intersectaBbox(ipt.bbox, bbox);
-  });
-
-  /* Mostrar el primer filtro en pantalla */
-  document.getElementById("txt-instrumentos").textContent =
-    JSON.stringify(iptsEnBbox, null, 2);
-
-
-  /* 3) Filtrar IPT donde la GEOMETRÍA contiene exactamente el punto */
-  const prePunto = document.getElementById("txt-instrumentos-punto");
-  prePunto.textContent = "Analizando geometría de los IPT...";
-
-  const iptsConPunto = await filtrarIptsPorGeometria(iptsEnBbox, puntoClick);
-
-  if (iptsConPunto.length === 0) {
-    prePunto.textContent =
-      "⚠ Ningún IPT tiene polígonos que contengan el punto clic.";
-  } else {
-    prePunto.textContent = JSON.stringify(iptsConPunto, null, 2);
-  }
-
-
-  /* 4) Preparar llamada a info.html SOLO con los IPT correctos */
-  const btn = document.getElementById("btn-reporte");
-  btn.disabled = false;
-
-  btn.onclick = () => {
-    const bboxStr = `${bbox.N},${bbox.E},${bbox.S},${bbox.W}`;
-
-    const lista = iptsConPunto
-      .map(ipt => `${ipt.carpeta}/${ipt.archivo}`)
-      .join("|");
-
-    const url = `info.html?lat=${lat}&lon=${lon}&bbox=${bboxStr}&ipts=${encodeURIComponent(lista)}`;
-
-    window.open(url, "_blank");
-  };
-}
-
-
-/* ---------------------------------------------------------
-   6) EJECUTAR
----------------------------------------------------------*/
-ejecutarFlujo();
+  <!-- Lógica propia -->
+  <script src="js/bbox_test.js"></script>
+</body>
+</html>
