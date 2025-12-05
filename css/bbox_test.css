@@ -34,20 +34,21 @@ h1 { font-size: 1.1rem; }
 }
 
 pre {
-  background: #020617;
-  padding: 8px 10px;
+  margin: 0;
+  padding: 12px 14px;
   border-radius: 8px;
-  font-size: 0.8rem;
-
-  /* Solo scroll horizontal si la línea es muy larga */
-  overflow-x: auto;
+  background: #020617;
+  color: #e5e7eb;
+  font-size: 0.85rem;
   white-space: pre-wrap;
   word-break: break-word;
 
-  /* Sin límite de altura, sin scroll vertical */
-  max-height: none;
-  overflow-y: visible;
+  /* Eliminación total de scroll interno */
+  max-height: none !important;
+  overflow-y: visible !important;
+  overflow-x: visible !important;
 }
+
 
 button {
   margin-top: 8px;
