@@ -1,7 +1,7 @@
 /************************************************************
- * GeoIPT - bbox_test.js (versión robusta)
+ * GeoIPT - bbox_test.js (versión robusta + retorno a index)
  *
- * 1. Recibe lat, lon y bbox (N,E,S,W) desde la URL.
+ * 1. Recibe lat, lon, zoom y bbox (N,E,S,W) desde la URL.
  * 2. Muestra punto y BBOX en el mapa.
  * 3. Carga capas/regiones.json.
  * 4. Para CADA región, carga capas/capas_xx/listado.json
@@ -12,8 +12,9 @@
  *      usa TODOS los IPT como fallback (para no quedar en []).
  * 6. Filtro 2: de esos, IPT donde la geometría (KML/JSON)
  *    contiene el punto clic.
- * 7. Solo si hay IPT del filtro 2, se habilita el botón para
- *    llamar a info.html con la lista de IPT.
+ * 7. Si hay IPT del filtro 2 → habilita botón a info.html.
+ *    Si NO hay IPT del filtro 2 → muestra mensaje y
+ *    vuelve a index.html con lat, lon y zoom.
  ************************************************************/
 
 /* ---------------------------------------------------------
@@ -23,6 +24,8 @@ const urlParams = new URLSearchParams(window.location.search);
 const lat = parseFloat(urlParams.get("lat"));
 const lon = parseFloat(urlParams.get("lon"));
 const bboxParam = urlParams.get("bbox"); // N,E,S,W
+const zoomParam = parseInt(urlParams.get("zoom"), 10);
+const zoom = Number.isFinite(zoomParam) ? zoomParam : 14;
 
 let bboxPantalla = null;
 if (bboxParam) {
@@ -55,7 +58,7 @@ if (spanBbox && bboxPantalla) {
 ---------------------------------------------------------*/
 const map = L.map("map").setView(
   (!isNaN(lat) && !isNaN(lon)) ? [lat, lon] : [-27, -70],
-  14
+  zoom
 );
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -315,12 +318,24 @@ async function ejecutarFlujoBbox() {
     const iptsConPunto = await filtrarIptsPorGeometria(iptsEnBbox, puntoClick);
 
     if (!iptsConPunto.length) {
+      // Caso fuera de IPT: mensaje + volver a index con último zoom
       if (prePunto) {
         prePunto.textContent =
           "⚠ Ningún IPT tiene polígonos que contengan exactamente el punto clic.\n" +
-          "Sugerencia: regrese al mapa principal y haga clic sobre un área urbana.";
+          "Volviendo al mapa principal para que pueda probar en un área urbana...";
       }
-      if (btnReporte) btnReporte.disabled = true;
+      if (btnReporte) {
+        btnReporte.disabled = true;
+        btnReporte.onclick = null;
+      }
+
+      // Pequeña pausa para que el usuario lea el mensaje
+      setTimeout(() => {
+        const urlIndex =
+          `index.html?lat=${lat}&lon=${lon}&zoom=${zoom}`;
+        window.location.href = urlIndex;
+      }, 1800);
+
       return;
     }
 
@@ -347,6 +362,7 @@ async function ejecutarFlujoBbox() {
         const url =
           `info.html?lat=${lat}&lon=${lon}` +
           (bboxStr ? `&bbox=${bboxStr}` : "") +
+          `&zoom=${zoom}` +
           `&ipts=${encodeURIComponent(listaIpt)}`;
 
         window.open(url, "_blank");
