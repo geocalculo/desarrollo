@@ -1,425 +1,347 @@
-// ---------------------------------------
-// Utilidades de parámetros
-// ---------------------------------------
-function getParams() {
-  const p = new URLSearchParams(window.location.search);
-  const lat = parseFloat(p.get("lat"));
-  const lon = parseFloat(p.get("lon"));
-  const bboxStr = p.get("bbox") || "";
-  let north, east, south, west;
-  if (bboxStr) {
-    const parts = bboxStr.split(",").map(Number);
-    if (parts.length === 4) {
-      [north, east, south, west] = parts;
-    }
-  }
-  return { lat, lon, north, east, south, west, bboxStr };
+/************************************************************
+ * GeoIPT - bbox_test.js
+ * Flujo:
+ * 1. Recibe lat, lon, bbox desde la URL.
+ * 2. Muestra punto y BBOX en el mapa.
+ * 3. Carga capas/regiones.json.
+ * 4. Por cada región cuyo BBOX intersecta la pantalla, carga
+ *    capas_xx/listado.json y junta todos los IPT.
+ * 5. Filtro 1: IPT cuyo BBOX intersecta el BBOX de pantalla.
+ * 6. Filtro 2: de esos, IPT donde la geometría (KML/JSON)
+ *    contiene el punto clic.
+ * 7. Solo si hay IPT del filtro 2, habilita el botón para
+ *    llamar a info.html.
+ ************************************************************/
+
+/* ---------------------------------------------------------
+   1) LEER PARÁMETROS DE LA URL
+---------------------------------------------------------*/
+const params = new URLSearchParams(window.location.search);
+const lat = parseFloat(params.get("lat"));
+const lon = parseFloat(params.get("lon"));
+const bboxParam = params.get("bbox");   // N,E,S,W
+
+let bbox = null;
+if (bboxParam) {
+  const s = bboxParam.split(",");
+  bbox = {
+    N: parseFloat(s[0]),
+    E: parseFloat(s[1]),
+    S: parseFloat(s[2]),
+    W: parseFloat(s[3])
+  };
 }
 
-async function cargarJSON(url, descripcion) {
+const puntoClick = { lat, lon };
+
+// Mostrar coordenadas en texto
+const spanPunto = document.getElementById("txt-punto");
+if (spanPunto && !isNaN(lat) && !isNaN(lon)) {
+  spanPunto.textContent = `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}`;
+}
+
+const spanBbox = document.getElementById("txt-bbox");
+if (spanBbox && bbox) {
+  spanBbox.textContent =
+    `${bbox.N.toFixed(6)}, ${bbox.E.toFixed(6)}, ` +
+    `${bbox.S.toFixed(6)}, ${bbox.W.toFixed(6)}`;
+}
+
+/* ---------------------------------------------------------
+   2) MAPA LEAFLET
+---------------------------------------------------------*/
+const map = L.map("map").setView(
+  (!isNaN(lat) && !isNaN(lon)) ? [lat, lon] : [-27, -70],
+  14
+);
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: "&copy; OpenStreetMap"
+}).addTo(map);
+
+// Círculo del punto clic
+if (!isNaN(lat) && !isNaN(lon)) {
+  L.circleMarker([lat, lon], {
+    radius: 6,
+    color: "#ff6600",
+    weight: 3
+  }).addTo(map);
+}
+
+// Dibujar BBOX de pantalla
+if (bbox) {
+  const rect = L.rectangle(
+    [
+      [bbox.N, bbox.W],
+      [bbox.S, bbox.E]
+    ],
+    { color: "#00ff88", weight: 1 }
+  );
+  rect.addTo(map);
+}
+
+/* ---------------------------------------------------------
+   3) UTILIDADES DE BBOX
+---------------------------------------------------------*/
+function intersectaBbox(b1, b2) {
+  if (!b1 || !b2 || b1.length !== 4) return false;
+
+  const [N, E, S, W] = b1;
+  const noIntersecta =
+    (S > b2.N) || // abajo > arriba
+    (N < b2.S) || // arriba < abajo
+    (W > b2.E) || // izq > der
+    (E < b2.W);   // der < izq
+
+  return !noIntersecta;
+}
+
+/* ---------------------------------------------------------
+   4) CARGAR regiones + listado.json POR REGIÓN
+---------------------------------------------------------*/
+
+/**
+ * Carga capas/regiones.json y devuelve una lista de IPT
+ * de todas las regiones cuyo BBOX intersecta el BBOX de pantalla.
+ *
+ * Estructura asumida:
+ *   capas/regiones.json -> { regiones_ipt: [ { carpeta, bbox, ... } ] }
+ *   cada carpeta -> capas_xx/listado.json
+ *     { instrumentos: [ { archivo, carpeta?, bbox, ... } ] }
+ */
+async function cargarIptsDesdeRegiones(bboxPantalla) {
+  const resp = await fetch("capas/regiones.json");
+  if (!resp.ok) {
+    throw new Error("No se pudo cargar capas/regiones.json");
+  }
+
+  const data = await resp.json();
+  const regiones = data.regiones_ipt || data.regiones || data || [];
+
+  const listaIpt = [];
+
+  for (const reg of regiones) {
+    const bboxReg = reg.bbox || reg.bbox_region || null;
+    const carpetaRegion = reg.carpeta || "";
+
+    // Si hay bbox de región y NO intersecta la pantalla, se omite
+    if (bboxReg && !intersectaBbox(bboxReg, bboxPantalla)) {
+      continue;
+    }
+
+    if (!carpetaRegion) {
+      console.warn("Región sin carpeta definida:", reg);
+      continue;
+    }
+
+    const urlListado = `${carpetaRegion}/listado.json`;
+
+    try {
+      const respListado = await fetch(urlListado);
+      if (!respListado.ok) {
+        console.warn("No se pudo cargar listado:", urlListado);
+        continue;
+      }
+
+      const datosListado = await respListado.json();
+      const instrumentos =
+        datosListado.instrumentos || datosListado.listado || datosListado;
+
+      instrumentos.forEach(ipt => {
+        listaIpt.push({
+          ...ipt,
+          carpeta: ipt.carpeta || carpetaRegion,
+          region_nombre: ipt.region || reg.nombre || reg.id || "",
+          id_region: reg.id || reg.codigo_region || "",
+          bbox_region: bboxReg
+        });
+      });
+    } catch (e) {
+      console.error("Error leyendo listado de región:", urlListado, e);
+    }
+  }
+
+  return listaIpt;
+}
+
+/* ---------------------------------------------------------
+   5) SEGUNDO FILTRO: GEOMETRÍA CONTIENE EL PUNTO
+---------------------------------------------------------*/
+
+/**
+ * Revisa si un GeoJSON contiene el punto.
+ */
+function geojsonContienePunto(geojson, punto) {
+  const pt = turf.point([punto.lon, punto.lat]);
+  const features = geojson.features || [];
+
+  for (const feat of features) {
+    if (!feat.geometry) continue;
+    const tipo = feat.geometry.type;
+
+    if (tipo === "Polygon" || tipo === "MultiPolygon") {
+      if (turf.booleanPointInPolygon(pt, feat)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Cargar KML/JSON de un IPT y comprobar si algún polígono contiene el punto.
+ */
+async function iptContienePunto(ipt, punto) {
+  const carpeta = ipt.carpeta || "";
+  const archivo = ipt.archivo || "";
+  const url = `${carpeta}/${archivo}`;
+
   try {
     const resp = await fetch(url);
     if (!resp.ok) {
-      console.error(`Error al cargar ${descripcion} desde ${url}: `, resp.status);
-      return null;
+      console.warn("No se pudo leer archivo:", url);
+      return false;
     }
-    return await resp.json();
+
+    const nombre = archivo.toLowerCase();
+
+    if (nombre.endsWith(".json") || nombre.endsWith(".geojson")) {
+      const gj = await resp.json();
+      return geojsonContienePunto(gj, punto);
+    }
+
+    if (nombre.endsWith(".kml")) {
+      const txt = await resp.text();
+      const dom = new DOMParser().parseFromString(txt, "text/xml");
+      const gj = toGeoJSON.kml(dom);
+      return geojsonContienePunto(gj, punto);
+    }
+
+    console.warn("Formato no manejado para:", archivo);
+    return false;
   } catch (err) {
-    console.error(`Excepción al cargar ${descripcion} desde ${url}: `, err);
-    return null;
+    console.error("Error evaluando IPT", ipt, err);
+    return false;
   }
 }
 
-// ---------------------------------------
-// Normalización de BBOX de instrumentos
-// listado.json tiene bbox por instrumento
-// Puede venir como:
-//  a) [minLat, minLon, maxLat, maxLon]
-//  b) [[lat1, lon1], [lat2, lon2]]
-// ---------------------------------------
-function normalizarBboxInstrumento(rawBbox) {
-  if (!rawBbox) return null;
+/**
+ * Recorre todos los IPT en pantalla y devuelve los que,
+ * además, tienen geometrías que contienen al punto clic.
+ */
+async function filtrarIptsPorGeometria(iptsEnPantalla, punto) {
+  const resultado = [];
 
-  // Caso a) [minLat, minLon, maxLat, maxLon]
-  if (
-    Array.isArray(rawBbox) &&
-    rawBbox.length === 4 &&
-    rawBbox.every(v => typeof v === "number")
-  ) {
-    const [minLat, minLon, maxLat, maxLon] = rawBbox;
-    return { minLat, minLon, maxLat, maxLon };
+  for (const ipt of iptsEnPantalla) {
+    const contiene = await iptContienePunto(ipt, punto);
+    if (contiene) resultado.push(ipt);
   }
 
-  // Caso b) [[lat1, lon1], [lat2, lon2]]
-  if (
-    Array.isArray(rawBbox) &&
-    rawBbox.length === 2 &&
-    Array.isArray(rawBbox[0]) &&
-    Array.isArray(rawBbox[1])
-  ) {
-    const p1 = rawBbox[0].map(Number);
-    const p2 = rawBbox[1].map(Number);
-    if (
-      p1.length === 2 && p2.length === 2 &&
-      !Number.isNaN(p1[0]) && !Number.isNaN(p1[1]) &&
-      !Number.isNaN(p2[0]) && !Number.isNaN(p2[1])
-    ) {
-      const minLat = Math.min(p1[0], p2[0]);
-      const maxLat = Math.max(p1[0], p2[0]);
-      const minLon = Math.min(p1[1], p2[1]);
-      const maxLon = Math.max(p1[1], p2[1]);
-      return { minLat, minLon, maxLat, maxLon };
-    }
-  }
-
-  return null;
+  return resultado;
 }
 
-// ---------------------------------------
-// Filtro BBOX (N,E,S,W) contra instrumentos
-// ---------------------------------------
-function filtrarInstrumentosPorBbox(lista, bbox) {
-  const { north, east, south, west } = bbox;
-  if (
-    typeof north !== "number" || typeof east !== "number" ||
-    typeof south !== "number" || typeof west !== "number"
-  ) {
-    return [];
-  }
-
-  const minLat = south;
-  const maxLat = north;
-  const minLon = west;
-  const maxLon = east;
-
-  return lista.filter(inst => {
-    const nb = normalizarBboxInstrumento(inst.bbox);
-    if (!nb) return false;
-
-    const { minLat: iMinLat, minLon: iMinLon, maxLat: iMaxLat, maxLon: iMaxLon } = nb;
-
-    const noIntersecta =
-      iMaxLat < minLat ||
-      iMinLat > maxLat ||
-      iMaxLon < minLon ||
-      iMinLon > maxLon;
-
-    return !noIntersecta;
-  });
-}
-
-// ---------------------------------------
-// Leer todos los instrumentos desde
-// capas/regiones.json + capas_xx/listado.json
-// ---------------------------------------
-async function cargarInstrumentosNacionales() {
-  // 1) Leer regiones
-  const dataReg = await cargarJSON("capas/regiones.json", "regiones");
-  if (!dataReg) return [];
-
-  const regiones =
-    Array.isArray(dataReg) ? dataReg :
-    dataReg.regiones_ipt || dataReg.regiones || [];
-
-  const tareas = [];
-
-  regiones.forEach(reg => {
-    const carpeta = reg.carpeta;
-    if (!carpeta) return;
-
-    const urlListado = `capas/${carpeta}/listado.json`;
-    tareas.push(
-      (async () => {
-        const listado = await cargarJSON(urlListado, `listado ${carpeta}`);
-        if (!listado) return [];
-
-        const instrumentos = listado.instrumentos || listado;
-        if (!Array.isArray(instrumentos)) return [];
-
-        // agregar metadata de región a cada instrumento
-        return instrumentos.map(inst => ({
-          ...inst,
-          regionCarpeta: carpeta,
-          regionNombre: listado.region || reg.nombre || "",
-        }));
-      })()
-    );
-  });
-
-  const resultados = await Promise.all(tareas);
-  // "aplanar" la lista
-  return resultados.reduce((acc, sub) => {
-    if (Array.isArray(sub)) acc.push(...sub);
-    return acc;
-  }, []);
-}
-
-// ---------------------------------------
-// Geometría: punto en polígono
-// ---------------------------------------
-function puntoEnPoligono(pt, polygon) {
-  const x = pt[0];
-  const y = pt[1];
-  let dentro = false;
-
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i][0];
-    const yi = polygon[i][1];
-    const xj = polygon[j][0];
-    const yj = polygon[j][1];
-
-    const intersecta =
-      (yi > y) !== (yj > y) &&
-      x < ((xj - xi) * (y - yi)) / (yj - yi + 0.0) + xi;
-
-    if (intersecta) dentro = !dentro;
-  }
-
-  return dentro;
-}
-
-async function buscarPoligonoQueContienePunto(inst, click) {
-  const carpeta = inst.regionCarpeta || inst.carpeta || "";
-  const archivo = inst.archivo;
-  if (!archivo) {
-    console.warn("Instrumento sin archivo KML:", inst);
-    return null;
-  }
-
-  const rutaKml = carpeta ? `capas/${carpeta}/${archivo}` : archivo;
-
-  let textoKml = "";
-  try {
-    const resp = await fetch(rutaKml);
-    if (!resp.ok) {
-      console.error("No se pudo cargar KML:", rutaKml, resp.status);
-      return null;
-    }
-    textoKml = await resp.text();
-  } catch (err) {
-    console.error("Error de red cargando KML:", rutaKml, err);
-    return null;
-  }
-
-  const parser = new DOMParser();
-  const xml = parser.parseFromString(textoKml, "text/xml");
-  const placemarks = Array.from(xml.getElementsByTagName("Placemark"));
-  if (!placemarks.length) {
-    console.warn("KML sin placemarks:", rutaKml);
-    return null;
-  }
-
-  const pt = [click.lng, click.lat];
-
-  for (const pm of placemarks) {
-    const coordsNode = pm.getElementsByTagName("coordinates")[0];
-    if (!coordsNode) continue;
-
-    const coordsText = coordsNode.textContent.trim();
-    if (!coordsText) continue;
-
-    const puntos = coordsText
-      .split(/\s+/)
-      .map((token) => {
-        const parts = token.split(",");
-        const lon = parseFloat(parts[0]);
-        const lat = parseFloat(parts[1]);
-        return [lon, lat];
-      })
-      .filter((p) => !Number.isNaN(p[0]) && !Number.isNaN(p[1]));
-
-    if (puntos.length < 3) continue;
-
-    const ring = puntos;
-
-    if (puntoEnPoligono(pt, ring)) {
-      const dataNodes = Array.from(pm.getElementsByTagName("Data"));
-      const attrsZona = {};
-
-      dataNodes.forEach((d) => {
-        const nombreAttr = d.getAttribute("name");
-        const valNode = d.getElementsByTagName("value")[0];
-        const valorAttr = valNode ? valNode.textContent.trim() : "";
-        if (nombreAttr) {
-          attrsZona[nombreAttr] = valorAttr;
-        }
-      });
-
-      const nameNode = pm.getElementsByTagName("name")[0];
-      if (nameNode && nameNode.textContent) {
-        attrsZona["NOMBRE_PM"] = nameNode.textContent.trim();
-      }
-
-      const geometryZona = {
-        type: "Polygon",
-        coordinates: [ring]
-      };
-
-      return { attrsZona, geometryZona };
-    }
-  }
-
-  return null;
-}
-
-async function ejecutarMotor(click, bbox, candidatos) {
-  if (!candidatos.length) return null;
-
-  const tabla = candidatos.map(inst => ({
-    nombre: inst.nombre || inst.archivo,
-    tipo: inst.tipo || "",
-    comuna: inst.comuna || "",
-    contienePuntoBBOX: true
-  }));
-
-  for (const inst of candidatos) {
-    try {
-      const resultadoInstrumento = await buscarPoligonoQueContienePunto(inst, click);
-      if (resultadoInstrumento) {
-        const { attrsZona, geometryZona } = resultadoInstrumento;
-
-        const instrumentoReporte = {
-          nombre: inst.nombre || inst.archivo,
-          archivo: inst.archivo,
-          tipo: inst.tipo || "",
-          comuna: inst.comuna || "",
-          regionNombre: inst.regionNombre || "",
-          regionCarpeta: inst.regionCarpeta || inst.carpeta || ""
-        };
-
-        const zona = Object.assign({}, attrsZona || {});
-        zona.geometry = geometryZona;
-
-        return {
-          click: { lat: click.lat, lng: click.lng },
-          instrumento: instrumentoReporte,
-          zona,
-          tabla
-        };
-      }
-    } catch (err) {
-      console.error("Error evaluando instrumento", inst, err);
-    }
-  }
-
-  return null;
-}
-
-// ---------------------------------------
-// MAIN
-// ---------------------------------------
-(async function main() {
-  const { lat, lon, north, east, south, west, bboxStr } = getParams();
-  const txtPunto = document.getElementById("txt-punto");
-  const txtBbox  = document.getElementById("txt-bbox");
-  const txtInst  = document.getElementById("txt-instrumentos");
+/* ---------------------------------------------------------
+   6) FLUJO PRINCIPAL
+---------------------------------------------------------*/
+async function ejecutarFlujoBbox() {
+  const preListado = document.getElementById("txt-instrumentos");
+  const prePunto = document.getElementById("txt-instrumentos-punto");
   const btnReporte = document.getElementById("btn-reporte");
 
-  if (Number.isNaN(lat) || Number.isNaN(lon)) {
-    txtPunto.textContent = "(parámetros lat/lon inválidos)";
-    return;
+  if (preListado) {
+    preListado.textContent =
+      "(cargando instrumentos desde capas/regiones.json y capas_xx/listado.json...)";
   }
-
-  txtPunto.textContent = `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}`;
-  txtBbox.textContent  = bboxStr || "(sin bbox)";
-
-  // Mapa
-  const map = L.map("map");
-  if (
-    typeof north === "number" && typeof east === "number" &&
-    typeof south === "number" && typeof west === "number"
-  ) {
-    const bounds = L.latLngBounds([south, west], [north, east]);
-    map.fitBounds(bounds);
-  } else {
-    map.setView([lat, lon], 15);
+  if (prePunto) {
+    prePunto.textContent = "(esperando resultado de la geometría...)";
   }
-
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 20
-  }).addTo(map);
-
-  L.circleMarker([lat, lon], {
-    radius: 6,
-    weight: 2,
-    color: "#f97316",
-    fillColor: "#ffffff",
-    fillOpacity: 0.9
-  }).addTo(map);
-
-  // 1) Cargar TODOS los instrumentos desde los listado.json
-  const instrumentosTodos = await cargarInstrumentosNacionales();
-  if (!instrumentosTodos.length) {
-    txtInst.textContent = "No se pudieron cargar instrumentos desde los listado.json";
-    return;
-  }
-
-  const bbox = { north, east, south, west };
-  const candidatos = filtrarInstrumentosPorBbox(instrumentosTodos, bbox);
-
-  if (!candidatos.length) {
-    txtInst.textContent = "No hay instrumentos que intersecten este BBOX.";
-  } else {
-    txtInst.textContent = JSON.stringify(
-      candidatos.map(c => ({
-        nombre: c.nombre,
-        archivo: c.archivo,
-        carpeta: c.regionCarpeta || c.carpeta,
-        comuna: c.comuna,
-        region: c.regionNombre
-      })),
-      null,
-      2
-    );
-  }
-
-  // Guardar parámetros "mínimos" en localStorage
-  const payloadMinimo = {
-    click: { lat, lon },
-    bbox: { north, east, south, west },
-    instrumentos: candidatos.map(c => ({
-      archivo: c.archivo,
-      carpeta: c.regionCarpeta || c.carpeta,
-      nombre: c.nombre,
-      comuna: c.comuna,
-      region: c.regionNombre
-    }))
-  };
-  localStorage.setItem("geoipt_bbox_parametros", JSON.stringify(payloadMinimo));
-
-  // Habilitar botón
-  btnReporte.disabled = false;
-
-  btnReporte.addEventListener("click", async () => {
+  if (btnReporte) {
     btnReporte.disabled = true;
-    btnReporte.textContent = "Buscando polígono...";
+  }
 
-    const click = { lat, lng: lon };
-    const resultado = await ejecutarMotor(click, bbox, candidatos);
+  try {
+    // 1) Cargar todos los IPT desde regiones + listados
+    const todosLosIpt = await cargarIptsDesdeRegiones(bbox);
 
-    if (!resultado) {
-      alert(
-        "No se encontró ningún polígono PRC/SCC que contenga el punto.\n" +
-        "Por favor, haz clic sobre un área urbana."
-      );
-      btnReporte.textContent = "Generar reporte en info.html";
-      btnReporte.disabled = false;
+    // 2) Filtro 1: IPT cuyo BBOX intersecta el BBOX de pantalla
+    const iptsEnBbox = todosLosIpt.filter(ipt => {
+      const bboxIpt = ipt.bbox || ipt.bbox_ipt || null;
+      return intersectaBbox(bboxIpt, bbox);
+    });
+
+    if (preListado) {
+      preListado.textContent = JSON.stringify(iptsEnBbox, null, 2);
+    }
+
+    if (!iptsEnBbox.length) {
+      if (prePunto) {
+        prePunto.textContent =
+          "No hay IPT cuyo BBOX intersecte la pantalla en este clic.";
+      }
+      // No habilitamos el botón
       return;
     }
 
-    // Resultado final para info.html
-    localStorage.setItem("geoipt_reporte_actual", JSON.stringify(resultado));
+    // 3) Filtro 2: GEOMETRÍA contiene el punto clic
+    if (prePunto) {
+      prePunto.textContent = "Analizando geometría de los IPT en pantalla...";
+    }
 
-    const bboxStrOut = [north, east, south, west].join(",");
-    const urlInfo =
-      "info.html?lat=" +
-      encodeURIComponent(lat) +
-      "&lon=" +
-      encodeURIComponent(lon) +
-      "&bbox=" +
-      encodeURIComponent(bboxStrOut);
+    const iptsConPunto = await filtrarIptsPorGeometria(iptsEnBbox, puntoClick);
 
-    window.open(urlInfo, "_blank");
-    btnReporte.textContent = "Reporte generado";
-  });
-})();
+    if (iptsConPunto.length === 0) {
+      if (prePunto) {
+        prePunto.textContent =
+          "⚠ Ningún IPT tiene polígonos que contengan exactamente el punto clic.\n" +
+          "Sugerencia: regrese al mapa principal y haga clic sobre un área urbana.";
+      }
+      // 👇 Importante: NO habilitamos el botón, no hace nada.
+      if (btnReporte) btnReporte.disabled = true;
+      return;
+    }
+
+    // Mostramos la lista final en pantalla
+    if (prePunto) {
+      prePunto.textContent = JSON.stringify(iptsConPunto, null, 2);
+    }
+
+    // 4) Preparar botón para llamar a info.html SOLO si hay IPT válidos
+    if (btnReporte) {
+      btnReporte.disabled = false;
+
+      btnReporte.onclick = () => {
+        const bboxStr = `${bbox.N},${bbox.E},${bbox.S},${bbox.W}`;
+
+        const listaIpt = iptsConPunto
+          .map(ipt => `${ipt.carpeta}/${ipt.archivo}`)
+          .join("|");
+
+        const url =
+          `info.html?lat=${lat}&lon=${lon}` +
+          `&bbox=${bboxStr}` +
+          `&ipts=${encodeURIComponent(listaIpt)}`;
+
+        window.open(url, "_blank");
+      };
+    }
+  } catch (err) {
+    console.error(err);
+    if (preListado) {
+      preListado.textContent =
+        "Error cargando capas/regiones.json o capas_xx/listado.json.";
+    }
+    if (prePunto) {
+      prePunto.textContent =
+        "No se pudo completar el análisis de geometría.";
+    }
+    if (btnReporte) {
+      btnReporte.disabled = true;
+    }
+  }
+}
+
+/* ---------------------------------------------------------
+   7) EJECUTAR
+---------------------------------------------------------*/
+ejecutarFlujoBbox();
