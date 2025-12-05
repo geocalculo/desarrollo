@@ -2,306 +2,517 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>GeoIPT – Motor BBOX intermedio</title>
+  <title>GeoIPT - BBOX Test</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <!-- Leaflet -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   />
-
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0;
-      padding: 0;
-      background: #0b1120;
-      color: #e2e8f0;
-      font-family: system-ui, sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Helvetica, Arial, sans-serif;
+      background: #020617;
+      color: #e5e7eb;
+      min-height: 100vh;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
     }
-
-    h1 {
-      text-align: center;
-      margin-top: 20px;
-      font-size: 1.6rem;
-      font-weight: 600;
-    }
-
-    .panel {
-      max-width: 1100px;
-      margin: 18px auto;
-      padding: 18px;
-      background: #1e293b;
-      border-radius: 14px;
-      border: 1px solid #334155;
-    }
-
+    h1 { font-size: 1.1rem; }
     #map {
-      width: 100%;
+      width: 1100px;
+      max-width: 100%;
       height: 480px;
       border-radius: 12px;
-      border: 1px solid #475569;
-      margin-bottom: 18px;
+      border: 1px solid #1f2937;
+      margin-top: 6px;
     }
-
+    .panel {
+      width: 1100px;
+      max-width: 100%;
+      background: #0b1120;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 0.86rem;
+    }
     pre {
-      background: #0f172a;
-      padding: 10px;
+      background: #020617;
+      padding: 8px 10px;
       border-radius: 8px;
-      border: 1px solid #334155;
       overflow-x: auto;
-      color: #94a3b8;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
+      max-height: 220px;
+      overflow-y: auto;
     }
-
     button {
-      padding: 10px 18px;
-      border-radius: 6px;
-      background: #22c55e;
+      margin-top: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
       border: none;
-      font-size: 1rem;
+      background: #22c55e;
+      color: #022c22;
+      font-weight: 600;
       cursor: pointer;
-      margin-top: 14px;
+      font-size: 0.86rem;
     }
-
     button:disabled {
-      background: #64748b;
-      cursor: not-allowed;
+      opacity: 0.5;
+      cursor: default;
     }
   </style>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
 </head>
-
 <body>
-
   <h1>GeoIPT – Motor BBOX intermedio</h1>
+  <div id="map"></div>
 
   <div class="panel">
-    <div id="map"></div>
-
-    <p><strong>Punto consultado:</strong>
-      <span id="coord"></span>
+    <p>
+      Punto consultado: <span id="txt-punto"></span><br/>
+      BBOX de la pantalla (N, E, S, W): <span id="txt-bbox"></span>
     </p>
-
-    <p><strong>BBOX visible (N, E, S, W):</strong>
-      <span id="bbox_out"></span>
+    <p style="margin-top:6px;">
+      Instrumentos IPT.kml que intersectan este BBOX:
     </p>
+    <pre id="txt-instrumentos">(cargando...)</pre>
 
-    <p><strong>Instrumentos detectados en este BBOX:</strong></p>
-    <pre id="inst_dump">(cargando…)</pre>
-
-    <button id="go" disabled>Generar reporte en info.html</button>
+    <button id="btn-reporte" disabled>Generar reporte en info.html</button>
   </div>
 
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <script>
-    //-----------------------------
-    // Obtener parámetros
-    //-----------------------------
-    const P = new URLSearchParams(location.search);
-    const lat = parseFloat(P.get("lat"));
-    const lon = parseFloat(P.get("lon"));
-    const bboxStr = P.get("bbox");
-
-    if (!lat || !lon || !bboxStr) {
-      document.getElementById("coord").innerText = "Error en parámetros.";
+    // ---------------------------------------
+    // Utilidades de parámetros
+    // ---------------------------------------
+    function getParams() {
+      const p = new URLSearchParams(window.location.search);
+      const lat = parseFloat(p.get("lat"));
+      const lon = parseFloat(p.get("lon"));
+      const bboxStr = p.get("bbox") || "";
+      let north, east, south, west;
+      if (bboxStr) {
+        const parts = bboxStr.split(",").map(Number);
+        if (parts.length === 4) {
+          [north, east, south, west] = parts;
+        }
+      }
+      return { lat, lon, north, east, south, west, bboxStr };
     }
 
-    document.getElementById("coord").innerText =
-      `Lat: ${lat.toFixed(6)} – Lon: ${lon.toFixed(6)}`;
-
-    const bboxArr = bboxStr.split(",").map(n => parseFloat(n));
-    document.getElementById("bbox_out").innerText = bboxArr.join(", ");
-
-    const [N, E, S, W] = bboxArr;
-
-    //-----------------------------
-    // Crear mapa
-    //-----------------------------
-    const map = L.map("map").setView([lat, lon], 16);
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png")
-      .addTo(map);
-
-    L.circleMarker([lat, lon], {
-      radius: 7,
-      color: "#38bdf8",
-      fillColor: "#38bdf8",
-      fillOpacity: 0.55
-    }).addTo(map);
-
-    //-----------------------------
-    // Intersección de BBOX
-    //-----------------------------
-    function intersecta(bboxInst, bboxVista) {
-      const [n1, e1, s1, w1] = bboxInst;
-      const [n2, e2, s2, w2] = bboxVista;
-
-      const noOverlap =
-        s1 > n2 ||
-        n1 < s2 ||
-        w1 > e2 ||
-        e1 < w2;
-
-      return !noOverlap;
-    }
-
-    async function cargarJSON(url) {
+    async function cargarJSON(url, descripcion) {
       try {
-        const r = await fetch(url);
-        return await r.json();
-      } catch (e) {
-        console.error("Error JSON:", url, e);
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          console.error(`Error al cargar ${descripcion} desde ${url}: `, resp.status);
+          return null;
+        }
+        return await resp.json();
+      } catch (err) {
+        console.error(`Excepción al cargar ${descripcion} desde ${url}: `, err);
         return null;
       }
     }
 
-    //-----------------------------
-    // Buscar instrumentos en BBOX
-    //-----------------------------
-    async function buscarInstrumentos() {
-      const respReg = await cargarJSON("capas/regiones.json");
-      if (!respReg) {
-        document.getElementById("inst_dump").innerText = "Error leyendo regiones.";
+    // ---------------------------------------
+    // Normalización de BBOX de instrumentos
+    // listado.json tiene bbox por instrumento
+    // Puede venir como:
+    //  a) [minLat, minLon, maxLat, maxLon]
+    //  b) [[lat1, lon1], [lat2, lon2]]
+    // ---------------------------------------
+    function normalizarBboxInstrumento(rawBbox) {
+      if (!rawBbox) return null;
+
+      // Caso a) [minLat, minLon, maxLat, maxLon]
+      if (
+        Array.isArray(rawBbox) &&
+        rawBbox.length === 4 &&
+        rawBbox.every(v => typeof v === "number")
+      ) {
+        const [minLat, minLon, maxLat, maxLon] = rawBbox;
+        return { minLat, minLon, maxLat, maxLon };
+      }
+
+      // Caso b) [[lat1, lon1], [lat2, lon2]]
+      if (
+        Array.isArray(rawBbox) &&
+        rawBbox.length === 2 &&
+        Array.isArray(rawBbox[0]) &&
+        Array.isArray(rawBbox[1])
+      ) {
+        const p1 = rawBbox[0].map(Number);
+        const p2 = rawBbox[1].map(Number);
+        if (
+          p1.length === 2 && p2.length === 2 &&
+          !Number.isNaN(p1[0]) && !Number.isNaN(p1[1]) &&
+          !Number.isNaN(p2[0]) && !Number.isNaN(p2[1])
+        ) {
+          const minLat = Math.min(p1[0], p2[0]);
+          const maxLat = Math.max(p1[0], p2[0]);
+          const minLon = Math.min(p1[1], p2[1]);
+          const maxLon = Math.max(p1[1], p2[1]);
+          return { minLat, minLon, maxLat, maxLon };
+        }
+      }
+
+      return null;
+    }
+
+    // ---------------------------------------
+    // Filtro BBOX (N,E,S,W) contra instrumentos
+    // ---------------------------------------
+    function filtrarInstrumentosPorBbox(lista, bbox) {
+      const { north, east, south, west } = bbox;
+      if (
+        typeof north !== "number" || typeof east !== "number" ||
+        typeof south !== "number" || typeof west !== "number"
+      ) {
         return [];
       }
 
-      const matches = [];
+      const minLat = south;
+      const maxLat = north;
+      const minLon = west;
+      const maxLon = east;
 
-      for (const R of respReg.regiones) {
-        const listado = await cargarJSON(`capas/${R.carpeta}/listado.json`);
-        if (!listado) continue;
+      return lista.filter(inst => {
+        const nb = normalizarBboxInstrumento(inst.bbox);
+        if (!nb) return false;
 
-        for (const inst of listado.instrumentos) {
-          if (!inst.bbox) continue;
+        const { minLat: iMinLat, minLon: iMinLon, maxLat: iMaxLat, maxLon: iMaxLon } = nb;
 
-          if (intersecta(inst.bbox, bboxArr)) {
-            matches.push({
-              ...inst,
-              carpeta: R.carpeta,
-              regionNombre: R.nombre
-            });
-          }
-        }
-      }
+        const noIntersecta =
+          iMaxLat < minLat ||
+          iMinLat > maxLat ||
+          iMaxLon < minLon ||
+          iMinLon > maxLon;
 
-      return matches;
+        return !noIntersecta;
+      });
     }
 
-    //-----------------------------
-    // Cargar y leer KML
-    //-----------------------------
-    async function cargarKML(carpeta, archivo) {
-      try {
-        const txt = await fetch(`capas/${carpeta}/${archivo}`).then(r => r.text());
-        const dom = new DOMParser().parseFromString(txt, "text/xml");
-        return toGeoJSON.kml(dom);
-      } catch (e) {
-        console.error("Error leyendo KML:", archivo, e);
+    // ---------------------------------------
+    // Leer todos los instrumentos desde
+    // capas/regiones.json + capas_xx/listado.json
+    // ---------------------------------------
+    async function cargarInstrumentosNacionales() {
+      // 1) Leer regiones
+      const dataReg = await cargarJSON("capas/regiones.json", "regiones");
+      if (!dataReg) return [];
+
+      const regiones =
+        Array.isArray(dataReg) ? dataReg :
+        dataReg.regiones_ipt || dataReg.regiones || [];
+
+      const tareas = [];
+
+      regiones.forEach(reg => {
+        const carpeta = reg.carpeta;
+        if (!carpeta) return;
+
+        const urlListado = `capas/${carpeta}/listado.json`;
+        tareas.push(
+          (async () => {
+            const listado = await cargarJSON(urlListado, `listado ${carpeta}`);
+            if (!listado) return [];
+
+            const instrumentos = listado.instrumentos || listado;
+            if (!Array.isArray(instrumentos)) return [];
+
+            // agregar metadata de región a cada instrumento
+            return instrumentos.map(inst => ({
+              ...inst,
+              regionCarpeta: carpeta,
+              regionNombre: listado.region || reg.nombre || "",
+            }));
+          })()
+        );
+      });
+
+      const resultados = await Promise.all(tareas);
+      // "aplanar" la lista
+      return resultados.reduce((acc, sub) => {
+        if (Array.isArray(sub)) acc.push(...sub);
+        return acc;
+      }, []);
+    }
+
+    // ---------------------------------------
+    // Geometría: punto en polígono
+    // ---------------------------------------
+    function puntoEnPoligono(pt, polygon) {
+      const x = pt[0];
+      const y = pt[1];
+      let dentro = false;
+
+      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i][0];
+        const yi = polygon[i][1];
+        const xj = polygon[j][0];
+        const yj = polygon[j][1];
+
+        const intersecta =
+          (yi > y) !== (yj > y) &&
+          x < ((xj - xi) * (y - yi)) / (yj - yi + 0.0) + xi;
+
+        if (intersecta) dentro = !dentro;
+      }
+
+      return dentro;
+    }
+
+    async function buscarPoligonoQueContienePunto(inst, click) {
+      const carpeta = inst.regionCarpeta || inst.carpeta || "";
+      const archivo = inst.archivo;
+      if (!archivo) {
+        console.warn("Instrumento sin archivo KML:", inst);
         return null;
       }
-    }
 
-    //-----------------------------
-    // Determinar polígono contenedor
-    //-----------------------------
-    function puntoEnPoligono(pt, poly) {
-      if (!poly.coordinates) return false;
+      const rutaKml = carpeta ? `capas/${carpeta}/${archivo}` : archivo;
 
-      function inside(point, vs) {
-        let x = point[0], y = point[1];
-        let inside = false;
-        for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-          let xi = vs[i][0], yi = vs[i][1];
-          let xj = vs[j][0], yj = vs[j][1];
-
-          let intersect = ((yi > y) !== (yj > y)) &&
-            (x < (xj - xi) * (y - yi) / (yj - yi + 0.0000001) + xi);
-          if (intersect) inside = !inside;
+      let textoKml = "";
+      try {
+        const resp = await fetch(rutaKml);
+        if (!resp.ok) {
+          console.error("No se pudo cargar KML:", rutaKml, resp.status);
+          return null;
         }
-        return inside;
+        textoKml = await resp.text();
+      } catch (err) {
+        console.error("Error de red cargando KML:", rutaKml, err);
+        return null;
       }
 
-      if (poly.type === "Polygon") {
-        return inside([pt[1], pt[0]], poly.coordinates[0]);
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(textoKml, "text/xml");
+      const placemarks = Array.from(xml.getElementsByTagName("Placemark"));
+      if (!placemarks.length) {
+        console.warn("KML sin placemarks:", rutaKml);
+        return null;
       }
 
-      if (poly.type === "MultiPolygon") {
-        return poly.coordinates.some(c => inside([pt[1], pt[0]], c[0]));
-      }
+      const pt = [click.lng, click.lat];
 
-      return false;
-    }
+      for (const pm of placemarks) {
+        const coordsNode = pm.getElementsByTagName("coordinates")[0];
+        if (!coordsNode) continue;
 
-    //-----------------------------
-    // Procesar los instrumentos detectados en el BBOX
-    //-----------------------------
-    async function procesar() {
-      const instrumentos = await buscarInstrumentos();
+        const coordsText = coordsNode.textContent.trim();
+        if (!coordsText) continue;
 
-      if (instrumentos.length === 0) {
-        document.getElementById("inst_dump").innerText =
-          "No hay instrumentos intersectando este BBOX.";
+        const puntos = coordsText
+          .split(/\s+/)
+          .map((token) => {
+            const parts = token.split(",");
+            const lon = parseFloat(parts[0]);
+            const lat = parseFloat(parts[1]);
+            return [lon, lat];
+          })
+          .filter((p) => !Number.isNaN(p[0]) && !Number.isNaN(p[1]));
 
-        alert("Debe hacer clic en sector urbano (acérquese más).");
-        return;
-      }
+        if (puntos.length < 3) continue;
 
-      document.getElementById("inst_dump").innerText =
-        JSON.stringify(instrumentos, null, 2);
+        const ring = puntos;
 
-      // Buscar cuál instrumento contiene efectivamente el punto consultado
-      let instrumentoMatch = null;
-      let zonaMatch = null;
+        if (puntoEnPoligono(pt, ring)) {
+          const dataNodes = Array.from(pm.getElementsByTagName("Data"));
+          const attrsZona = {};
 
-      for (const inst of instrumentos) {
-        const gj = await cargarKML(inst.carpeta, inst.archivo);
-        if (!gj || !gj.features) continue;
+          dataNodes.forEach((d) => {
+            const nombreAttr = d.getAttribute("name");
+            const valNode = d.getElementsByTagName("value")[0];
+            const valorAttr = valNode ? valNode.textContent.trim() : "";
+            if (nombreAttr) {
+              attrsZona[nombreAttr] = valorAttr;
+            }
+          });
 
-        for (const f of gj.features) {
-          if (f.geometry && puntoEnPoligono([lat, lon], f.geometry)) {
-            instrumentoMatch = inst;
-            zonaMatch = f;
-            break;
+          const nameNode = pm.getElementsByTagName("name")[0];
+          if (nameNode && nameNode.textContent) {
+            attrsZona["NOMBRE_PM"] = nameNode.textContent.trim();
           }
-        }
 
-        if (instrumentoMatch) break;
+          const geometryZona = {
+            type: "Polygon",
+            coordinates: [ring]
+          };
+
+          return { attrsZona, geometryZona };
+        }
       }
 
-      if (!instrumentoMatch || !zonaMatch) {
-        alert("Debe hacer clic en sector urbano (acérquese más).");
+      return null;
+    }
+
+    async function ejecutarMotor(click, bbox, candidatos) {
+      if (!candidatos.length) return null;
+
+      const tabla = candidatos.map(inst => ({
+        nombre: inst.nombre || inst.archivo,
+        tipo: inst.tipo || "",
+        comuna: inst.comuna || "",
+        contienePuntoBBOX: true
+      }));
+
+      for (const inst of candidatos) {
+        try {
+          const resultadoInstrumento = await buscarPoligonoQueContienePunto(inst, click);
+          if (resultadoInstrumento) {
+            const { attrsZona, geometryZona } = resultadoInstrumento;
+
+            const instrumentoReporte = {
+              nombre: inst.nombre || inst.archivo,
+              archivo: inst.archivo,
+              tipo: inst.tipo || "",
+              comuna: inst.comuna || "",
+              regionNombre: inst.regionNombre || "",
+              regionCarpeta: inst.regionCarpeta || inst.carpeta || ""
+            };
+
+            const zona = Object.assign({}, attrsZona || {});
+            zona.geometry = geometryZona;
+
+            return {
+              click: { lat: click.lat, lng: click.lng },
+              instrumento: instrumentoReporte,
+              zona,
+              tabla
+            };
+          }
+        } catch (err) {
+          console.error("Error evaluando instrumento", inst, err);
+        }
+      }
+
+      return null;
+    }
+
+    // ---------------------------------------
+    // MAIN
+    // ---------------------------------------
+    (async function main() {
+      const { lat, lon, north, east, south, west, bboxStr } = getParams();
+      const txtPunto = document.getElementById("txt-punto");
+      const txtBbox  = document.getElementById("txt-bbox");
+      const txtInst  = document.getElementById("txt-instrumentos");
+      const btnReporte = document.getElementById("btn-reporte");
+
+      if (Number.isNaN(lat) || Number.isNaN(lon)) {
+        txtPunto.textContent = "(parámetros lat/lon inválidos)";
         return;
       }
 
-      //-----------------------------
-      // Crear objeto para info.html
-      //-----------------------------
-      const reporte = {
+      txtPunto.textContent = `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}`;
+      txtBbox.textContent  = bboxStr || "(sin bbox)";
+
+      // Mapa
+      const map = L.map("map");
+      if (
+        typeof north === "number" && typeof east === "number" &&
+        typeof south === "number" && typeof west === "number"
+      ) {
+        const bounds = L.latLngBounds([south, west], [north, east]);
+        map.fitBounds(bounds);
+      } else {
+        map.setView([lat, lon], 15);
+      }
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 20
+      }).addTo(map);
+
+      L.circleMarker([lat, lon], {
+        radius: 6,
+        weight: 2,
+        color: "#f97316",
+        fillColor: "#ffffff",
+        fillOpacity: 0.9
+      }).addTo(map);
+
+      // 1) Cargar TODOS los instrumentos desde los listado.json
+      const instrumentosTodos = await cargarInstrumentosNacionales();
+      if (!instrumentosTodos.length) {
+        txtInst.textContent = "No se pudieron cargar instrumentos desde los listado.json";
+        return;
+      }
+
+      const bbox = { north, east, south, west };
+      const candidatos = filtrarInstrumentosPorBbox(instrumentosTodos, bbox);
+
+      if (!candidatos.length) {
+        txtInst.textContent = "No hay instrumentos que intersecten este BBOX.";
+      } else {
+        txtInst.textContent = JSON.stringify(
+          candidatos.map(c => ({
+            nombre: c.nombre,
+            archivo: c.archivo,
+            carpeta: c.regionCarpeta || c.carpeta,
+            comuna: c.comuna,
+            region: c.regionNombre
+          })),
+          null,
+          2
+        );
+      }
+
+      // Guardar parámetros "mínimos" en localStorage
+      const payloadMinimo = {
         click: { lat, lon },
-        instrumento: {
-          nombre: instrumentoMatch.nombre,
-          archivo: instrumentoMatch.archivo,
-          carpeta: instrumentoMatch.carpeta,
-          regionNombre: instrumentoMatch.regionNombre
-        },
-        zona: {
-          TIPO: zonaMatch.properties?.ZONA || zonaMatch.properties?.ZON || "SIN_TIPO",
-          atributos: zonaMatch.properties || {},
-          geometry: zonaMatch.geometry
-        }
+        bbox: { north, east, south, west },
+        instrumentos: candidatos.map(c => ({
+          archivo: c.archivo,
+          carpeta: c.regionCarpeta || c.carpeta,
+          nombre: c.nombre,
+          comuna: c.comuna,
+          region: c.regionNombre
+        }))
       };
+      localStorage.setItem("geoipt_bbox_parametros", JSON.stringify(payloadMinimo));
 
-      localStorage.setItem("geoipt_reporte_actual", JSON.stringify(reporte));
+      // Habilitar botón
+      btnReporte.disabled = false;
 
-      document.getElementById("go").disabled = false;
+      btnReporte.addEventListener("click", async () => {
+        btnReporte.disabled = true;
+        btnReporte.textContent = "Buscando polígono...";
 
-      // Abrir automáticamente info.html
-      window.open("info.html", "_blank");
-    }
+        const click = { lat, lng: lon };
+        const resultado = await ejecutarMotor(click, bbox, candidatos);
 
-    procesar();
+        if (!resultado) {
+          alert(
+            "No se encontró ningún polígono PRC/SCC que contenga el punto.\n" +
+            "Por favor, haz clic sobre un área urbana."
+          );
+          btnReporte.textContent = "Generar reporte en info.html";
+          btnReporte.disabled = false;
+          return;
+        }
+
+        // Resultado final para info.html
+        localStorage.setItem("geoipt_reporte_actual", JSON.stringify(resultado));
+
+        const bboxStrOut = [north, east, south, west].join(",");
+        const urlInfo =
+          "info.html?lat=" +
+          encodeURIComponent(lat) +
+          "&lon=" +
+          encodeURIComponent(lon) +
+          "&bbox=" +
+          encodeURIComponent(bboxStrOut);
+
+        window.open(urlInfo, "_blank");
+        btnReporte.textContent = "Reporte generado";
+      });
+    })();
   </script>
 </body>
 </html>
-<!-- full bbox_test.html content here -->
