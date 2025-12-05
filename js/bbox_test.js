@@ -1,35 +1,38 @@
 /************************************************************
  * GeoIPT - bbox_test.js
+ *
  * Flujo:
- * 1. Recibe lat, lon, bbox desde la URL.
+ * 1. Recibe lat, lon y bbox (N,E,S,W) desde la URL.
  * 2. Muestra punto y BBOX en el mapa.
  * 3. Carga capas/regiones.json.
  * 4. Por cada región cuyo BBOX intersecta la pantalla, carga
  *    capas_xx/listado.json y junta todos los IPT.
  * 5. Filtro 1: IPT cuyo BBOX intersecta el BBOX de pantalla.
+ *    - Si el IPT tiene bbox propio, se usa ese.
+ *    - Si no, se usa el bbox de la región.  (OPCIÓN A)
  * 6. Filtro 2: de esos, IPT donde la geometría (KML/JSON)
  *    contiene el punto clic.
- * 7. Solo si hay IPT del filtro 2, habilita el botón para
- *    llamar a info.html.
+ * 7. Solo si hay IPT del filtro 2, se habilita el botón para
+ *    llamar a info.html con la lista de IPT.
  ************************************************************/
 
 /* ---------------------------------------------------------
    1) LEER PARÁMETROS DE LA URL
 ---------------------------------------------------------*/
-const params = new URLSearchParams(window.location.search);
-const lat = parseFloat(params.get("lat"));
-const lon = parseFloat(params.get("lon"));
-const bboxParam = params.get("bbox");   // N,E,S,W
+const urlParams = new URLSearchParams(window.location.search);
+const lat = parseFloat(urlParams.get("lat"));
+const lon = parseFloat(urlParams.get("lon"));
+const bboxParam = urlParams.get("bbox"); // N,E,S,W
 
-let bbox = null;
+let bboxPantalla = null;
 if (bboxParam) {
   const s = bboxParam.split(",");
-  bbox = {
-    N: parseFloat(s[0]),
-    E: parseFloat(s[1]),
-    S: parseFloat(s[2]),
-    W: parseFloat(s[3])
-  };
+  bboxPantalla = [
+    parseFloat(s[0]), // N
+    parseFloat(s[1]), // E
+    parseFloat(s[2]), // S
+    parseFloat(s[3])  // W
+  ];
 }
 
 const puntoClick = { lat, lon };
@@ -41,10 +44,10 @@ if (spanPunto && !isNaN(lat) && !isNaN(lon)) {
 }
 
 const spanBbox = document.getElementById("txt-bbox");
-if (spanBbox && bbox) {
+if (spanBbox && bboxPantalla) {
   spanBbox.textContent =
-    `${bbox.N.toFixed(6)}, ${bbox.E.toFixed(6)}, ` +
-    `${bbox.S.toFixed(6)}, ${bbox.W.toFixed(6)}`;
+    `${bboxPantalla[0].toFixed(6)}, ${bboxPantalla[1].toFixed(6)}, ` +
+    `${bboxPantalla[2].toFixed(6)}, ${bboxPantalla[3].toFixed(6)}`;
 }
 
 /* ---------------------------------------------------------
@@ -70,29 +73,45 @@ if (!isNaN(lat) && !isNaN(lon)) {
 }
 
 // Dibujar BBOX de pantalla
-if (bbox) {
+if (bboxPantalla) {
   const rect = L.rectangle(
     [
-      [bbox.N, bbox.W],
-      [bbox.S, bbox.E]
+      [bboxPantalla[0], bboxPantalla[3]], // [N, W]
+      [bboxPantalla[2], bboxPantalla[1]]  // [S, E]
     ],
-    { color: "#00ff88", weight: 1 }
+    { color: "#00ff88", weight: 1, fillOpacity: 0.15 }
   );
   rect.addTo(map);
 }
 
 /* ---------------------------------------------------------
-   3) UTILIDADES DE BBOX
+   3) UTILIDADES: BBOX
+   Tus JSON usan bbox como [[S,W],[N,E]] → lo normalizamos
+   a [N,E,S,W] que es lo que usa el motor.
 ---------------------------------------------------------*/
-function intersectaBbox(b1, b2) {
-  if (!b1 || !b2 || b1.length !== 4) return false;
+function normalizarBBoxSWNE(b) {
+  if (!b || b.length !== 2) return null;
+  const sw = b[0]; // [lat_s, lon_w]
+  const ne = b[1]; // [lat_n, lon_e]
+  const S = sw[0];
+  const W = sw[1];
+  const N = ne[0];
+  const E = ne[1];
+  return [N, E, S, W];
+}
 
-  const [N, E, S, W] = b1;
+// Intersección de dos BBOX [N,E,S,W]
+function intersectaBbox(b1, b2) {
+  if (!b1 || !b2 || b1.length !== 4 || b2.length !== 4) return false;
+
+  const [N1, E1, S1, W1] = b1;
+  const [N2, E2, S2, W2] = b2;
+
   const noIntersecta =
-    (S > b2.N) || // abajo > arriba
-    (N < b2.S) || // arriba < abajo
-    (W > b2.E) || // izq > der
-    (E < b2.W);   // der < izq
+    (S1 > N2) || // abajo > arriba
+    (N1 < S2) || // arriba < abajo
+    (W1 > E2) || // izq > der
+    (E1 < W2);   // der < izq
 
   return !noIntersecta;
 }
@@ -105,10 +124,9 @@ function intersectaBbox(b1, b2) {
  * Carga capas/regiones.json y devuelve una lista de IPT
  * de todas las regiones cuyo BBOX intersecta el BBOX de pantalla.
  *
- * Estructura asumida:
- *   capas/regiones.json -> { regiones_ipt: [ { carpeta, bbox, ... } ] }
- *   cada carpeta -> capas_xx/listado.json
- *     { instrumentos: [ { archivo, carpeta?, bbox, ... } ] }
+ * estructuras:
+ *   capas/regiones.json -> [ { carpeta, bbox:[[S,W],[N,E]], ... } ]
+ *   capas_xx/listado.json -> { instrumentos: [ { archivo, bbox:[[S,W],[N,E]], ... } ] }
  */
 async function cargarIptsDesdeRegiones(bboxPantalla) {
   const resp = await fetch("capas/regiones.json");
@@ -116,17 +134,17 @@ async function cargarIptsDesdeRegiones(bboxPantalla) {
     throw new Error("No se pudo cargar capas/regiones.json");
   }
 
-  const data = await resp.json();
-  const regiones = data.regiones_ipt || data.regiones || data || [];
+  const regiones = await resp.json(); // es un array 
 
   const listaIpt = [];
 
   for (const reg of regiones) {
-    const bboxReg = reg.bbox || reg.bbox_region || null;
     const carpetaRegion = reg.carpeta || "";
+    const bboxRegRaw = reg.bbox || null;
+    const bboxRegionNorm = bboxRegRaw ? normalizarBBoxSWNE(bboxRegRaw) : null;
 
     // Si hay bbox de región y NO intersecta la pantalla, se omite
-    if (bboxReg && !intersectaBbox(bboxReg, bboxPantalla)) {
+    if (bboxRegionNorm && bboxPantalla && !intersectaBbox(bboxRegionNorm, bboxPantalla)) {
       continue;
     }
 
@@ -145,16 +163,24 @@ async function cargarIptsDesdeRegiones(bboxPantalla) {
       }
 
       const datosListado = await respListado.json();
+
+      // Ejemplo Magallanes: { region, codigo_region, carpeta, instrumentos:[...] } 
       const instrumentos =
-        datosListado.instrumentos || datosListado.listado || datosListado;
+        datosListado.instrumentos ||
+        datosListado.listado ||
+        (Array.isArray(datosListado) ? datosListado : []);
 
       instrumentos.forEach(ipt => {
+        const bboxIptRaw = ipt.bbox || null;
+        const bboxIptNorm = bboxIptRaw ? normalizarBBoxSWNE(bboxIptRaw) : null;
+
         listaIpt.push({
           ...ipt,
-          carpeta: ipt.carpeta || carpetaRegion,
-          region_nombre: ipt.region || reg.nombre || reg.id || "",
-          id_region: reg.id || reg.codigo_region || "",
-          bbox_region: bboxReg
+          carpeta: ipt.carpeta || datosListado.carpeta || carpetaRegion,
+          region_nombre: reg.nombre || datosListado.region || "",
+          id_region: reg.id || reg.codigo_ine || datosListado.codigo_region || "",
+          bboxNorm: bboxIptNorm,
+          bboxRegionNorm: bboxRegionNorm
         });
       });
     } catch (e) {
@@ -262,12 +288,14 @@ async function ejecutarFlujoBbox() {
 
   try {
     // 1) Cargar todos los IPT desde regiones + listados
-    const todosLosIpt = await cargarIptsDesdeRegiones(bbox);
+    const todosLosIpt = await cargarIptsDesdeRegiones(bboxPantalla);
 
     // 2) Filtro 1: IPT cuyo BBOX intersecta el BBOX de pantalla
+    //    (usa bbox del IPT si existe, si no, bbox de región)
     const iptsEnBbox = todosLosIpt.filter(ipt => {
-      const bboxIpt = ipt.bbox || ipt.bbox_ipt || null;
-      return intersectaBbox(bboxIpt, bbox);
+      const bb = ipt.bboxNorm || ipt.bboxRegionNorm || null;
+      if (!bb || !bboxPantalla) return false;
+      return intersectaBbox(bb, bboxPantalla);
     });
 
     if (preListado) {
@@ -279,7 +307,7 @@ async function ejecutarFlujoBbox() {
         prePunto.textContent =
           "No hay IPT cuyo BBOX intersecte la pantalla en este clic.";
       }
-      // No habilitamos el botón
+      if (btnReporte) btnReporte.disabled = true;
       return;
     }
 
@@ -290,13 +318,12 @@ async function ejecutarFlujoBbox() {
 
     const iptsConPunto = await filtrarIptsPorGeometria(iptsEnBbox, puntoClick);
 
-    if (iptsConPunto.length === 0) {
+    if (!iptsConPunto.length) {
       if (prePunto) {
         prePunto.textContent =
           "⚠ Ningún IPT tiene polígonos que contengan exactamente el punto clic.\n" +
           "Sugerencia: regrese al mapa principal y haga clic sobre un área urbana.";
       }
-      // 👇 Importante: NO habilitamos el botón, no hace nada.
       if (btnReporte) btnReporte.disabled = true;
       return;
     }
@@ -311,7 +338,9 @@ async function ejecutarFlujoBbox() {
       btnReporte.disabled = false;
 
       btnReporte.onclick = () => {
-        const bboxStr = `${bbox.N},${bbox.E},${bbox.S},${bbox.W}`;
+        const bboxStr = bboxPantalla
+          ? `${bboxPantalla[0]},${bboxPantalla[1]},${bboxPantalla[2]},${bboxPantalla[3]}`
+          : "";
 
         const listaIpt = iptsConPunto
           .map(ipt => `${ipt.carpeta}/${ipt.archivo}`)
@@ -319,7 +348,7 @@ async function ejecutarFlujoBbox() {
 
         const url =
           `info.html?lat=${lat}&lon=${lon}` +
-          `&bbox=${bboxStr}` +
+          (bboxStr ? `&bbox=${bboxStr}` : "") +
           `&ipts=${encodeURIComponent(listaIpt)}`;
 
         window.open(url, "_blank");
