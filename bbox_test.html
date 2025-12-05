@@ -14,31 +14,40 @@
   <!-- Estilos propios -->
   <link rel="stylesheet" href="css/bbox_test.css" />
 </head>
+
 <body>
-  <h1>GeoIPT – Motor BBOX intermedio</h1>
+  <header>
+    <div class="header-inner">
+      <h1>GeoIPT – Motor BBOX intermedio</h1>
+    </div>
+  </header>
 
-  <div id="map"></div>
+  <main>
+    <div class="map-container">
+      <div id="map"></div>
+    </div>
 
-  <div class="panel">
-    <p>
-      Punto consultado:
-      <span id="txt-punto"></span><br />
-      BBOX de la pantalla (N, E, S, W):
-      <span id="txt-bbox"></span>
-    </p>
+    <div class="panel">
+      <p>
+        Punto consultado:
+        <span id="txt-punto"></span><br />
+        BBOX de la pantalla (N, E, S, W):
+        <span id="txt-bbox"></span>
+      </p>
 
-    <p style="margin-top:6px;">
-      Instrumentos IPT.kml que intersectan este BBOX:
-    </p>
-    <pre id="txt-instrumentos">(cargando...)</pre>
+      <p style="margin-top:6px;">
+        Instrumentos IPT.kml que intersectan este BBOX:
+      </p>
+      <pre id="txt-instrumentos">(cargando...)</pre>
 
-    <p style="margin-top:6px;">
-      Instrumentos donde la geometría contiene el punto clic:
-    </p>
-    <pre id="txt-instrumentos-punto">(aún sin evaluar)</pre>
+      <p style="margin-top:6px;">
+        Instrumentos donde la geometría contiene el punto clic:
+      </p>
+      <pre id="txt-instrumentos-punto">(aún sin evaluar)</pre>
 
-    <button id="btn-reporte" disabled>Generar reporte en info.html</button>
-  </div>
+      <button id="btn-reporte" disabled>Generar reporte en info.html</button>
+    </div>
+  </main>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
