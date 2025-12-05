@@ -1,5 +1,6 @@
 /************************************************************
- * GeoIPT - bbox_test.js (versión robusta + retorno a index)
+ * GeoIPT - bbox_test.js (versión robusta + retorno a index
+ * + auto-apertura de info.html)
  *
  * 1. Recibe lat, lon, zoom y bbox (N,E,S,W) desde la URL.
  * 2. Muestra punto y BBOX en el mapa.
@@ -9,10 +10,11 @@
  * 5. Filtro 1: IPT cuyo BBOX intersecta el BBOX de pantalla.
  *    - Usa siempre el bbox propio del IPT (si existe).
  *    - Si no encuentra ninguno pero sí hay IPT,
- *      usa TODOS los IPT como fallback (para no quedar en []).
+ *      usa TODOS los IPT como fallback.
  * 6. Filtro 2: de esos, IPT donde la geometría (KML/JSON)
  *    contiene el punto clic.
- * 7. Si hay IPT del filtro 2 → habilita botón a info.html.
+ * 7. Si hay IPT del filtro 2 → habilita botón a info.html
+ *    y ABRE info.html automáticamente.
  *    Si NO hay IPT del filtro 2 → muestra mensaje y
  *    vuelve a index.html con lat, lon y zoom.
  ************************************************************/
@@ -275,6 +277,7 @@ async function ejecutarFlujoBbox() {
   }
   if (btnReporte) {
     btnReporte.disabled = true;
+    btnReporte.onclick = null;
   }
 
   try {
@@ -348,25 +351,28 @@ async function ejecutarFlujoBbox() {
     if (btnReporte) {
       btnReporte.disabled = false;
 
+      // Construimos la URL de info.html una vez
+      const bboxStr = bboxPantalla
+        ? `${bboxPantalla[0]},${bboxPantalla[1]},${bboxPantalla[2]},${bboxPantalla[3]}`
+        : "";
+
+      const listaIpt = iptsConPunto
+        .map(ipt => `capas/${ipt.carpeta}/${ipt.archivo}`)
+        .join("|");
+
+      const urlInfo =
+        `info.html?lat=${lat}&lon=${lon}` +
+        (bboxStr ? `&bbox=${bboxStr}` : "") +
+        `&zoom=${zoom}` +
+        `&ipts=${encodeURIComponent(listaIpt)}`;
+
+      // Click manual (por si el usuario quiere reabrir)
       btnReporte.onclick = () => {
-        const bboxStr = bboxPantalla
-          ? `${bboxPantalla[0]},${bboxPantalla[1]},${bboxPantalla[2]},${bboxPantalla[3]}`
-          : "";
-
-        // Para info.html le pasamos rutas relativas listas para fetch:
-        //   capas/capas_03/IPT_03_PRC_Copiapo.kml|...
-        const listaIpt = iptsConPunto
-          .map(ipt => `capas/${ipt.carpeta}/${ipt.archivo}`)
-          .join("|");
-
-        const url =
-          `info.html?lat=${lat}&lon=${lon}` +
-          (bboxStr ? `&bbox=${bboxStr}` : "") +
-          `&zoom=${zoom}` +
-          `&ipts=${encodeURIComponent(listaIpt)}`;
-
-        window.open(url, "_blank");
+        window.open(urlInfo, "_blank");
       };
+
+      // 🔁 Auto-apertura: "se marque solo"
+      window.open(urlInfo, "_blank");
     }
   } catch (err) {
     console.error(err);
@@ -380,6 +386,7 @@ async function ejecutarFlujoBbox() {
     }
     if (btnReporte) {
       btnReporte.disabled = true;
+      btnReporte.onclick = null;
     }
   }
 }
