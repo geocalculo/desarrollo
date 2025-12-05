@@ -1,18 +1,16 @@
 /************************************************************
- * GeoIPT - bbox_test.js  (Versión optimizada + botón)
- * 
- * PASO 1: Determinar qué REGIONES tocan la pantalla
- * PASO 2: De esas regiones, determinar qué IPT tocan la pantalla
- * PASO 3: De esos IPT, detectar cuáles contienen el clic (geometría)
- * PASO 4: 
- *    - Si hay IPT válidos → habilitar botón "Generar reporte..."
- *      y abrir info.html en PESTAÑA NUEVA al hacer clic.
- *    - Si NO hay → mensaje + volver a index.html con mismo zoom.
+ * GeoIPT - bbox_test.js  (Versión estable con botón)
+ *
+ * PASO 1: Regiones cuyo BBOX toca la pantalla
+ * PASO 2: IPT cuyo BBOX toca la pantalla
+ * PASO 3: IPT cuya GEOMETRÍA contiene el clic
+ * PASO 4: Si hay IPT → habilitar botón y abrir info.html
+ *         Si no hay  → mensaje + volver a index.html
  ************************************************************/
 
-/* ---------------------------------------------------------
-   1) LEER PARÁMETROS DE LA URL
----------------------------------------------------------*/
+/* ---------------------------------------------
+   1) PARÁMETROS DE LA URL
+---------------------------------------------*/
 const urlParams = new URLSearchParams(window.location.search);
 const lat = parseFloat(urlParams.get("lat"));
 const lon = parseFloat(urlParams.get("lon"));
@@ -31,9 +29,7 @@ if (bboxParam) {
   ];
 }
 
-const puntoClick = { lat, lon };
-
-// Mostrar en pantalla
+// Mostrar en texto
 if (!isNaN(lat) && !isNaN(lon)) {
   document.getElementById("txt-punto").textContent =
     `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}`;
@@ -44,9 +40,9 @@ if (bboxPantalla) {
     `${bboxPantalla[2].toFixed(6)}, ${bboxPantalla[3].toFixed(6)}`;
 }
 
-/* ---------------------------------------------------------
-   2) MAPA (visualización)
----------------------------------------------------------*/
+/* ---------------------------------------------
+   2) MAPA LEAFLET
+---------------------------------------------*/
 const map = L.map("map").setView(
   (!isNaN(lat) && !isNaN(lon)) ? [lat, lon] : [-27, -70],
   zoom
@@ -57,7 +53,11 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 
 if (!isNaN(lat) && !isNaN(lon)) {
-  L.circleMarker([lat, lon], { radius: 6, color: "#ff6600", weight: 3 }).addTo(map);
+  L.circleMarker([lat, lon], {
+    radius: 6,
+    color: "#ff6600",
+    weight: 3
+  }).addTo(map);
 }
 
 if (bboxPantalla) {
@@ -70,9 +70,9 @@ if (bboxPantalla) {
   ).addTo(map);
 }
 
-/* ---------------------------------------------------------
+/* ---------------------------------------------
    UTILIDADES DE BBOX
----------------------------------------------------------*/
+---------------------------------------------*/
 function normalizarBBoxSWNE(b) {
   if (!b || b.length !== 2) return null;
   const sw = b[0]; // [lat_s, lon_w]
@@ -87,9 +87,9 @@ function intersectaBbox(a, b) {
   return !(S1 > N2 || N1 < S2 || W1 > E2 || E1 < W2);
 }
 
-/* ---------------------------------------------------------
-   PASO 1: Cargar regiones que tocan la pantalla
----------------------------------------------------------*/
+/* ---------------------------------------------
+   PASO 1: Regiones que intersectan el BBOX
+---------------------------------------------*/
 async function obtenerRegionesIntersectadas() {
   const resp = await fetch("capas/regiones.json");
   const regiones = await resp.json();
@@ -100,9 +100,9 @@ async function obtenerRegionesIntersectadas() {
   });
 }
 
-/* ---------------------------------------------------------
-   PASO 2: Cargar IPT cuyo BBOX toca la pantalla
----------------------------------------------------------*/
+/* ---------------------------------------------
+   PASO 2: IPT cuyo BBOX intersecta el BBOX
+---------------------------------------------*/
 async function obtenerIptEnPantalla(regiones) {
   const lista = [];
 
@@ -119,9 +119,9 @@ async function obtenerIptEnPantalla(regiones) {
         const bboxNorm = normalizarBBoxSWNE(ipt.bbox);
         if (intersectaBbox(bboxNorm, bboxPantalla)) {
           lista.push({
-            carpeta: carpeta,
+            carpeta,
             archivo: ipt.archivo,
-            bboxNorm: bboxNorm
+            bboxNorm
           });
         }
       }
@@ -133,11 +133,12 @@ async function obtenerIptEnPantalla(regiones) {
   return lista;
 }
 
-/* ---------------------------------------------------------
-   PASO 3: Verificar qué IPT contienen el clic (geometría)
----------------------------------------------------------*/
+/* ---------------------------------------------
+   PASO 3: IPT cuya GEOMETRÍA contiene el clic
+---------------------------------------------*/
 async function iptContienePunto(ipt) {
   const url = `capas/${ipt.carpeta}/${ipt.archivo}`;
+
   try {
     const resp = await fetch(url);
     if (!resp.ok) {
@@ -165,6 +166,7 @@ async function iptContienePunto(ipt) {
   } catch (e) {
     console.error("Error leyendo IPT:", ipt.archivo, e);
   }
+
   return false;
 }
 
@@ -176,9 +178,9 @@ async function obtenerIptQueContienenElPunto(listaIpt) {
   return resultado;
 }
 
-/* ---------------------------------------------------------
-   PASO 4: Navegación (info.html o index.html)
----------------------------------------------------------*/
+/* ---------------------------------------------
+   PASO 4: Navegación (info.html / index.html)
+---------------------------------------------*/
 function volverAIndex() {
   const url = `index.html?lat=${lat}&lon=${lon}&zoom=${zoom}`;
   window.location.href = url;
@@ -188,22 +190,22 @@ function prepararBotonReporte(iptsConPunto) {
   const btn = document.getElementById("btn-reporte");
   if (!btn) return;
 
-  if (!iptsConPunto.length) {
-    // No hay IPT válidos → botón deshabilitado
+  if (!iptsConPunto || !iptsConPunto.length) {
     btn.disabled = true;
+    btn.style.opacity = 0.5;
     btn.onclick = null;
     return;
   }
 
   btn.disabled = false;
-
-  const bboxStr = bboxPantalla
-    ? bboxPantalla.join(",")
-    : "";
+  btn.style.opacity = 1;
+  btn.style.cursor = "pointer";
 
   const rutas = iptsConPunto
     .map(ipt => `capas/${ipt.carpeta}/${ipt.archivo}`)
     .join("|");
+
+  const bboxStr = bboxPantalla ? bboxPantalla.join(",") : "";
 
   const urlInfo =
     `info.html?lat=${lat}&lon=${lon}` +
@@ -211,14 +213,15 @@ function prepararBotonReporte(iptsConPunto) {
     (bboxStr ? `&bbox=${bboxStr}` : "") +
     `&ipts=${encodeURIComponent(rutas)}`;
 
+  // 👉 MISMA PESTAÑA para evitar bloqueos de pop-ups
   btn.onclick = () => {
-    window.open(urlInfo, "_blank");
+    window.location.href = urlInfo;
   };
 }
 
-/* ---------------------------------------------------------
-   MÓDULO PRINCIPAL
----------------------------------------------------------*/
+/* ---------------------------------------------
+   FLUJO PRINCIPAL
+---------------------------------------------*/
 async function ejecutarFlujo() {
   const pre1 = document.getElementById("txt-instrumentos");
   const pre2 = document.getElementById("txt-instrumentos-punto");
@@ -226,6 +229,7 @@ async function ejecutarFlujo() {
 
   if (btn) {
     btn.disabled = true;
+    btn.style.opacity = 0.5;
     btn.onclick = null;
   }
 
@@ -247,7 +251,8 @@ async function ejecutarFlujo() {
         "⚠ No hay IPT cuyo BBOX intersecte la pantalla en este clic.\n" +
         "Sugerencia: regrese al mapa principal y haga clic sobre un área urbana.";
     }
-    setTimeout(volverAIndex, 1500);
+    prepararBotonReporte([]);
+    setTimeout(volverAIndex, 2000);
     return;
   }
 
@@ -261,7 +266,7 @@ async function ejecutarFlujo() {
         "⚠ Ningún IPT tiene polígonos que contengan exactamente el punto clic.\n" +
         "Sugerencia: regrese al mapa principal y haga clic sobre un área urbana.";
     }
-    prepararBotonReporte([]); // asegura que quede deshabilitado
+    prepararBotonReporte([]);
     setTimeout(volverAIndex, 2000);
     return;
   }
@@ -270,9 +275,9 @@ async function ejecutarFlujo() {
     pre2.textContent = JSON.stringify(iptConPunto, null, 2);
   }
 
-  // PASO 4: habilitar botón para abrir info.html en pestaña nueva
+  // PASO 4: habilitar botón reporte
   prepararBotonReporte(iptConPunto);
 }
 
-// Ejecutar
+// Ejecutar flujo
 ejecutarFlujo();
