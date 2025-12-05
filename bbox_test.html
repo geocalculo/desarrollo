@@ -32,11 +32,22 @@
     </p>
     <pre id="txt-instrumentos">(cargando...)</pre>
 
+    <p style="margin-top:6px;">
+      Instrumentos donde la geometría contiene el punto clic:
+    </p>
+    <pre id="txt-instrumentos-punto">(aún sin evaluar)</pre>
+
     <button id="btn-reporte" disabled>Generar reporte en info.html</button>
   </div>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Turf para punto-en-polígono -->
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+  <!-- toGeoJSON para convertir KML -> GeoJSON -->
+  <script src="https://unpkg.com/@tmcw/togeojson@4.5.0/dist/togeojson.umd.js"></script>
 
   <!-- Lógica propia -->
   <script src="js/bbox_test.js"></script>
