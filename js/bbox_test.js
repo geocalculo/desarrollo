@@ -1,22 +1,12 @@
 /************************************************************
- * GeoIPT - bbox_test.js (versión robusta + retorno a index
- * + auto-apertura de info.html)
- *
- * 1. Recibe lat, lon, zoom y bbox (N,E,S,W) desde la URL.
- * 2. Muestra punto y BBOX en el mapa.
- * 3. Carga capas/regiones.json.
- * 4. Para CADA región, carga capas/capas_xx/listado.json
- *    y junta todos los IPT (NO filtra por bbox de región).
- * 5. Filtro 1: IPT cuyo BBOX intersecta el BBOX de pantalla.
- *    - Usa siempre el bbox propio del IPT (si existe).
- *    - Si no encuentra ninguno pero sí hay IPT,
- *      usa TODOS los IPT como fallback.
- * 6. Filtro 2: de esos, IPT donde la geometría (KML/JSON)
- *    contiene el punto clic.
- * 7. Si hay IPT del filtro 2 → habilita botón a info.html
- *    y ABRE info.html automáticamente.
- *    Si NO hay IPT del filtro 2 → muestra mensaje y
- *    vuelve a index.html con lat, lon y zoom.
+ * GeoIPT - bbox_test.js
+ * Versión optimizada:
+ * - Usa regiones.json para limitar las regiones a consultar.
+ * - Solo carga listado.json de las regiones cuyo BBOX
+ *   intersecta el BBOX de la pantalla.
+ * - Luego filtra por BBOX de IPT y por geometría (KML/JSON).
+ * - Si hay IPT que contienen el punto → abre info.html.
+ * - Si no hay IPT que contengan el punto → vuelve a index.
  ************************************************************/
 
 /* ---------------------------------------------------------
@@ -126,22 +116,29 @@ function intersectaBbox(b1, b2) {
 ---------------------------------------------------------*/
 
 /**
- * Carga capas/regiones.json y devuelve una lista de TODOS los IPT
- * del país, leyendo capas/capas_xx/listado.json para cada región.
- * NO se filtra por bbox de la región: se filtra luego por bbox del IPT.
+ * Carga capas/regiones.json y devuelve la lista de IPT
+ * solo de las regiones cuyo BBOX intersecta el BBOX
+ * de la pantalla.
  */
-async function cargarIptsDesdeRegiones() {
+async function cargarIptsDesdeRegiones(bboxPantalla) {
   const resp = await fetch("capas/regiones.json");
   if (!resp.ok) {
     throw new Error("No se pudo cargar capas/regiones.json");
   }
 
   const regiones = await resp.json(); // es un array
-
   const listaIpt = [];
 
   for (const reg of regiones) {
     const carpetaRegion = reg.carpeta || "";
+    const bboxRegRaw = reg.bbox || null;
+    const bboxRegionNorm = bboxRegRaw ? normalizarBBoxSWNE(bboxRegRaw) : null;
+
+    // Si tenemos BBOX de región y BBOX de pantalla, filtramos
+    if (bboxPantalla && bboxRegionNorm && !intersectaBbox(bboxRegionNorm, bboxPantalla)) {
+      continue;
+    }
+
     if (!carpetaRegion) {
       console.warn("Región sin carpeta definida:", reg);
       continue;
@@ -158,7 +155,6 @@ async function cargarIptsDesdeRegiones() {
 
       const datosListado = await respListado.json();
 
-      // Estructura típica: { region, codigo_region, carpeta, instrumentos:[...] }
       const instrumentos =
         datosListado.instrumentos ||
         datosListado.listado ||
@@ -270,7 +266,7 @@ async function ejecutarFlujoBbox() {
 
   if (preListado) {
     preListado.textContent =
-      "(cargando instrumentos desde todas las regiones...)";
+      "(cargando instrumentos de las regiones que intersectan este BBOX...)";
   }
   if (prePunto) {
     prePunto.textContent = "(esperando resultado de la geometría...)";
@@ -281,11 +277,14 @@ async function ejecutarFlujoBbox() {
   }
 
   try {
-    // 1) Cargar TODOS los IPT desde regiones + listados
-    const todosLosIpt = await cargarIptsDesdeRegiones();
+    // 1) Cargar IPT SOLO de regiones cuyo BBOX intersecta la pantalla
+    const todosLosIpt = await cargarIptsDesdeRegiones(bboxPantalla);
 
     if (!todosLosIpt.length) {
-      if (preListado) preListado.textContent = "No se cargó ningún IPT.";
+      if (preListado) {
+        preListado.textContent =
+          "No se cargó ningún IPT para las regiones intersectadas.";
+      }
       if (prePunto) prePunto.textContent = "No hay datos para analizar.";
       if (btnReporte) btnReporte.disabled = true;
       return;
@@ -303,7 +302,7 @@ async function ejecutarFlujoBbox() {
       if (preListado) {
         preListado.textContent =
           "⚠ Ningún IPT pasó el filtro BBOX. " +
-          "Mostrando todos los IPT cargados (fallback).\n\n" +
+          "Mostrando todos los IPT cargados de las regiones intersectadas (fallback).\n\n" +
           JSON.stringify(todosLosIpt, null, 2);
       }
       iptsEnBbox = todosLosIpt.slice();
@@ -351,7 +350,6 @@ async function ejecutarFlujoBbox() {
     if (btnReporte) {
       btnReporte.disabled = false;
 
-      // Construimos la URL de info.html una vez
       const bboxStr = bboxPantalla
         ? `${bboxPantalla[0]},${bboxPantalla[1]},${bboxPantalla[2]},${bboxPantalla[3]}`
         : "";
@@ -371,7 +369,7 @@ async function ejecutarFlujoBbox() {
         window.open(urlInfo, "_blank");
       };
 
-      // 🔁 Auto-apertura: "se marque solo"
+      // Auto-apertura de info.html
       window.open(urlInfo, "_blank");
     }
   } catch (err) {
