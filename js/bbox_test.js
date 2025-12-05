@@ -136,6 +136,13 @@ async function obtenerIptEnPantalla(regiones) {
 /* ---------------------------------------------
    PASO 3: IPT cuya GEOMETRÍA contiene el clic
 ---------------------------------------------*/
+
+/* ---------------------------------------------
+   PASO 3: IPT cuya GEOMETRÍA contiene el clic
+---------------------------------------------*/
+/* ---------------------------------------------
+   PASO 3: IPT cuya GEOMETRÍA contiene el clic
+---------------------------------------------*/
 async function iptContienePunto(ipt) {
   const url = `capas/${ipt.carpeta}/${ipt.archivo}`;
 
@@ -143,7 +150,7 @@ async function iptContienePunto(ipt) {
     const resp = await fetch(url);
     if (!resp.ok) {
       console.warn("No se pudo leer IPT:", url);
-      return false;
+      return null;
     }
 
     const txt = await resp.text();
@@ -152,31 +159,65 @@ async function iptContienePunto(ipt) {
 
     const pt = turf.point([lon, lat]);
 
-    for (const f of gj.features) {
+    if (!gj || !Array.isArray(gj.features)) {
+      return null;
+    }
+
+    for (let i = 0; i < gj.features.length; i++) {
+      const f = gj.features[i];
+
       if (
         !f.geometry ||
         !["Polygon", "MultiPolygon"].includes(f.geometry.type)
       ) {
         continue;
       }
-      if (turf.booleanPointInPolygon(pt, f)) {
-        return true;
+
+      try {
+        if (turf.booleanPointInPolygon(pt, f)) {
+          const props = f.properties || {};
+
+          // Devolvemos detalle del polígono que contiene el punto
+          return {
+            featureIndex: i,     // índice del polígono dentro del KML
+            properties: props    // atributos del polígono (ZONA, NOM, etc.)
+          };
+        }
+      } catch (e) {
+        console.warn(
+          "Error en booleanPointInPolygon para feature",
+          i,
+          "de",
+          ipt.archivo,
+          e
+        );
       }
     }
   } catch (e) {
     console.error("Error leyendo IPT:", ipt.archivo, e);
   }
 
-  return false;
+  return null;
 }
 
 async function obtenerIptQueContienenElPunto(listaIpt) {
   const resultado = [];
+
   for (const ipt of listaIpt) {
-    if (await iptContienePunto(ipt)) resultado.push(ipt);
+    const detalle = await iptContienePunto(ipt);
+    if (detalle) {
+      // Devolvemos el IPT + el polígono exacto que contenía el punto
+      resultado.push({
+        ...ipt,
+        poligono: detalle
+      });
+    }
   }
+
   return resultado;
 }
+
+
 
 /* ---------------------------------------------
    PASO 4: Navegación (info.html / index.html)
