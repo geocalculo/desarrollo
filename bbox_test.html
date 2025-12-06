@@ -95,7 +95,7 @@
 
 <body>
   <header>
-    <h1>GeoIPT – Motor BBOX intermedio</h1>
+    <h1>Reporte GeoIPT - Reporte del punto consultado</h1>
   </header>
 
   <main>
@@ -103,30 +103,38 @@
     <div id="map"></div>
 
     <!-- Datos del punto y BBOX -->
-    <h2>Punto consultado</h2>
-    <p id="txt-punto">(cargando punto...)</p>
-    <p><strong>BBOX de la pantalla (N, E, S, W):</strong> <span id="txt-bbox">(cargando bbox...)</span></p>
+    <!-- <h2>Punto consultado</h2> -->
+    <!-- <p id="txt-punto">(cargando punto...)</p> -->
+    <!-- <p><strong>BBOX de la pantalla (N, E, S, W):</strong> <span id="txt-bbox">(cargando bbox...)</span></p> -->
 
     <!-- IPT que intersectan el BBOX -->
-    <h2>Instrumentos IPT.kml que intersectan este BBOX</h2>
-    <pre id="txt-instrumentos">(cargando...)</pre>
+    <!-- <h2>Instrumentos IPT.kml que intersectan este BBOX</h2> -->
+    <!-- <pre id="txt-instrumentos">(cargando...)</pre> -->
 
     <!-- IPT cuya geometría contiene el clic -->
-    <h2>Instrumentos donde la geometría contiene el punto clic</h2>
-    <pre id="txt-instrumentos-punto">(aún sin evaluar)</pre>
+    <!-- <h2>Instrumentos donde la geometría contiene el punto clic</h2> -->
+    <!-- <pre id="txt-instrumentos-punto">(aún sin evaluar)</pre> -->
 
     <!-- Metadata de los polígonos encontrados -->
     <h2>Metadata de los polígonos encontrados</h2>
     <pre id="txt-metadata-poligono">(sin datos aún)</pre>
 
-    <!-- Botón para ir a info.html -->
-    <div class="btn-container">
-      <button id="btn-reporte" disabled>Generar reporte en info.html</button>
-    </div>
+
+<p style="margin-top:10px;">
+  <a id="link-kml" href="#" style="
+      color:#38bdf8;
+      text-decoration:underline;
+      font-size:0.95rem;
+      cursor:pointer;
+      opacity:0.5;
+      pointer-events:none;
+  ">Descargar KML de la zona consultada</a>
+</p>
+
 
     <!-- Log de depuración -->
-    <h2>Log de depuración</h2>
-    <pre id="txt-log">(debug inactivo)</pre>
+    <!-- <h2>Log de depuración</h2> -->
+    <!-- <pre id="txt-log">(debug inactivo)</pre> -->
   </main>
 
   <!-- Leaflet JS -->
