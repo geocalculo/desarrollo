@@ -3,16 +3,7 @@
   "codigo_region": "03",
   "carpeta": "capas_03",
   "instrumentos": [
-    {
-      "archivo": "IPT_03_PRC_Caldera.kml",
-      "nombre": "PRC Caldera",
-      "tipo": "PRC",
-      "comuna": "Caldera",
-      "bbox": [
-        [-27.092123604222685, -70.84895501943134],
-        [-27.012694779548388, -70.78388951849044]
-      ]
-    },
+
     {
       "archivo": "IPT_03_PRC_Chanaral.kml",
       "nombre": "PRC Chañaral",
