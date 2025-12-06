@@ -1,11 +1,16 @@
 /************************************************************
- * GeoIPT - bbox_test.js  (Versión estable con botón)
+ * GeoIPT - bbox_test.js  (Versión ajustada con polígonos AZULES)
  *
  * PASO 1: Regiones cuyo BBOX toca la pantalla
  * PASO 2: IPT cuyo BBOX toca la pantalla
  * PASO 3: IPT cuya GEOMETRÍA contiene el clic
  * PASO 4: Si hay IPT → habilitar botón y abrir info.html
  *         Si no hay  → mensaje + volver a index.html
+ *
+ * Cambios:
+ *  - Se elimina el rectángulo verde del BBOX
+ *  - Se dibujan en AZUL los polígonos que contienen el punto
+ *  - Se muestra metadata de TODOS los polígonos match
  ************************************************************/
 
 /* ---------------------------------------------
@@ -60,15 +65,13 @@ if (!isNaN(lat) && !isNaN(lon)) {
   }).addTo(map);
 }
 
-if (bboxPantalla) {
-  L.rectangle(
-    [
-      [bboxPantalla[0], bboxPantalla[3]],
-      [bboxPantalla[2], bboxPantalla[1]]
-    ],
-    { color: "#00ff88", weight: 1, fillOpacity: 0.15 }
-  ).addTo(map);
-}
+/* ***********************************************
+   ❌ NO DIBUJAMOS EL RECTÁNGULO VERDE DEL BBOX
+   (solo usamos bboxPantalla para la lógica)
+*********************************************** */
+// if (bboxPantalla) {
+//   L.rectangle(...).addTo(map);
+// }
 
 /* ---------------------------------------------
    UTILIDADES DE BBOX
@@ -137,20 +140,17 @@ async function obtenerIptEnPantalla(regiones) {
    PASO 3: IPT cuya GEOMETRÍA contiene el clic
 ---------------------------------------------*/
 
-/* ---------------------------------------------
-   PASO 3: IPT cuya GEOMETRÍA contiene el clic
----------------------------------------------*/
-/* ---------------------------------------------
-   PASO 3: IPT cuya GEOMETRÍA contiene el clic
----------------------------------------------*/
-async function iptContienePunto(ipt) {
+// Capa global para los polígonos match AZULES
+let matchLayer = null;
+
+async function iptContienePunto(ipt, acumuladorFeatures) {
   const url = `capas/${ipt.carpeta}/${ipt.archivo}`;
 
   try {
     const resp = await fetch(url);
     if (!resp.ok) {
       console.warn("No se pudo leer IPT:", url);
-      return null;
+      return false;
     }
 
     const txt = await resp.text();
@@ -159,13 +159,7 @@ async function iptContienePunto(ipt) {
 
     const pt = turf.point([lon, lat]);
 
-    if (!gj || !Array.isArray(gj.features)) {
-      return null;
-    }
-
-    for (let i = 0; i < gj.features.length; i++) {
-      const f = gj.features[i];
-
+    for (const f of gj.features) {
       if (
         !f.geometry ||
         !["Polygon", "MultiPolygon"].includes(f.geometry.type)
@@ -173,51 +167,103 @@ async function iptContienePunto(ipt) {
         continue;
       }
 
-      try {
-        if (turf.booleanPointInPolygon(pt, f)) {
-          const props = f.properties || {};
+      if (turf.booleanPointInPolygon(pt, f)) {
+        // Guardamos feature + metadata + archivo/carpeta
+        acumuladorFeatures.push({
+          feature: f,
+          metadata: f.properties || {},
+          archivo: ipt.archivo,
+          carpeta: ipt.carpeta
+        });
 
-          // Devolvemos detalle del polígono que contiene el punto
-          return {
-            featureIndex: i,     // índice del polígono dentro del KML
-            properties: props    // atributos del polígono (ZONA, NOM, etc.)
-          };
-        }
-      } catch (e) {
-        console.warn(
-          "Error en booleanPointInPolygon para feature",
-          i,
-          "de",
-          ipt.archivo,
-          e
-        );
+        return true;
       }
     }
   } catch (e) {
     console.error("Error leyendo IPT:", ipt.archivo, e);
   }
 
-  return null;
+  return false;
 }
 
 async function obtenerIptQueContienenElPunto(listaIpt) {
   const resultado = [];
+  const featuresParaDibujar = [];
 
   for (const ipt of listaIpt) {
-    const detalle = await iptContienePunto(ipt);
-    if (detalle) {
-      // Devolvemos el IPT + el polígono exacto que contenía el punto
-      resultado.push({
-        ...ipt,
-        poligono: detalle
+    if (await iptContienePunto(ipt, featuresParaDibujar)) {
+      resultado.push(ipt);
+    }
+  }
+
+  // Si hay matches, dibujamos y mostramos metadata
+  if (featuresParaDibujar.length > 0) {
+    dibujarPoligonosMatch(featuresParaDibujar.map(f => f.feature));
+
+    const metaBox = document.getElementById("txt-metadata-poligono");
+    if (metaBox) {
+      let texto = "";
+
+      featuresParaDibujar.forEach((item, idx) => {
+        const meta = item.metadata || {};
+        const archivo = item.archivo || "(desconocido)";
+        const carpeta = item.carpeta || "";
+
+        texto += `#${idx + 1} ${carpeta}/${archivo}\n`;
+        texto += Object.entries(meta)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join("\n");
+        texto += "\n\n";
       });
+
+      metaBox.textContent = texto.trim() || "(sin metadata disponible)";
+    }
+  } else {
+    const metaBox = document.getElementById("txt-metadata-poligono");
+    if (metaBox) {
+      metaBox.textContent =
+        "(ningún polígono contiene el punto clic en los IPT analizados)";
     }
   }
 
   return resultado;
 }
 
+/* ---------------------------------------------
+   Dibujar polígonos match en AZUL
+---------------------------------------------*/
+function dibujarPoligonosMatch(features) {
+  // Borrar resaltado anterior
+  if (matchLayer) {
+    map.removeLayer(matchLayer);
+    matchLayer = null;
+  }
 
+  if (!features || !features.length) return;
+
+  const fc = {
+    type: "FeatureCollection",
+    features
+  };
+
+  matchLayer = L.geoJSON(fc, {
+    style: {
+      color: "#2563eb",      // borde azul
+      weight: 2,
+      fillColor: "#3b82f6",  // relleno azul
+      fillOpacity: 0.35
+    }
+  }).addTo(map);
+
+  try {
+    const bounds = matchLayer.getBounds();
+    if (bounds && bounds.isValid && bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [20, 20] });
+    }
+  } catch (e) {
+    // por si acaso
+  }
+}
 
 /* ---------------------------------------------
    PASO 4: Navegación (info.html / index.html)
@@ -254,7 +300,6 @@ function prepararBotonReporte(iptsConPunto) {
     (bboxStr ? `&bbox=${bboxStr}` : "") +
     `&ipts=${encodeURIComponent(rutas)}`;
 
-  // 👉 MISMA PESTAÑA para evitar bloqueos de pop-ups
   btn.onclick = () => {
     window.location.href = urlInfo;
   };
@@ -266,6 +311,7 @@ function prepararBotonReporte(iptsConPunto) {
 async function ejecutarFlujo() {
   const pre1 = document.getElementById("txt-instrumentos");
   const pre2 = document.getElementById("txt-instrumentos-punto");
+  const preMeta = document.getElementById("txt-metadata-poligono");
   const btn = document.getElementById("btn-reporte");
 
   if (btn) {
@@ -276,6 +322,7 @@ async function ejecutarFlujo() {
 
   if (pre1) pre1.textContent = "(Cargando regiones que intersectan el BBOX...)";
   if (pre2) pre2.textContent = "";
+  if (preMeta) preMeta.textContent = "(sin datos aún)";
 
   // PASO 1
   const regiones = await obtenerRegionesIntersectadas();
@@ -292,6 +339,10 @@ async function ejecutarFlujo() {
         "⚠ No hay IPT cuyo BBOX intersecte la pantalla en este clic.\n" +
         "Sugerencia: regrese al mapa principal y haga clic sobre un área urbana.";
     }
+    if (preMeta) {
+      preMeta.textContent =
+        "(no se encontraron IPT intersectando el BBOX para este clic)";
+    }
     prepararBotonReporte([]);
     setTimeout(volverAIndex, 2000);
     return;
@@ -306,6 +357,10 @@ async function ejecutarFlujo() {
       pre2.textContent =
         "⚠ Ningún IPT tiene polígonos que contengan exactamente el punto clic.\n" +
         "Sugerencia: regrese al mapa principal y haga clic sobre un área urbana.";
+    }
+    if (preMeta) {
+      preMeta.textContent =
+        "(ningún polígono de los IPT intersectados contiene el punto clic)";
     }
     prepararBotonReporte([]);
     setTimeout(volverAIndex, 2000);

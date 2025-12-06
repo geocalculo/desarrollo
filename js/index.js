@@ -4,6 +4,10 @@ let regionesData = [];
 let map;
 let marcadorPunto = null;
 
+// Overview
+let overviewMap = null;
+let overviewRect = null;
+
 // -------------------------
 // Utilidad: leer lat/lon si vienen por URL
 // -------------------------
@@ -40,10 +44,10 @@ function initMapa() {
 
   map = L.map("map", {
     center: [-27.5, -70.25],
-    zoom: 5,
+    zoom: 15,
     minZoom: 4,
     maxZoom: 19,
-    layers: [mapaCalle],     // OSM simple por defecto
+    layers: [mapaCalle], // OSM simple por defecto
   });
 
   L.control
@@ -57,6 +61,49 @@ function initMapa() {
     )
     .addTo(map);
 
+  // ============================
+  // OVERVIEW MAP (miniatura país)
+  // ============================
+  // Solo se crea si existe el contenedor en el HTML
+  const overviewDiv = document.getElementById("overview-map");
+  if (overviewDiv) {
+    overviewMap = L.map("overview-map", {
+      zoomControl: false,
+      attributionControl: false,
+      dragging: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+      keyboard: false,
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+    }).addTo(overviewMap);
+
+    // BBOX aproximado de Chile continental
+    const chileBounds = L.latLngBounds(
+      [-56.0, -76.0], // suroeste
+      [-17.0, -66.0]  // noreste
+    );
+    overviewMap.fitBounds(chileBounds);
+
+    // Rectángulo que refleja el BBOX del mapa principal
+    overviewRect = L.rectangle(map.getBounds(), {
+      color: "#ff2d2d",
+      weight: 2,
+      fillOpacity: 0,
+      interactive: false,
+    }).addTo(overviewMap);
+
+    // Cada vez que el mapa principal termina de moverse/zoomear, actualizamos
+    map.on("moveend", () => {
+      if (overviewRect) {
+        overviewRect.setBounds(map.getBounds());
+      }
+    });
+  }
+
   // Si viene llamado desde info.html con lat/lon: centrar ahí
   const p = getUrlParamsLatLon();
   if (p) {
@@ -67,7 +114,7 @@ function initMapa() {
       color: "#f97316",
       weight: 2,
       fillColor: "#ffffff",
-      fillOpacity: 0.9
+      fillOpacity: 0.9,
     }).addTo(map);
   }
 
@@ -85,21 +132,21 @@ function initMapa() {
         color: "#f97316",
         weight: 2,
         fillColor: "#ffffff",
-        fillOpacity: 0.9
+        fillOpacity: 0.9,
       }).addTo(map);
     }
 
     const bounds = map.getBounds();
     const north = bounds.getNorth();
-    const east  = bounds.getEast();
+    const east = bounds.getEast();
     const south = bounds.getSouth();
-    const west  = bounds.getWest();
+    const west = bounds.getWest();
 
     const bboxStr = [
       north.toFixed(8),
       east.toFixed(8),
       south.toFixed(8),
-      west.toFixed(8)
+      west.toFixed(8),
     ].join(",");
 
     const url = new URL("bbox_test.html", window.location.href);
@@ -190,6 +237,8 @@ function centrarEnRegion(cod) {
 // INSTRUMENTOS (zoom óptico)
 // -------------------------
 async function cargarInstrumentos(regionCode) {
+  console.log(">>> cargarInstrumentos para región:", regionCode);
+
   instrumentoSelect.innerHTML = "";
   instrumentoSelect.disabled = true;
 
@@ -199,25 +248,49 @@ async function cargarInstrumentos(regionCode) {
   instrumentoSelect.appendChild(def);
 
   const reg = obtenerRegionPorCodigo(regionCode);
+  console.log("   Región encontrada:", reg);
+
   if (!reg) {
     console.warn("No se encontró la región", regionCode);
+    alert("No se encontró la región en regiones.json: " + regionCode);
     return;
   }
 
-  const carpetaRegion = reg.carpeta; // ej: "capas_03"
+  if (!reg.carpeta) {
+    console.warn("La región NO tiene campo 'carpeta' en regiones.json:", reg);
+    alert("La región " + regionCode + " no tiene campo 'carpeta' en regiones.json");
+    return;
+  }
+
+  const carpetaRegion = reg.carpeta; // ej: "capas_05"
   const url = `capas/${carpetaRegion}/listado.json`;
+  console.log("   Leyendo listado desde URL:", url);
 
   try {
     const resp = await fetch(url);
+    console.log("   Respuesta fetch:", resp.status, resp.statusText);
+
     if (!resp.ok) {
       console.warn("No se pudo leer", url, resp.status);
+      alert("No se pudo leer " + url + " (status " + resp.status + ")");
       return;
     }
 
-    const data = await resp.json();
-    const lista = data.instrumentos || data.kml || [];
+    let data;
+    try {
+      data = await resp.json();
+    } catch (jsonErr) {
+      console.error("   Error parseando JSON de", url, jsonErr);
+      alert("Error leyendo JSON de " + url + ". Revisa que no tenga comas de más.");
+      return;
+    }
 
-    lista.forEach((entry) => {
+    console.log("   JSON listado:", data);
+
+    const lista = data.instrumentos || data.kml || [];
+    console.log("   Cantidad de instrumentos:", lista.length);
+
+    lista.forEach((entry, idx) => {
       let archivo = "";
       let nombre = "";
 
@@ -229,7 +302,10 @@ async function cargarInstrumentos(regionCode) {
         nombre = (entry.nombre || archivo || "").replace(/\.kml$/i, "");
       }
 
-      if (!archivo) return;
+      if (!archivo) {
+        console.warn("   Instrumento sin archivo en índice", idx, entry);
+        return;
+      }
 
       const opt = document.createElement("option");
       opt.value = archivo;
@@ -238,10 +314,13 @@ async function cargarInstrumentos(regionCode) {
     });
 
     instrumentoSelect.disabled = instrumentoSelect.options.length <= 1;
+    console.log("   Opciones finales en combo:", instrumentoSelect.options.length);
   } catch (e) {
     console.error("Error leyendo instrumentos:", e);
+    alert("Error leyendo instrumentos para región " + regionCode + ". Revisa la consola.");
   }
 }
+
 
 async function zoomAlInstrumento(regionCode, archivo) {
   if (!archivo) return;
