@@ -1,29 +1,24 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
   background: #020617;
   color: #e5e7eb;
-  min-height: 100vh;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  overflow-x: hidden;   /* evita scroll horizontal en móvil */
 
 h1 { font-size: 1.1rem; }
 
 #map {
-  width: 1100px;
-  max-width: 100%;
-  aspect-ratio: 1 / 1;
-  height: 480px;
-  border-radius: 12px;
-  border: 1px solid #1f2937;
-  margin-top: 6px;
+  width: 100%;
+  height: 60vh;         /* 60% del alto visible de la pantalla */
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 24px;
 }
+
 
 .panel {
   width: 1100px;
@@ -78,4 +73,10 @@ button:disabled {
   background:#1e293b;
   color:#38bdf8;
   text-align:left;
+}
+
+main {
+  max-width: 100%;      /* en móvil ocupa todo el ancho */
+  margin: 0 auto;
+  padding: 12px 8px;
 }

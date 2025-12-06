@@ -249,24 +249,39 @@ async function obtenerIptQueContienenElPunto(listaIpt) {
   // Si hay matches, dibujamos y mostramos metadata
   if (featuresParaDibujar.length > 0) {
     // dibujar polígono(s) azul(es)
-    dibujarPoligonosMatch(featuresParaDibujar.map(f => f.feature));
+if (featuresParaDibujar.length > 0) {
+  dibujarPoligonosMatch(featuresParaDibujar.map(f => f.feature));
 
-    // texto debug de metadata (lo puedes dejar o comentar)
-    if (metaBox) {
-      let texto = "";
-      featuresParaDibujar.forEach((item, idx) => {
-        const meta = item.metadata || {};
-        const archivo = item.archivo || "(desconocido)";
-        const carpeta = item.carpeta || "";
+  const metaBox = document.getElementById("txt-metadata-poligono");
+  let texto = "";
 
-        texto += `#${idx + 1} ${carpeta}/${archivo}\n`;
-        texto += Object.entries(meta)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join("\n");
-        texto += "\n\n";
-      });
-      metaBox.textContent = texto.trim() || "(sin metadata disponible)";
-    }
+  featuresParaDibujar.forEach((item, idx) => {
+    const meta = item.metadata || {};
+    const archivo = item.archivo || "(desconocido)";
+    const carpeta = item.carpeta || "";
+
+    texto += `#${idx + 1} ${carpeta}/${archivo}\n`;
+    texto += Object.entries(meta)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join("\n");
+    texto += "\n\n";
+  });
+
+  if (metaBox) {
+    metaBox.textContent = texto.trim() || "(sin metadata disponible)";
+  }
+
+  // ✅ usar SOLO el primer polígono para rellenar la tabla
+  const primerItem = featuresParaDibujar[0];
+  actualizarTablaDesdeTexto(
+    Object.entries(primerItem.metadata || {})
+      .map(([k, v]) => `${k}: ${v}`)
+      .join("\n"),
+    primerItem.carpeta,
+    primerItem.archivo
+  );
+}
+
 
     // 👉 Guardamos selección para exportar
     featuresSeleccionadas = featuresParaDibujar;
@@ -406,6 +421,37 @@ function featureToKmlPlacemark(feature, props, nombreFallback) {
       ${geomKml}
     </Placemark>`;
 }
+
+function actualizarTablaDesdeTexto(texto, carpeta, archivo) {
+  // Convierte líneas del tipo "REG: Atacama" en un diccionario {REG: "Atacama", ...}
+  const map = {};
+  const lineas = (texto || "").split(/\r?\n/);
+
+  lineas.forEach((line) => {
+    const m = line.match(/^([A-Z_]+)\s*:\s*(.+)$/i);
+    if (!m) return;
+    const key = m[1].toUpperCase();
+    const value = m[2].trim();
+    map[key] = value;
+  });
+
+  const set = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val ?? "–";
+  };
+
+  // Campos que te interesan
+  set("md-reg", map.REG || "–");
+  set("md-com", map.COM || "–");
+  set("md-loc", map.LOCALIDAD || map.LOC || "–");
+  set("md-zona", map.ZONA || "–");
+  set("md-nombre", map.NOMBRE || map.NOM || "–");
+  set("md-uperm", map.UPERM || "–");
+  set("md-uproh", map.UPROH || "–");
+  set("md-capa", archivo ? `${carpeta}/${archivo}` : "–");
+  set("md-cut", map.CUT || "–");
+}
+
 
 function timestampYYYYMMDDHHMM() {
   const d = new Date();
