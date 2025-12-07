@@ -80,3 +80,9 @@ main {
   margin: 0 auto;
   padding: 12px 8px;
 }
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 12px; /* para que no pegue en bordes en móvil */
+}
