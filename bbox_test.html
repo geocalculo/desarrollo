@@ -6,10 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet CSS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <!-- Estilos propios -->
   <link rel="stylesheet" href="css/bbox_test.css" />
@@ -71,42 +68,13 @@
       word-break: break-word;
     }
 
-    #btn-reporte {
-      padding: 10px 22px;
-      font-size: 1rem;
-      border: none;
-      border-radius: 8px;
-      background: #22c55e;
-      color: #ffffff;
-      cursor: pointer;
-      margin-top: 24px;
-      opacity: 0.5;
-    }
-
-    #btn-reporte:disabled {
-      cursor: default;
-    }
-
-    .btn-container {
-      text-align: center;
-    }
-
-    /* ✅ NUEVO: estilos para el link de descarga */
-    #link-kml {
-      color:#38bdf8;
-      text-decoration:underline;
-      font-size:0.95rem;
-      cursor:pointer;
-    }
-
-    /* estado deshabilitado visual */
-    #link-kml.is-disabled {
-      opacity: 0.5;
+    /* Mensaje cuando NO hay login */
+    #proMsg {
+      margin-top: 10px;
+      opacity: 0.9;
     }
   </style>
 </head>
-
-<!-- prueba commit 17:30hrs -->
 
 <body>
   <div class="container">
@@ -146,7 +114,20 @@
         </tbody>
       </table>
 
+      <!-- ✅ LINK PRODUCTIVO (exacto como en producción) -->
+      <p style="margin-top:10px;">
+        <a id="link-kml" href="#" style="
+            color:#38bdf8;
+            text-decoration:underline;
+            font-size:0.95rem;
+            cursor:pointer;
+            opacity:0.5;
+            pointer-events:none;
+        ">Descargar KML de la zona consultada</a>
+      </p>
 
+      <!-- ✅ Mensaje solo sin login -->
+      <p id="proMsg">🔒 Inicia sesión para descargar KML.</p>
     </main>
 
     <!-- Leaflet JS -->
@@ -158,62 +139,34 @@
     <!-- toGeoJSON -->
     <script src="https://unpkg.com/@tmcw/togeojson@4.5.0/dist/togeojson.umd.js"></script>
 
-    <!-- Lógica propia (tu script actual) -->
+    <!-- ✅ Tu lógica actual (no la tocamos) -->
     <script src="js/bbox_test.js"></script>
 
-    <!-- ✅ NUEVO: control login + habilitar/deshabilitar descarga (módulo) -->
+    <!-- ✅ ÚNICO control de login: ocultar/mostrar descargable -->
     <script type="module">
       import { onUserChanged } from "./js/auth.js";
-      import { downloadKML } from "./js/ui-auth.js";
 
       const link = document.getElementById("link-kml");
+      const msg  = document.getElementById("proMsg");
 
-      function setEnabled(enabled) {
-        if (enabled) {
-          link.classList.remove("is-disabled");
-          link.style.pointerEvents = "auto";
-          link.setAttribute("aria-disabled", "false");
-          link.title = "";
-        } else {
-          link.classList.add("is-disabled");
-          link.style.pointerEvents = "auto"; // 👈 importante: dejamos clickeable para mostrar mensaje
-          link.setAttribute("aria-disabled", "true");
-          link.title = "Inicia sesión para descargar";
-        }
-      }
+      // Estado inicial: ocultar todo lo descargable
+      if (link) link.style.display = "none";
+      if (msg)  msg.style.display  = "block";
 
-      // Estado inicial: deshabilitado
-      setEnabled(false);
-
-      // Click: si no está logueado => invitación; si está logueado => descargar
-      link.addEventListener("click", async (e) => {
-        e.preventDefault();
-
-        // Si está deshabilitado, redirige a login con mensaje
-        if (link.getAttribute("aria-disabled") === "true") {
-          alert("Inicia sesión para descargar");
-          window.location.href = "login.html";
-          return;
-        }
-
-        // Si quieres pasar parámetros del reporte al KML:
-        // En bbox_test.js puedes setear: window.geoiptKmlQuery = `?cut=...&capa=...&zona=...`;
-        const qs = window.geoiptKmlQuery || "";
-        await downloadKML(qs);
-      });
-
-      // Cambios de sesión: habilita o deshabilita
       onUserChanged((user) => {
-        setEnabled(!!user);
+        if (!link || !msg) return;
+
+        if (user) {
+          // Usuario logueado: se muestra el link, se oculta el mensaje
+          link.style.display = "inline";
+          msg.style.display  = "none";
+        } else {
+          // Usuario NO logueado: se oculta el link, se muestra el mensaje
+          link.style.display = "none";
+          msg.style.display  = "block";
+        }
       });
     </script>
-
-<p id="proMsg">🔒 Inicia sesión para descargar KML.</p>
-<button id="btnDescargarKML" disabled>Descargar KML</button>
-
-<script type="module" src="./js/bbox-auth-guard.js"></script>
-
-
   </div>
 
   <footer style="
