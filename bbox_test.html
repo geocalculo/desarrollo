@@ -11,13 +11,10 @@
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   />
 
-  <!-- Estilos propios (puede quedar casi vacío, no usamos .panel ni .map-container) -->
+  <!-- Estilos propios -->
   <link rel="stylesheet" href="css/bbox_test.css" />
 
   <style>
-
-
-
     body {
       margin: 0;
       padding: 0;
@@ -83,7 +80,7 @@
       color: #ffffff;
       cursor: pointer;
       margin-top: 24px;
-      opacity: 0.5; /* JS lo ajusta cuando se habilita */
+      opacity: 0.5;
     }
 
     #btn-reporte:disabled {
@@ -93,104 +90,143 @@
     .btn-container {
       text-align: center;
     }
+
+    /* ✅ NUEVO: estilos para el link de descarga */
+    #link-kml {
+      color:#38bdf8;
+      text-decoration:underline;
+      font-size:0.95rem;
+      cursor:pointer;
+    }
+
+    /* estado deshabilitado visual */
+    #link-kml.is-disabled {
+      opacity: 0.5;
+    }
   </style>
 </head>
 
 <!-- prueba commit 17:30hrs -->
 
-
 <body>
   <div class="container">
-  <header>
-    <h1>Reporte GeoIPT - Reporte del punto consultado</h1>
-  </header>
+    <header>
+      <h1>Reporte GeoIPT - Reporte del punto consultado</h1>
+    </header>
 
-  <main>
-    <!-- Mapa -->
-    <div id="map"></div>
+    <main>
+      <!-- Mapa -->
+      <div id="map"></div>
 
-    <!-- Datos del punto y BBOX -->
-    <!-- <h2>Punto consultado</h2> -->
-    <!-- <p id="txt-punto">(cargando punto...)</p> -->
-    <!-- <p><strong>BBOX de la pantalla (N, E, S, W):</strong> <span id="txt-bbox">(cargando bbox...)</span></p> -->
+      <h2>Metadata de la Zona</h2>
 
-    <!-- IPT que intersectan el BBOX -->
-    <!-- <h2>Instrumentos IPT.kml que intersectan este BBOX</h2> -->
-    <!-- <pre id="txt-instrumentos">(cargando...)</pre> -->
+      <table id="tabla-metadata" style="
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        background: #0f172a;
+        color: #e5e7eb;
+        font-size: 0.9rem;
+      ">
+        <tbody>
+          <tr>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #1e293b;">Campo</th>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #1e293b;">Valor</th>
+          </tr>
 
-    <!-- IPT cuya geometría contiene el clic -->
-    <!-- <h2>Instrumentos donde la geometría contiene el punto clic</h2> -->
-    <!-- <pre id="txt-instrumentos-punto">(aún sin evaluar)</pre> -->
+          <tr><td>REG</td><td id="md-reg">–</td></tr>
+          <tr><td>COM</td><td id="md-com">–</td></tr>
+          <tr><td>LOCALIDAD</td><td id="md-loc">–</td></tr>
+          <tr><td>ZONA</td><td id="md-zona">–</td></tr>
+          <tr><td>NOMBRE</td><td id="md-nombre">–</td></tr>
+          <tr><td>UPERM</td><td id="md-uperm">–</td></tr>
+          <tr><td>UPROH</td><td id="md-uproh">–</td></tr>
+          <tr><td>Capa</td><td id="md-capa">–</td></tr>
+          <tr><td>CUT</td><td id="md-cut">–</td></tr>
+        </tbody>
+      </table>
 
-    <!-- Metadata de los polígonos encontrados -->
+      <p style="margin-top:10px;">
+        <!-- ✅ Se mantiene tu link, pero ahora lo controlamos con JS (login/no-login) -->
+        <a id="link-kml"
+           href="#"
+           class="is-disabled"
+           title="Inicia sesión para descargar"
+           aria-disabled="true"
+        >Descargar KML de la zona consultada</a>
+      </p>
+    </main>
 
-    <h2>Metadata de la Zona</h2>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<table id="tabla-metadata" style="
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-  background: #0f172a;
-  color: #e5e7eb;
-  font-size: 0.9rem;
-">
-  <tbody>
-    <tr><th style="text-align:left; padding:6px; border-bottom:1px solid #1e293b;">Campo</th>
-        <th style="text-align:left; padding:6px; border-bottom:1px solid #1e293b;">Valor</th></tr>
+    <!-- Turf -->
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
-    <tr><td>REG</td><td id="md-reg">–</td></tr>
-    <tr><td>COM</td><td id="md-com">–</td></tr>
-    <tr><td>LOCALIDAD</td><td id="md-loc">–</td></tr>
-    <tr><td>ZONA</td><td id="md-zona">–</td></tr>
-    <tr><td>NOMBRE</td><td id="md-nombre">–</td></tr>
-    <tr><td>UPERM</td><td id="md-uperm">–</td></tr>
-    <tr><td>UPROH</td><td id="md-uproh">–</td></tr>
-    <tr><td>Capa</td><td id="md-capa">–</td></tr>
-    <tr><td>CUT</td><td id="md-cut">–</td></tr>
-  </tbody>
-</table>
+    <!-- toGeoJSON -->
+    <script src="https://unpkg.com/@tmcw/togeojson@4.5.0/dist/togeojson.umd.js"></script>
 
+    <!-- Lógica propia (tu script actual) -->
+    <script src="js/bbox_test.js"></script>
 
+    <!-- ✅ NUEVO: control login + habilitar/deshabilitar descarga (módulo) -->
+    <script type="module">
+      import { onUserChanged } from "./js/auth.js";
+      import { downloadKML } from "./js/ui-auth.js";
 
-<p style="margin-top:10px;">
-  <a id="link-kml" href="#" style="
-      color:#38bdf8;
-      text-decoration:underline;
-      font-size:0.95rem;
-      cursor:pointer;
-      opacity:0.5;
-      pointer-events:none;
-  ">Descargar KML de la zona consultada</a>
-</p>
+      const link = document.getElementById("link-kml");
 
+      function setEnabled(enabled) {
+        if (enabled) {
+          link.classList.remove("is-disabled");
+          link.style.pointerEvents = "auto";
+          link.setAttribute("aria-disabled", "false");
+          link.title = "";
+        } else {
+          link.classList.add("is-disabled");
+          link.style.pointerEvents = "auto"; // 👈 importante: dejamos clickeable para mostrar mensaje
+          link.setAttribute("aria-disabled", "true");
+          link.title = "Inicia sesión para descargar";
+        }
+      }
 
-    <!-- Log de depuración -->
-    <!-- <h2>Log de depuración</h2> -->
-    <!-- <pre id="txt-log">(debug inactivo)</pre> -->
-  </main>
+      // Estado inicial: deshabilitado
+      setEnabled(false);
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+      // Click: si no está logueado => invitación; si está logueado => descargar
+      link.addEventListener("click", async (e) => {
+        e.preventDefault();
 
-  <!-- Turf para punto-en-polígono -->
-  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+        // Si está deshabilitado, redirige a login con mensaje
+        if (link.getAttribute("aria-disabled") === "true") {
+          alert("Inicia sesión para descargar");
+          window.location.href = "login.html";
+          return;
+        }
 
-  <!-- toGeoJSON para convertir KML -> GeoJSON -->
-  <script src="https://unpkg.com/@tmcw/togeojson@4.5.0/dist/togeojson.umd.js"></script>
+        // Si quieres pasar parámetros del reporte al KML:
+        // En bbox_test.js puedes setear: window.geoiptKmlQuery = `?cut=...&capa=...&zona=...`;
+        const qs = window.geoiptKmlQuery || "";
+        await downloadKML(qs);
+      });
 
-  <!-- Lógica propia -->
-  <script src="js/bbox_test.js"></script>
+      // Cambios de sesión: habilita o deshabilita
+      onUserChanged((user) => {
+        setEnabled(!!user);
+      });
+    </script>
+
   </div>
-  <footer style="
-  text-align:center;
-  padding:16px;
-  margin-top:40px;
-  color:#64748b;
-  font-size:0.8rem;
-  border-top:1px solid #1e293b;
-">
-  © GeoIPT — geocalculo.cl
-</footer>
 
+  <footer style="
+    text-align:center;
+    padding:16px;
+    margin-top:40px;
+    color:#64748b;
+    font-size:0.8rem;
+    border-top:1px solid #1e293b;
+  ">
+    © GeoIPT — geocalculo.cl
+  </footer>
 </body>
 </html>
