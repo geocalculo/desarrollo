@@ -146,15 +146,7 @@
         </tbody>
       </table>
 
-      <p style="margin-top:10px;">
-        <!-- ✅ Se mantiene tu link, pero ahora lo controlamos con JS (login/no-login) -->
-        <a id="link-kml"
-           href="#"
-           class="is-disabled"
-           title="Inicia sesión para descargar"
-           aria-disabled="true"
-        >Descargar KML de la zona consultada</a>
-      </p>
+
     </main>
 
     <!-- Leaflet JS -->
@@ -215,6 +207,12 @@
         setEnabled(!!user);
       });
     </script>
+
+<p id="proMsg">🔒 Inicia sesión para descargar KML.</p>
+<button id="btnDescargarKML" disabled>Descargar KML</button>
+
+<script type="module" src="./js/bbox-auth-guard.js"></script>
+
 
   </div>
 

@@ -1,57 +1,105 @@
 // js/ui-auth.js
-import { getIdToken } from "./auth.js";
+import { register, login, logout, onAuthReady } from "./auth.js";
 
-// 🔁 Reemplaza esto por tu Cloud Run API real (servicio que entregará el KML protegido)
-const KML_API_BASE = "https://TU-SERVICIO-API-xxxxx.a.run.app";
+const $ = (id) => document.getElementById(id);
 
-/**
- * Descarga KML desde Cloud Run API, enviando el Firebase ID Token.
- * @param {string} queryString ejemplo: "?cut=03101&capa=IPT_03_ZONIF&zona=Z1"
- */
-export async function downloadKML(queryString = "") {
-  const token = await getIdToken();
+function show(el) { el.classList.remove("hidden"); }
+function hide(el) { el.classList.add("hidden"); }
 
-  // Si no hay sesión, invitación
-  if (!token) {
-    alert("Inicia sesión para descargar");
-    window.location.href = "login.html";
-    return;
+function setStatus(msg, ok = true) {
+  const s = $("authStatus");
+  if (!s) return;
+  s.textContent = msg;
+  s.style.color = ok ? "#0a7a2f" : "#b00020";
+}
+
+function updateHeader(user) {
+  const btn = $("btnAuth");
+  const label = $("authLabel");
+  if (!btn) return;
+
+  if (user) {
+    btn.textContent = "Cerrar sesión";
+    btn.dataset.mode = "logout";
+    if (label) label.textContent = user.email;
+  } else {
+    btn.textContent = "Iniciar sesión";
+    btn.dataset.mode = "login";
+    if (label) label.textContent = "";
+  }
+}
+
+function openModal(mode = "login") {
+  const m = $("authModal");
+  if (!m) return;
+
+  show(m);
+  $("authTabLogin").classList.toggle("active", mode === "login");
+  $("authTabRegister").classList.toggle("active", mode === "register");
+  $("panelLogin").style.display = mode === "login" ? "block" : "none";
+  $("panelRegister").style.display = mode === "register" ? "block" : "none";
+  setStatus("");
+}
+
+function closeModal() {
+  const m = $("authModal");
+  if (!m) return;
+  hide(m);
+  setStatus("");
+}
+
+// Exponer para que otras páginas (bbox_test) puedan abrirlo si lo comparten
+window.GeoIPT_openLogin = () => openModal("login");
+window.GeoIPT_openRegister = () => openModal("register");
+
+// Bind UI
+window.addEventListener("DOMContentLoaded", () => {
+  const btnAuth = $("btnAuth");
+  const btnClose = $("authClose");
+  const overlay = $("authOverlay");
+
+  if (btnAuth) {
+    btnAuth.addEventListener("click", async () => {
+      const mode = btnAuth.dataset.mode;
+      if (mode === "logout") {
+        await logout();
+        setStatus("Sesión cerrada.", true);
+        return;
+      }
+      openModal("login");
+    });
   }
 
-  // Normaliza query string
-  let qs = queryString || "";
-  if (qs && !qs.startsWith("?")) qs = "?" + qs;
+  if (btnClose) btnClose.addEventListener("click", closeModal);
+  if (overlay) overlay.addEventListener("click", closeModal);
 
-  const url = `${KML_API_BASE}/kml${qs}`;
+  $("authTabLogin")?.addEventListener("click", () => openModal("login"));
+  $("authTabRegister")?.addEventListener("click", () => openModal("register"));
 
-  const resp = await fetch(url, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`
+  $("doLogin")?.addEventListener("click", async () => {
+    try {
+      const email = $("loginEmail").value.trim();
+      const pass = $("loginPass").value;
+      await login(email, pass);
+      setStatus("Sesión iniciada ✅", true);
+      closeModal();
+    } catch (e) {
+      setStatus(e?.message || String(e), false);
     }
   });
 
-  if (!resp.ok) {
-    const txt = await resp.text().catch(() => "");
-    alert(`No autorizado o error al descargar KML.\n${resp.status} ${resp.statusText}\n${txt}`.trim());
-    return;
-  }
+  $("doRegister")?.addEventListener("click", async () => {
+    try {
+      const email = $("regEmail").value.trim();
+      const pass = $("regPass").value;
+      await register(email, pass);
+      setStatus("Cuenta creada ✅", true);
+      closeModal();
+    } catch (e) {
+      setStatus(e?.message || String(e), false);
+    }
+  });
 
-  const blob = await resp.blob();
-
-  // Nombre de archivo (si el backend lo manda, lo respetamos)
-  let filename = "geoipt_export.kml";
-  const cd = resp.headers.get("content-disposition") || "";
-  const m = cd.match(/filename="([^"]+)"/i);
-  if (m && m[1]) filename = m[1];
-
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-
-  // Limpieza
-  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
-}
+  // Mantener header sincronizado
+  onAuthReady((user) => updateHeader(user));
+});

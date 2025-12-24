@@ -17,18 +17,57 @@
   <!-- Estilos propios -->
   <link rel="stylesheet" href="css/index.css" />
 
-<a href="login.html" id="link-login" style="color:#38bdf8; text-decoration:underline;">
-  Iniciar sesión
-</a>
-
-<a href="#" id="link-logout" style="display:none; color:#f87171;">
-  Cerrar sesión
-</a>
-
-
+  <!-- Fallback por si index.css no define hidden -->
+  <style>
+    .hidden { display: none !important; }
+    /* opcional: look simple para tabs activos */
+    #authTabLogin.active, #authTabRegister.active { font-weight: 700; }
+  </style>
 </head>
 
 <body>
+
+  <!-- Header simple (arriba a la derecha) -->
+  <div style="display:flex;justify-content:flex-end;gap:10px;align-items:center;padding:10px;">
+    <span id="authLabel" style="font-size:14px;opacity:.8;"></span>
+    <button id="btnAuth" data-mode="login" type="button">Iniciar sesión</button>
+  </div>
+
+  <!-- Modal -->
+  <div id="authModal" class="hidden" style="position:fixed;inset:0;z-index:9999;">
+    <div id="authOverlay" style="position:absolute;inset:0;background:rgba(0,0,0,.45);"></div>
+
+    <div style="position:relative;max-width:420px;margin:8vh auto;background:#fff;border-radius:12px;padding:16px;box-shadow:0 10px 40px rgba(0,0,0,.25);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <strong>GeoIPT · Acceso</strong>
+        <button id="authClose" type="button">✕</button>
+      </div>
+
+      <div style="display:flex;gap:8px;margin:12px 0;">
+        <button id="authTabLogin" class="active" type="button">Login</button>
+        <button id="authTabRegister" type="button">Registro</button>
+      </div>
+
+      <div id="panelLogin">
+        <input id="loginEmail" type="email" placeholder="Correo" style="width:100%;margin:6px 0;padding:8px;">
+        <input id="loginPass" type="password" placeholder="Contraseña" style="width:100%;margin:6px 0;padding:8px;">
+        <button id="doLogin" type="button" style="width:100%;padding:10px;margin-top:8px;">Ingresar</button>
+      </div>
+
+      <div id="panelRegister" style="display:none;">
+        <input id="regEmail" type="email" placeholder="Correo" style="width:100%;margin:6px 0;padding:8px;">
+        <input id="regPass" type="password" placeholder="Contraseña" style="width:100%;margin:6px 0;padding:8px;">
+        <button id="doRegister" type="button" style="width:100%;padding:10px;margin-top:8px;">Crear cuenta</button>
+      </div>
+
+      <p id="authStatus" style="margin-top:10px;font-size:13px;"></p>
+    </div>
+  </div>
+
+  <!-- Importa el UI del modal (debe ir antes del resto si quieres que esté listo al tiro) -->
+  <script type="module" src="./js/ui-auth.js"></script>
+
+
   <header>
     <div class="header-inner">
       <div class="brand">
@@ -91,7 +130,7 @@
       <!-- Mapa -->
       <div id="map"></div>
 
-      <!-- ✅ Hint corto (sin tecnicismos internos) -->
+      <!-- ✅ Hint corto -->
       <p class="hint">
         💡 Tip: Haz clic dentro del área urbana para consultar la zona normativa y descargar el KML.
       </p>
