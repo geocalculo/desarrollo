@@ -14,6 +14,7 @@ header {
   background: #020617;
   border-bottom: 1px solid #111827;
   padding: 8px 16px;
+  position: relative;
 }
 
 .header-inner {
@@ -45,7 +46,9 @@ header {
   font-size: 0.8rem;
 }
 
-.control-group label { color: #9ca3af; }
+.control-group label {
+  color: #9ca3af;
+}
 
 select {
   background: #020617;
@@ -65,12 +68,12 @@ main {
 .map-container {
   max-width: 1200px;
   margin: 10px auto 16px;
-  position: relative; /* ✅ necesario para overlay absoluto */
+  position: relative;
 }
 
 #map {
   width: 100%;
-  height: 520px;        /* fijo para evitar mapa negro */
+  height: 520px;
   min-height: 520px;
   border-radius: 1rem;
   border: 1px solid #1f2937;
@@ -117,113 +120,201 @@ main {
   background: #111827;
 }
 
-/* Contenedor flotante del overview (franja delgada) */
-#overview-container {
-  position: absolute;
-  right: 18px;
-  bottom: 18px;
-  width: 110px;
-  height: 480px;
-  background: #ffffff;
-  border-radius: 10px;
-  box-shadow: 0 0 12px rgba(0, 0, 0, 0.25);
-  z-index: 9999;
-  overflow: hidden;
-}
+/* ========================================
+   MODAL DE AUTENTICACIÓN
+======================================== */
 
-/* El mini-mapa interno ocupa todo el contenedor */
-#overview-map {
+.auth-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-}
-
-/* =========================================
-   ✅ INTRO OVERLAY (3 LÁMINAS BLOQUEANTES)
-   ========================================= */
-.geoipt-intro {
-  position: absolute;
-  inset: 0;
-  z-index: 12000;                 /* sobre todo (incluye overview y mira) */
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
   justify-content: center;
-  padding: 16px;
-  background: rgba(2, 6, 23, 0.72);
-  backdrop-filter: blur(3px);
-  pointer-events: all;            /* bloquea interacción con mapa */
-}
-
-.geoipt-intro.hidden { display: none; }
-
-.geoipt-intro-card {
-  width: min(920px, 96vw);
-  background: rgba(2, 6, 23, 0.95);
-  border: 1px solid #1e293b;
-  border-radius: 18px;
-  overflow: hidden;
-  box-shadow: 0 12px 40px rgba(0,0,0,.45);
-}
-
-.geoipt-intro-head {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 14px 16px;
-  border-bottom: 1px solid #111827;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease;
 }
 
-.geoipt-intro-title { color: #e5e7eb; font-weight: 700; }
-.geoipt-intro-steps { color: #94a3b8; font-size: 0.9rem; }
-
-.geoipt-intro-img {
-  width: 100%;
-  height: min(420px, 48vh);
-  object-fit: contain;
-  background: #0b1220;
-  display: block;
+.auth-modal.hidden {
+  display: none;
 }
 
-.geoipt-intro-caption { padding: 12px 16px 6px 16px; }
-.geoipt-intro-h { color: #38bdf8; font-weight: 800; margin-bottom: 4px; }
-.geoipt-intro-p { color: #e5e7eb; opacity: 0.95; line-height: 1.25; }
-
-.geoipt-intro-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  padding: 10px 16px 14px 16px;
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.geoipt-btn {
-  border: 1px solid #1e293b;
-  background: #0b1220;
-  color: #e5e7eb;
-  padding: 10px 14px;
+.auth-modal-content {
+  background: #ffffff;
   border-radius: 12px;
+  padding: 24px 28px;
+  width: 90%;
+  max-width: 400px;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.auth-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  color: #6b7280;
   cursor: pointer;
+  line-height: 1;
+  padding: 4px 8px;
+  transition: color 0.2s;
+}
+
+.auth-modal-close:hover {
+  color: #111827;
+}
+
+.auth-modal-title {
+  font-size: 1.4rem;
   font-weight: 600;
+  color: #111827;
+  margin-bottom: 16px;
+  text-align: center;
 }
 
-.geoipt-btn:hover { background: #111a2e; }
-.geoipt-btn.ghost { background: transparent; }
-
-.geoipt-intro-dots {
+.auth-tabs {
   display: flex;
-  justify-content: center;
   gap: 8px;
-  padding: 0 0 14px 0;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #e5e7eb;
 }
 
-.geoipt-intro-dots .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #334155;
+.auth-tab {
+  flex: 1;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  color: #6b7280;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  margin-bottom: -2px;
 }
 
-.geoipt-intro-dots .dot.active { background: #38bdf8; }
+.auth-tab.active {
+  color: #111827;
+  border-bottom-color: #3b82f6;
+}
 
-@media (max-width: 640px) {
-  .geoipt-intro-img { height: 38vh; }
-  .geoipt-intro-actions { justify-content: space-between; }
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form.hidden {
+  display: none;
+}
+
+.auth-form input {
+  padding: 12px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #111827;
+  background: #ffffff;
+  transition: border-color 0.2s;
+}
+
+.auth-form input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.auth-submit {
+  padding: 12px 16px;
+  background: #3b82f6;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.2s;
+}
+
+.auth-submit:hover {
+  background: #2563eb;
+}
+
+.auth-submit:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.auth-message {
+  min-height: 20px;
+  font-size: 0.85rem;
+  text-align: center;
+  margin-top: 4px;
+}
+
+.auth-message.error {
+  color: #dc2626;
+}
+
+.auth-message.success {
+  color: #16a34a;
+}
+
+/* Botón en header */
+.btn-header-login {
+  padding: 8px 18px;
+  background: #3b82f6;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-header-login:hover {
+  background: #2563eb;
+}
+
+.btn-header-login.logged-in {
+  background: #16a34a;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .btn-header-login {
+    position: static;
+    margin-top: 8px;
+  }
 }
