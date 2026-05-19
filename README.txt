@@ -1,12 +1,32 @@
-# GeoIA
+========================================
+  GeoHidro - Proyecto GIS-Web
+========================================
 
-Sube estos archivos a tu repositorio `geoia`:
+Nombre del sitio: GeoHidro
+Titulo: Sitio Web Analisis de Riesgo Hidrico
+Color base: #22c55e
+CARD: HidroCard.html
 
-- `index.html`  → visor principal, donde seleccionas el punto
-- `info.html`   → reporte del punto consultado, calcula distancias al KML
-- `puntos_a_consultar.kml` → archivo KML con los puntos de referencia
-- carpeta `capas/` (opcional, si quieres guardar allí el KML)
+--- Estructura Generada ---
 
-En GitHub Pages, la URL será algo como:
+GeoHidro/
+  index.html          Pagina principal del sitio
+  HidroCard.html        CARD de analisis territorial
+  config.json          Configuracion del proyecto
+  README.txt           Este archivo
+  capas/               Carpeta para capas GIS
+  js/
+    app.js             Logica principal y CONFIG
+  css/
+    style.css          Estilos del sitio (tema oscuro)
+  assets/              Recursos estaticos
 
-https://TU_USUARIO.github.io/geoia/
+--- Archivos Incluidos ---
+
+1. index.html  - Pagina principal con header, area de mapa y boton CARD
+2. HidroCard.html - Tarjeta de analisis con KPIs y mapa secundario
+3. css/style.css - Tema oscuro con variable --primary: #22c55e
+4. js/app.js - Objeto CONFIG global (site, card, color)
+5. config.json - Metadatos del proyecto en formato JSON
+
+Generado con GeoFactory Engine v1.0
