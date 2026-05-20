@@ -558,7 +558,31 @@ function normalizeBoolean(val) {
 }
 
 function sanitizeFolderName(val) {
-  return String(val).replace(/[^a-zA-Z0-9_\-]/g, '_');
+  return normalizeName(val);
+}
+
+function normalizeKey(val) {
+  return String(val || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ñ/gi, 'n')
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+    .replace(/^_+|_+$/g, '');
+}
+
+function normalizeName(val) {
+  var out = String(val || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ñ/gi, 'n')
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_\-]/g, '')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return out || 'sitio_geo';
 }
 
 function renderPreview(config) {
@@ -569,14 +593,14 @@ function renderPreview(config) {
 
   var html = '';
   html += '<div class="gf-preview-header">';
-  html += '<h2>' + colorDot + config.nombre_sitio + '</h2>';
+  html += '<h2>' + colorDot + escHTML(config.nombre_sitio) + '</h2>';
   html += '<span class="badge">' + Object.keys(config.raw).length + ' parámetros</span>';
   html += '</div>';
 
   html += '<table class="gf-param-table"><thead><tr><th>Parámetro</th><th>Valor</th></tr></thead><tbody>';
   var keys = Object.keys(config.raw);
   keys.forEach(function(k) {
-    html += '<tr><td>' + k + '</td><td>' + (config.raw[k] || '<em style="color:var(--text-muted)">—</em>') + '</td></tr>';
+    html += '<tr><td>' + escHTML(k) + '</td><td>' + (config.raw[k] ? escHTML(config.raw[k]) : '<em style="color:var(--text-muted)">—</em>') + '</td></tr>';
   });
   html += '</tbody></table>';
 
@@ -636,14 +660,14 @@ function generateZip(config, cssContent) {
   root.file('index.html', indexHTML);
   root.file('card.html', cardHTML);
   root.file('config.json', configJSON);
-  root.file('README.txt', readme);
+  root.file('README.md', readme);
 
-  root.folder('capas').file('README_capas.txt', 'Carpeta para capas geoespaciales.\nFormatos soportados: GeoJSON, KML, SHP.\n');
+  root.folder('capas').file('README.txt', 'Carpeta para capas geoespaciales.\nFormatos soportados: GeoJSON, KML, SHP.\n');
   root.folder('css').file('style.css', cssFile);
   root.folder('js').file('app.js', appJS);
   root.folder('js').file('index.js', indexJS);
   root.folder('js').file('card.js', cardJS);
-  root.folder('assets').file('README_assets.txt', 'Carpeta para assets del sitio.\nImágenes, íconos, logos.\n');
+  root.folder('assets').file('README.txt', 'Carpeta para assets del sitio.\nImágenes, íconos, logos.\n');
 
   zip.generateAsync({ type: 'blob' }).then(function(blob) {
     var a = document.createElement('a');
@@ -652,7 +676,7 @@ function generateZip(config, cssContent) {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    showStatus('ZIP descargado: ' + folderName + '.zip', 'ok');
+    showStatus('ZIP generado correctamente: ' + folderName + '.zip', 'ok');
   });
 }
 
@@ -664,37 +688,30 @@ function buildConfigJSON(config) {
   var obj = {
     site: {
       name: config.nombre_sitio,
-      url: config.texto_url,
       title: config.titulo_html,
-      h1: config.h1_index,
-      h2: config.h2_index,
-      subtitle: config.site_subtitle
+      subtitle: config.site_subtitle,
+      color: config.color_base
     },
     index: {
       searchPlaceholder: config.search_placeholder,
-      modalTitle: config.modal_title,
-      modalText: config.modal_text,
       summaryName: config.summary_name,
-      selector1: config.selector1_nombre,
-      selector2: config.selector2_nombre
+      panelTerritorial: true,
+      ribbonSites: ['GeoIPT', 'GeoEVA', 'GeoNEMO', 'GeoNOXA']
     },
-    files: {
-      index: 'index.html',
-      card: 'card.html'
+    card: {
+      title: config.modal_title,
+      summary: config.modal_text,
+      poi: { lat: -33.45, lon: -70.66, format: 'decimal_demo' },
+      kpis: []
     },
     layers: {
       folder: config.carpeta_capas,
       summary: config.archivo_summary,
-      analysis: config.archivo_analisis,
-      indexGeometry: config.tipo_geometria_index,
-      cardGeometry: config.tipo_geometria_card
+      analysis: config.archivo_analisis
     },
     exports: {
       pdf: config.pdf_activo,
       kml: config.kml_activo
-    },
-    theme: {
-      primary: config.color_base
     },
     raw: config.raw
   };
@@ -769,22 +786,14 @@ function buildCardJS(config) {
 
 function buildReadme(config) {
   var txt = '';
-  txt += '========================================\n';
-  txt += '  ' + config.nombre_sitio + '\n';
-  txt += '  Generado por GeoFactory Engine v1.0\n';
-  txt += '========================================\n\n';
-  txt += 'URL: ' + config.texto_url + '\n';
-  txt += 'Título: ' + config.titulo_html + '\n\n';
-  txt += 'Estructura:\n';
-  txt += '  index.html   - Página principal con mapa\n';
-  txt += '  card.html    - Ficha de análisis territorial\n';
-  txt += '  config.json  - Configuración del sitio\n';
-  txt += '  /css         - Estilos\n';
-  txt += '  /js          - Scripts\n';
-  txt += '  /capas       - Capas geoespaciales\n';
-  txt += '  /assets      - Recursos gráficos\n\n';
-  txt += 'Este es un sitio maqueta generado automáticamente.\n';
-  txt += 'No incluye funcionalidad GIS en esta versión.\n';
+  txt += '# ' + config.nombre_sitio + '\n\n';
+  txt += 'Sitio generado por GeoFactoryEngine v0.1.\n\n';
+  txt += '- Abre `index.html` para iniciar la exploración territorial.\n';
+  txt += '- `card.html` contiene la ficha de análisis territorial.\n';
+  txt += '- `config.json` centraliza la configuración serial del sitio.\n';
+  txt += '- `/capas` es para capas geoespaciales (resumen/análisis).\n';
+  txt += '- `/assets` es para imágenes, íconos y archivos auxiliares.\n\n';
+  txt += 'Esta versión corresponde a una maqueta visual sin lógica GIS avanzada.\n';
   return txt;
 }
 
