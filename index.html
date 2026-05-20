@@ -1,859 +1,155 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GeoFactory Engine</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
-
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-
-:root {
-  --bg-deep: #0a0e17;
-  --bg-panel: #111827;
-  --bg-card: #1a2233;
-  --bg-hover: #1f2b3f;
-  --border: #253045;
-  --border-light: #334155;
-  --text-primary: #e8ecf4;
-  --text-secondary: #8896ab;
-  --text-muted: #5a6a82;
-  --accent: #22c55e;
-  --accent-dim: #16a34a;
-  --accent-glow: rgba(34,197,94,.15);
-  --danger: #ef4444;
-  --warn: #fbbf24;
-  --info: #38bdf8;
-  --radius: 10px;
-  --mono: 'JetBrains Mono', monospace;
-  --sans: 'DM Sans', sans-serif;
-}
-
-html { font-size: 15px; }
-
-body {
-  font-family: var(--sans);
-  background: var(--bg-deep);
-  color: var(--text-primary);
-  min-height: 100vh;
-  line-height: 1.5;
-}
-
-/* === HEADER === */
-.gf-header {
-  padding: 2rem 2rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-  background: linear-gradient(180deg, #0f1520 0%, var(--bg-deep) 100%);
-  position: relative;
-  overflow: hidden;
-}
-.gf-header::before {
-  content: '';
-  position: absolute;
-  top: -60%;
-  left: -10%;
-  width: 50%;
-  height: 200%;
-  background: radial-gradient(ellipse, rgba(34,197,94,.04) 0%, transparent 70%);
-  pointer-events: none;
-}
-.gf-header h1 {
-  font-family: var(--mono);
-  font-size: 1.8rem;
-  font-weight: 700;
-  letter-spacing: -.02em;
-  display: flex;
-  align-items: center;
-  gap: .6rem;
-}
-.gf-header h1 .dot { color: var(--accent); }
-.gf-header p {
-  color: var(--text-secondary);
-  font-size: .9rem;
-  margin-top: .3rem;
-  font-family: var(--mono);
-}
-.gf-version {
-  position: absolute;
-  top: 2rem;
-  right: 2rem;
-  font-family: var(--mono);
-  font-size: .7rem;
-  color: var(--text-muted);
-  background: var(--bg-card);
-  padding: .25rem .6rem;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-}
-
-/* === LAYOUT === */
-.gf-main {
-  display: grid;
-  grid-template-columns: 380px 1fr;
-  min-height: calc(100vh - 110px);
-}
-
-@media (max-width: 900px) {
-  .gf-main { grid-template-columns: 1fr; }
-}
-
-/* === SIDEBAR === */
-.gf-sidebar {
-  padding: 1.5rem;
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 1.2rem;
-  overflow-y: auto;
-  max-height: calc(100vh - 110px);
-}
-
-.gf-section {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1.2rem;
-}
-.gf-section-label {
-  font-family: var(--mono);
-  font-size: .65rem;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-  color: var(--text-muted);
-  margin-bottom: .8rem;
-  display: flex;
-  align-items: center;
-  gap: .4rem;
-}
-.gf-section-label .idx {
-  background: var(--accent);
-  color: #000;
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: .6rem;
-}
-
-/* file inputs */
-.gf-file-zone {
-  border: 2px dashed var(--border-light);
-  border-radius: 8px;
-  padding: 1rem;
-  text-align: center;
-  cursor: pointer;
-  transition: all .2s;
-  position: relative;
-}
-.gf-file-zone:hover { border-color: var(--accent); background: var(--accent-glow); }
-.gf-file-zone.loaded { border-color: var(--accent); border-style: solid; background: rgba(34,197,94,.06); }
-.gf-file-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.gf-file-zone .icon { font-size: 1.5rem; margin-bottom: .3rem; }
-.gf-file-zone .label { font-size: .8rem; color: var(--text-secondary); }
-.gf-file-zone .filename {
-  font-family: var(--mono);
-  font-size: .75rem;
-  color: var(--accent);
-  margin-top: .4rem;
-  word-break: break-all;
-}
-
-/* select */
-.gf-select-wrap select {
-  width: 100%;
-  padding: .6rem .8rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-family: var(--sans);
-  font-size: .9rem;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%238896ab' stroke-width='1.5'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-}
-.gf-select-wrap select:focus { outline: none; border-color: var(--accent); }
-
-/* buttons */
-.gf-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: .5rem;
-  width: 100%;
-  padding: .75rem 1.2rem;
-  font-family: var(--mono);
-  font-size: .85rem;
-  font-weight: 600;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all .2s;
-}
-.gf-btn-primary {
-  background: var(--accent);
-  color: #000;
-}
-.gf-btn-primary:hover { background: var(--accent-dim); transform: translateY(-1px); box-shadow: 0 4px 20px var(--accent-glow); }
-.gf-btn-primary:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
-
-/* status */
-.gf-status {
-  font-family: var(--mono);
-  font-size: .75rem;
-  padding: .5rem .8rem;
-  border-radius: 6px;
-  display: none;
-}
-.gf-status.show { display: block; }
-.gf-status.ok { background: rgba(34,197,94,.1); color: var(--accent); border: 1px solid rgba(34,197,94,.2); }
-.gf-status.err { background: rgba(239,68,68,.1); color: var(--danger); border: 1px solid rgba(239,68,68,.2); }
-.gf-status.info { background: rgba(56,189,248,.1); color: var(--info); border: 1px solid rgba(56,189,248,.2); }
-
-/* === PREVIEW PANEL === */
-.gf-preview {
-  padding: 1.5rem;
-  overflow-y: auto;
-  max-height: calc(100vh - 110px);
-}
-.gf-preview-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text-muted);
-  text-align: center;
-  gap: 1rem;
-}
-.gf-preview-empty .big-icon { font-size: 3rem; opacity: .3; }
-.gf-preview-empty p { font-size: .85rem; }
-
-.gf-preview-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-}
-.gf-preview-header h2 {
-  font-family: var(--mono);
-  font-size: 1rem;
-  font-weight: 600;
-}
-.gf-preview-header .badge {
-  font-family: var(--mono);
-  font-size: .65rem;
-  padding: .2rem .5rem;
-  border-radius: 4px;
-  background: var(--accent-glow);
-  color: var(--accent);
-  border: 1px solid rgba(34,197,94,.2);
-}
-
-.gf-param-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: .82rem;
-}
-.gf-param-table th {
-  text-align: left;
-  font-family: var(--mono);
-  font-weight: 600;
-  font-size: .7rem;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  color: var(--text-muted);
-  padding: .5rem .8rem;
-  border-bottom: 1px solid var(--border);
-}
-.gf-param-table td {
-  padding: .5rem .8rem;
-  border-bottom: 1px solid var(--border);
-}
-.gf-param-table tr:hover td { background: var(--bg-hover); }
-.gf-param-table td:first-child {
-  font-family: var(--mono);
-  font-size: .75rem;
-  color: var(--info);
-  white-space: nowrap;
-}
-.gf-param-table td:last-child {
-  color: var(--text-primary);
-  word-break: break-word;
-}
-
-/* tree */
-.gf-tree {
-  margin-top: 1.5rem;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem 1.2rem;
-}
-.gf-tree h3 {
-  font-family: var(--mono);
-  font-size: .75rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  margin-bottom: .8rem;
-}
-.gf-tree pre {
-  font-family: var(--mono);
-  font-size: .75rem;
-  color: var(--text-secondary);
-  line-height: 1.7;
-}
-.gf-tree pre .folder { color: var(--warn); }
-.gf-tree pre .file { color: var(--text-primary); }
-
-/* footer */
-.gf-footer {
-  text-align: center;
-  padding: 1rem;
-  font-family: var(--mono);
-  font-size: .65rem;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border);
-}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GeoFactoryEngine v0.1</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root { --bg:#0b1220;--surface:#111827;--surface2:#1e293b;--border:#334155;--txt:#e8eefc;--muted:#94a3b8;--accent:#22c55e;--warn:#f59e0b;--danger:#ef4444; }
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#0a1020,#0f172a);color:var(--txt)}
+    header{padding:18px 24px;border-bottom:1px solid var(--border);background:#0b1220cc;backdrop-filter:blur(8px);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}
+    .head-title h1{margin:0;font-size:1.3rem}.head-title p{margin:.2rem 0 0;color:var(--muted)} .badge{border:1px solid var(--border);padding:.25rem .65rem;border-radius:999px;color:#cbd5e1}
+    .app{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px;min-height:calc(100vh - 78px)}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px}
+    h2{margin:.2rem 0 1rem;font-size:1.08rem} h3{margin:.8rem 0 .5rem;font-size:.96rem}
+    .sec{padding:12px;border:1px solid var(--border);border-radius:10px;background:#0f172a;margin-bottom:10px}
+    label{display:block;font-size:.88rem;color:#cbd5e1;margin-bottom:6px} input[type=file],select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#0b1220;color:var(--txt)}
+    .filename{font-size:.82rem;color:var(--muted);margin-top:6px;min-height:18px}
+    button{width:100%;padding:11px;border-radius:10px;border:1px solid #16a34a;background:linear-gradient(180deg,#22c55e,#16a34a);color:#03150a;font-weight:700;cursor:pointer}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    .status{margin-top:10px;padding:10px;border-radius:8px;min-height:40px;border:1px dashed var(--border);font-size:.9rem}
+    .status.info{color:#93c5fd}.status.ok{color:#86efac}.status.err{color:#fca5a5}
+    .preview-empty{padding:30px;border:1px dashed var(--border);border-radius:10px;text-align:center;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kv{background:#0b1220;border:1px solid var(--border);border-radius:10px;padding:10px}.kv b{display:block;font-size:.76rem;color:#94a3b8;text-transform:uppercase}.kv span{display:block;margin-top:3px}
+    .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.kpi{padding:10px;background:#0b1220;border:1px solid var(--border);border-radius:8px;text-align:center}
+    table{width:100%;border-collapse:collapse;margin-top:8px} th,td{border-bottom:1px solid #233047;padding:8px;text-align:left;font-size:.86rem;vertical-align:top} th{color:#cbd5e1}
+    .ziptree{font-family:ui-monospace,Consolas,monospace;background:#0b1220;border:1px solid var(--border);border-radius:10px;padding:10px;white-space:pre-wrap;color:#cbd5e1}
+    footer{padding:0 16px 16px;color:#94a3b8;font-size:.82rem}
+    @media (max-width:980px){.app{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  </style>
 </head>
 <body>
-
-<!-- HEADER -->
-<header class="gf-header">
-  <h1><span class="dot">&#9670;</span> GeoFactory Engine</h1>
-  <p>Constructor parametrizable de GeoSitios</p>
-  <span class="gf-version">v1.0.0</span>
+<header>
+  <div class="head-title"><h1>GeoFactoryEngine</h1><p>Motor serial de sitios GeoCálculo</p></div>
+  <div class="badge">v0.1</div>
 </header>
-
-<!-- MAIN -->
-<div class="gf-main">
-
-  <!-- SIDEBAR -->
-  <aside class="gf-sidebar">
-
-    <!-- A: Excel -->
-    <div class="gf-section">
-      <div class="gf-section-label"><span class="idx">A</span> Cargar planilla Excel</div>
-      <div class="gf-file-zone" id="zoneExcel">
-        <div class="icon">&#128196;</div>
-        <div class="label">Arrastra o selecciona .xlsx</div>
-        <div class="filename" id="fnExcel"></div>
-        <input type="file" accept=".xlsx,.xls" id="inputExcel">
-      </div>
-    </div>
-
-    <!-- B: CSS -->
-    <div class="gf-section">
-      <div class="gf-section-label"><span class="idx">B</span> Cargar CSS base (opcional)</div>
-      <div class="gf-file-zone" id="zoneCss">
-        <div class="icon">&#127912;</div>
-        <div class="label">Arrastra o selecciona .css</div>
-        <div class="filename" id="fnCss"></div>
-        <input type="file" accept=".css" id="inputCss">
-      </div>
-    </div>
-
-    <!-- C: Site selector -->
-    <div class="gf-section">
-      <div class="gf-section-label"><span class="idx">C</span> Seleccionar sitio</div>
-      <div class="gf-select-wrap">
-        <select id="siteSelect" disabled>
-          <option value="">— Carga un Excel primero —</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- E: Generate -->
-    <div class="gf-section">
-      <div class="gf-section-label"><span class="idx">D</span> Generar</div>
-      <button class="gf-btn gf-btn-primary" id="btnGenerate" disabled>&#9889; Generar ZIP</button>
-      <div class="gf-status" id="status"></div>
-    </div>
-
+<main class="app">
+  <aside class="panel">
+    <h2>Control</h2>
+    <section class="sec"><h3>A. Cargar Excel</h3><label for="excelInput">Planilla .xlsx / .xls</label><input id="excelInput" type="file" accept=".xlsx,.xls" /><div class="filename" id="excelName">Sin archivo</div></section>
+    <section class="sec"><h3>B. Cargar CSS base opcional</h3><label for="cssInput">Archivo .css</label><input id="cssInput" type="file" accept=".css" /><div class="filename" id="cssName">Sin archivo</div></section>
+    <section class="sec"><h3>C. Seleccionar sitio</h3><label for="siteSelect">Sitio detectado</label><select id="siteSelect" disabled><option value="">Cargar Excel primero...</option></select></section>
+    <section class="sec"><h3>D. Generar</h3><button id="genBtn" disabled>Generar ZIP</button><div class="status" id="statusBox"></div></section>
   </aside>
-
-  <!-- PREVIEW -->
-  <section class="gf-preview" id="previewPanel">
-    <div class="gf-preview-empty" id="emptyState">
-      <div class="big-icon">&#128506;</div>
-      <p>Carga una planilla Excel y selecciona un sitio<br>para ver la vista previa de parámetros.</p>
-    </div>
-    <div id="previewContent" style="display:none;"></div>
+  <section class="panel" id="previewPanel">
+    <h2>Preview</h2>
+    <div class="preview-empty">Carga una planilla Excel para detectar sitios configurables.</div>
   </section>
-
-</div>
-
-<footer class="gf-footer">GeoFactory Engine &mdash; Generador de sitios GeoXXXX &mdash; 2025</footer>
+</main>
+<footer>GeoFactoryEngine v0.1 · Generador local de maquetas INDEX + CARD</footer>
 
 <script>
-/* ============================================================
-   GeoFactory Engine – Core Logic
-   ============================================================ */
-
-const DEFAULT_COLORS = {
-  GeoIPT:  '#2563EB',
-  GeoEVA:  '#22C55E',
-  GeoNEMO: '#FBBF24',
-  GeoNOXA: '#EF4444'
-};
-const FALLBACK_COLOR = '#38BDF8';
-
-let matrixData = null;  // { SiteName: { param: value, ... }, ... }
-let userCSS = null;
-
-/* ---- DOM refs ---- */
-const inputExcel = document.getElementById('inputExcel');
-const inputCss   = document.getElementById('inputCss');
-const siteSelect = document.getElementById('siteSelect');
-const btnGenerate = document.getElementById('btnGenerate');
-const statusEl   = document.getElementById('status');
-const previewContent = document.getElementById('previewContent');
-const emptyState     = document.getElementById('emptyState');
-
-/* ---- Status helpers ---- */
-function showStatus(msg, type) {
-  statusEl.textContent = msg;
-  statusEl.className = 'gf-status show ' + type;
-}
-function clearStatus() { statusEl.className = 'gf-status'; }
-
-/* ============================================================
-   A. EXCEL READING
-   ============================================================ */
-
-inputExcel.addEventListener('change', function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  document.getElementById('fnExcel').textContent = file.name;
-  document.getElementById('zoneExcel').classList.add('loaded');
-  readExcelFile(file);
-});
-
-function readExcelFile(file) {
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const wb = XLSX.read(e.target.result, { type: 'array' });
-      matrixData = parseMatrix(wb);
-      const sites = Object.keys(matrixData);
-      if (sites.length === 0) { showStatus('No se encontraron sitios en el Excel.', 'err'); return; }
-      populateSiteSelect(sites);
-      showStatus(sites.length + ' sitio(s) detectados.', 'ok');
-    } catch (err) {
-      showStatus('Error leyendo Excel: ' + err.message, 'err');
-    }
+(() => {
+  const REQUIRED = ['nombre_sitio', 'titulo_html', 'site_subtitle'];
+  const FALLBACKS = {
+    color_base:'#22c55e',kpi_1:'KPI 1',kpi_2:'KPI 2',kpi_3:'KPI 3',kpi_4:'KPI 4',
+    search_placeholder:'Buscar territorio, comuna o capa...',summary_name:'Resumen Territorial',
+    modal_title:'Ficha territorial',modal_text:'Haz clic en el mapa para abrir el CARD territorial.',
+    pdf_activo:true,kml_activo:true
   };
-  reader.readAsArrayBuffer(file);
-}
+  let sites=[]; let cssExternal='';
+  const el = id => document.getElementById(id);
 
-function parseMatrix(workbook) {
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-  if (rows.length < 2) return {};
-  const headers = rows[0];
-  const data = {};
-  for (let c = 1; c < headers.length; c++) {
-    const siteName = String(headers[c] || '').trim();
-    if (!siteName) continue;
-    const obj = {};
-    for (let r = 1; r < rows.length; r++) {
-      const param = String(rows[r][0] || '').trim();
-      if (!param) continue;
-      obj[param] = rows[r][c] !== undefined ? String(rows[r][c]).trim() : '';
-    }
-    data[siteName] = obj;
+  function showStatus(message, type='info'){ const b=el('statusBox'); b.className='status '+(type==='error'?'err':type==='ok'?'ok':'info'); b.textContent=message; }
+  function clearStatus(){ const b=el('statusBox'); b.className='status'; b.textContent=''; }
+  function escHTML(value){ return String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function normalizeKey(value){ return String(value??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ñ/g,'n').replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').replace(/_+/g,'_').replace(/^_|_$/g,''); }
+  function normalizeName(value){ const n=normalizeKey(value); return n || 'sitio_geo'; }
+  function normalizeBoolean(value){ if(typeof value==='boolean') return value; const v=String(value??'').trim().toLowerCase(); if(['true','1','si','sí','yes','y'].includes(v)) return true; if(['false','0','no','n'].includes(v)) return false; return Boolean(value); }
+
+  function parseWorkbook(workbook){ const ws=workbook.Sheets[workbook.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(ws,{defval:''}); if(!rows.length) return []; const keys=Object.keys(rows[0]).map(normalizeKey); return keys.includes('parametro')?parseMatrixFormat(rows):parseRowFormat(rows); }
+  function parseRowFormat(rows){ return rows.map(r=>{const o={}; for(const [k,v] of Object.entries(r)) o[normalizeKey(k)]=v; return o;}).filter(r=>String(r.nombre_sitio??'').trim()); }
+  function parseMatrixFormat(rows){ const firstRaw=Object.keys(rows[0])[0]; const siteCols=Object.keys(rows[0]).slice(1); const map={}; siteCols.forEach(s=>map[s]={}); rows.forEach(r=>{ const key=normalizeKey(r[firstRaw]); if(!key) return; siteCols.forEach(s=>{ map[s][key]=r[s];});}); return Object.values(map).filter(r=>String(r.nombre_sitio??'').trim()); }
+
+  function populateSiteSelect(){ const sel=el('siteSelect'); sel.innerHTML='<option value="">Selecciona un sitio...</option>'; sites.forEach(s=>{ const name=String(s.nombre_sitio||'').trim(); const opt=document.createElement('option'); opt.value=name; opt.textContent=name; sel.appendChild(opt);}); sel.disabled=!sites.length; el('genBtn').disabled=true; }
+  function getSiteConfig(siteName){ const raw=sites.find(s=>String(s.nombre_sitio).trim()===siteName); if(!raw) return null; const cfg={...raw}; Object.entries(FALLBACKS).forEach(([k,v])=>{ if(cfg[k]===''||cfg[k]==null) cfg[k]=v;}); cfg.pdf_activo=normalizeBoolean(cfg.pdf_activo); cfg.kml_activo=normalizeBoolean(cfg.kml_activo); return cfg; }
+  function validateConfig(config){ const missing=REQUIRED.filter(k=>!String(config[k]??'').trim()); return {valid:missing.length===0,missing}; }
+
+  function renderPreview(config){ const preview=el('previewPanel'); if(!config){ preview.innerHTML='<h2>Preview</h2><div class="preview-empty">Selecciona un sitio para visualizar configuración.</div>'; return; }
+    const v=validateConfig(config); const rows=Object.entries(config).map(([k,val])=>`<tr><td>${escHTML(k)}</td><td>${escHTML(val)}</td></tr>`).join('');
+    preview.innerHTML=`<h2>Preview</h2><div class="grid"><div class="kv"><b>Nombre del sitio</b><span>${escHTML(config.nombre_sitio)}</span></div><div class="kv"><b>Título HTML</b><span>${escHTML(config.titulo_html)}</span></div><div class="kv"><b>Subtítulo</b><span>${escHTML(config.site_subtitle)}</span></div><div class="kv"><b>Color base</b><span>${escHTML(config.color_base)}</span></div></div><h3>KPIs</h3><div class="kpis"><div class="kpi">${escHTML(config.kpi_1)}</div><div class="kpi">${escHTML(config.kpi_2)}</div><div class="kpi">${escHTML(config.kpi_3)}</div><div class="kpi">${escHTML(config.kpi_4)}</div></div><h3>Campos faltantes</h3><p>${v.missing.length?escHTML(v.missing.join(', ')):'Ninguno'}</p><h3>Tabla de parámetros</h3><table><thead><tr><th>Clave</th><th>Valor</th></tr></thead><tbody>${rows}</tbody></table><h3>Estructura ZIP final</h3><div class="ziptree">/${escHTML(normalizeName(config.nombre_sitio))}
+├─ index.html
+├─ card.html
+├─ config.json
+├─ README.md
+├─ css/
+│  ├─ index.css
+│  ├─ card.css
+│  ├─ buttons.css
+│  ├─ colors.css
+│  └─ fonts.css
+├─ js/
+│  ├─ app.js
+│  ├─ index.js
+│  └─ card.js
+├─ capas/README.txt
+└─ assets/README.txt</div>`;
   }
-  return data;
-}
 
-function populateSiteSelect(sites) {
-  siteSelect.innerHTML = '<option value="">— Selecciona un sitio —</option>';
-  sites.forEach(function(s) {
-    const opt = document.createElement('option');
-    opt.value = s; opt.textContent = s;
-    siteSelect.appendChild(opt);
-  });
-  siteSelect.disabled = false;
-}
-
-/* ============================================================
-   B. CSS READING
-   ============================================================ */
-
-inputCss.addEventListener('change', function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  document.getElementById('fnCss').textContent = file.name;
-  document.getElementById('zoneCss').classList.add('loaded');
-  readCssFile(file);
-});
-
-function readCssFile(file) {
-  const reader = new FileReader();
-  reader.onload = function(e) { userCSS = e.target.result; };
-  reader.readAsText(file);
-}
-
-/* ============================================================
-   C. SITE SELECT → PREVIEW
-   ============================================================ */
-
-siteSelect.addEventListener('change', function() {
-  clearStatus();
-  if (!this.value) {
-    previewContent.style.display = 'none';
-    emptyState.style.display = 'flex';
-    btnGenerate.disabled = true;
-    return;
-  }
-  const config = getSiteConfig(this.value);
-  renderPreview(config);
-  btnGenerate.disabled = false;
-});
-
-function getSiteConfig(siteName) {
-  const raw = matrixData[siteName] || {};
-  const color = raw.color_base || DEFAULT_COLORS[siteName] || FALLBACK_COLOR;
-  return {
-    siteName: siteName,
-    raw: raw,
-    nombre_sitio: raw.nombre_sitio || siteName,
-    texto_url: raw.texto_url || '',
-    titulo_html: raw.titulo_html || siteName,
-    h1_index: raw.h1_index || siteName,
-    h2_index: raw.h2_index || '',
-    site_subtitle: raw.site_subtitle || '',
-    search_placeholder: raw.search_placeholder || 'Buscar...',
-    modal_title: raw.modal_title || 'Información',
-    modal_text: raw.modal_text || 'Haz clic en el mapa para abrir el CARD del punto consultado.',
-    summary_name: raw.summary_name || 'Resumen',
-    selector1_nombre: raw.selector1_nombre || 'Selector 1',
-    selector2_nombre: raw.selector2_nombre || 'Selector 2',
-    card_name: 'card.html',
-    color_base: color,
-    carpeta_capas: raw.carpeta_capas || 'capas',
-    archivo_summary: raw.archivo_summary || '',
-    archivo_analisis: raw.archivo_analisis || '',
-    tipo_geometria_index: raw.tipo_geometria_index || 'point',
-    tipo_geometria_card: raw.tipo_geometria_card || 'polygon',
-    pdf_activo: normalizeBoolean(raw.pdf_activo),
-    kml_activo: normalizeBoolean(raw.kml_activo)
-  };
-}
-
-function normalizeBoolean(val) {
-  if (val === undefined || val === '') return true;
-  var v = String(val).toLowerCase().trim();
-  return v === 'true' || v === 'si' || v === 'sí' || v === '1' || v === 'yes';
-}
-
-function sanitizeFolderName(val) {
-  return normalizeName(val);
-}
-
-function normalizeKey(val) {
-  return String(val || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/ñ/gi, 'n')
-    .toLowerCase()
-    .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9_]/g, '')
-    .replace(/^_+|_+$/g, '');
-}
-
-function normalizeName(val) {
-  var out = String(val || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/ñ/gi, 'n')
-    .toLowerCase()
-    .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9_\-]/g, '')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '');
-  return out || 'sitio_geo';
-}
-
-function renderPreview(config) {
-  emptyState.style.display = 'none';
-  previewContent.style.display = 'block';
-
-  var colorDot = '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + config.color_base + ';margin-right:6px;vertical-align:middle;"></span>';
-
-  var html = '';
-  html += '<div class="gf-preview-header">';
-  html += '<h2>' + colorDot + escHTML(config.nombre_sitio) + '</h2>';
-  html += '<span class="badge">' + Object.keys(config.raw).length + ' parámetros</span>';
-  html += '</div>';
-
-  html += '<table class="gf-param-table"><thead><tr><th>Parámetro</th><th>Valor</th></tr></thead><tbody>';
-  var keys = Object.keys(config.raw);
-  keys.forEach(function(k) {
-    html += '<tr><td>' + escHTML(k) + '</td><td>' + (config.raw[k] ? escHTML(config.raw[k]) : '<em style="color:var(--text-muted)">—</em>') + '</td></tr>';
-  });
-  html += '</tbody></table>';
-
-  var folderName = sanitizeFolderName(config.nombre_sitio);
-  html += '<div class="gf-tree"><h3>Estructura ZIP</h3><pre>';
-  html += '<span class="folder">/' + folderName + '</span>\n';
-  html += '├── <span class="file">index.html</span>\n';
-  html += '├── <span class="file">card.html</span>\n';
-  html += '├── <span class="file">config.json</span>\n';
-  html += '├── <span class="file">README.md</span>\n';
-  html += '├── <span class="folder">/capas</span>\n';
-  html += '│   └── <span class="file">README.txt</span>\n';
-  html += '├── <span class="folder">/css</span>\n';
-  html += '│   ├── <span class="file">index.css</span>\n';
-  html += '│   ├── <span class="file">card.css</span>\n';
-  html += '│   ├── <span class="file">buttons.css</span>\n';
-  html += '│   ├── <span class="file">colors.css</span>\n';
-  html += '│   └── <span class="file">fonts.css</span>\n';
-  html += '├── <span class="folder">/js</span>\n';
-  html += '│   ├── <span class="file">app.js</span>\n';
-  html += '│   ├── <span class="file">index.js</span>\n';
-  html += '│   └── <span class="file">card.js</span>\n';
-  html += '└── <span class="folder">/assets</span>\n';
-  html += '    └── <span class="file">README.txt</span>';
-  html += '</pre></div>';
-
-  previewContent.innerHTML = html;
-}
-
-/* ============================================================
-   D. ZIP GENERATION
-   ============================================================ */
-
-btnGenerate.addEventListener('click', function() {
-  var siteName = siteSelect.value;
-  if (!matrixData || !siteName) { showStatus('Selecciona un sitio primero.', 'err'); return; }
-  var config = getSiteConfig(siteName);
-  if (!config.nombre_sitio) { showStatus('Falta nombre_sitio en el Excel.', 'err'); return; }
-  showStatus('Generando ZIP...', 'info');
+  function buildConfigJSON(config){ return JSON.stringify({site:{name:config.nombre_sitio,title:config.titulo_html,subtitle:config.site_subtitle,color:config.color_base},index:{searchPlaceholder:config.search_placeholder,summaryName:config.summary_name,panelTerritorial:true,ribbonSites:['GeoIPT','GeoEVA','GeoNEMO','GeoNOXA']},card:{title:config.modal_title,summary:config.modal_text,poi:{lat:-33.45,lon:-70.66,format:'decimal_demo'},kpis:[config.kpi_1,config.kpi_2,config.kpi_3,config.kpi_4]},layers:{folder:'capas',summary:config.archivo_summary||'',analysis:config.archivo_analisis||''},exports:{pdf:config.pdf_activo,kml:config.kml_activo},raw:config},null,2); }
+  function buildIndexHTML(config){ return `<!doctype html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escHTML(config.titulo_html)}</title><link rel="stylesheet" href="css/fonts.css"><link rel="stylesheet" href="css/colors.css"><link rel="stylesheet" href="css/buttons.css"><link rel="stylesheet" href="css/index.css"></head><body><header class="top"><h1>${escHTML(config.nombre_sitio)}</h1><p>${escHTML(config.site_subtitle)}</p></header><main class="map-layout"><section class="search-overlay"><input placeholder="${escHTML(config.search_placeholder)}"><select><option>OSM</option><option>SAT</option></select><button class="btn btn-secondary">Home</button><button class="btn btn-secondary">Mi ubicación</button></section><section class="summary"><h2>${escHTML(config.summary_name)}</h2><div class="kpi-wrap"><article>${escHTML(config.kpi_1)}</article><article>${escHTML(config.kpi_2)}</article><article>${escHTML(config.kpi_3)}</article><article>${escHTML(config.kpi_4)}</article></div></section><aside class="panel-territorial"><h3>${escHTML(config.modal_title)}</h3><p>${escHTML(config.modal_text)}</p></aside><section id="mapArea" class="map-area"><div class="hint">Haz clic en el mapa para abrir el CARD territorial</div></section></main><nav class="ribbon"><span>GeoIPT</span><span>GeoEVA</span><span>GeoNEMO</span><span>GeoNOXA</span></nav><script src="js/app.js"><\/script><script src="js/index.js"><\/script></body></html>`; }
+  function buildCardHTML(config){ return `<!doctype html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escHTML(config.modal_title)}</title><link rel="stylesheet" href="css/fonts.css"><link rel="stylesheet" href="css/colors.css"><link rel="stylesheet" href="css/buttons.css"><link rel="stylesheet" href="css/card.css"></head><body><header class="card-header"><h1>${escHTML(config.modal_title)}</h1><p>${escHTML(config.nombre_sitio)} · Lat: -33.45 · Lon: -70.66</p></header><main class="card-main"><section class="kpis"><article>${escHTML(config.kpi_1)}</article><article>${escHTML(config.kpi_2)}</article><article>${escHTML(config.kpi_3)}</article><article>${escHTML(config.kpi_4)}</article></section><section class="summary"><h2>Resumen ejecutivo</h2><p>${escHTML(config.modal_text)}</p></section><section class="split"><div class="left"><h3>Atributos</h3><table><tr><th>Campo</th><th>Valor</th></tr><tr><td>Sitio</td><td>${escHTML(config.nombre_sitio)}</td></tr><tr><td>Subtítulo</td><td>${escHTML(config.site_subtitle)}</td></tr><tr><td>Estado</td><td>Demo operativo</td></tr></table></div><div class="right"><h3>Mapa del análisis</h3><div class="map">Mapa territorial simulado</div></div></section><section class="actions"><button id="btnPdf" class="btn btn-primary">Descargar PDF</button><button id="btnKml" class="btn btn-secondary">Descargar KML</button><a class="btn btn-ghost" href="index.html">Volver al Index</a></section></main><script src="js/app.js"><\/script><script src="js/card.js"><\/script></body></html>`; }
+  function buildIndexCss(){ return cssExternal ? `${cssExternal}\n\n/* GeoFactoryEngine: CSS externo preservado como index.css */\n` : `body{margin:0;background:var(--bg);color:var(--text)}.top{padding:20px;border-bottom:1px solid var(--border);background:var(--surface)}.map-layout{position:relative;min-height:calc(100vh - 140px);padding:16px}.search-overlay{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.search-overlay input,.search-overlay select{padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text)}.summary{margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px}.kpi-wrap{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.kpi-wrap article{background:var(--surface-2);padding:10px;border-radius:8px}.panel-territorial{position:absolute;right:20px;top:90px;width:300px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px}.map-area{margin-top:14px;height:420px;border-radius:16px;border:1px solid var(--border);background:radial-gradient(circle at 30% 30%,#334155,#0f172a);display:grid;place-items:center;cursor:pointer}.hint{background:#0008;padding:10px 14px;border-radius:999px}.ribbon{display:flex;gap:12px;justify-content:center;padding:12px;border-top:1px solid var(--border);background:var(--surface)}@media(max-width:900px){.kpi-wrap{grid-template-columns:repeat(2,minmax(0,1fr))}.panel-territorial{position:static;width:auto;margin-top:10px}}`; }
+  function buildCardCss(){ return `.card-header{padding:20px;border-bottom:1px solid var(--border);background:var(--surface)}.card-main{padding:16px}.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.kpis article{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px}.summary,.split,.actions{margin-top:12px}.summary,.left,.right{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}.split{display:grid;grid-template-columns:1fr 1fr;gap:10px}.map{height:260px;border:1px dashed var(--border);display:grid;place-items:center;background:var(--surface-2);border-radius:10px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid var(--border)}.actions{display:flex;gap:8px;flex-wrap:wrap}@media(max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.split{grid-template-columns:1fr}}`; }
+  function buildButtonsCss(){ return `.btn{display:inline-flex;align-items:center;justify-content:center;padding:.65rem 1rem;border-radius:.7rem;border:1px solid transparent;font-weight:600;cursor:pointer;text-decoration:none}.btn-primary{background:var(--site-color);color:#03150a}.btn-secondary{background:var(--surface-2);border-color:var(--border);color:var(--text)}.btn-ghost{background:transparent;border-color:var(--border);color:var(--text)}.btn-small{padding:.45rem .7rem;font-size:.85rem}.btn:hover{filter:brightness(1.06)}.btn:focus{outline:2px solid var(--site-color);outline-offset:2px}.btn:disabled{opacity:.5;cursor:not-allowed}`; }
+  function buildColorsCss(config){ return `:root {\n  --site-color: ${escHTML(config.color_base)};\n  --bg: #0b1220;\n  --surface: #111827;\n  --surface-2: #1e293b;\n  --border: #334155;\n  --text: #e8eefc;\n  --muted: #94a3b8;\n  --ok: #22c55e;\n  --warn: #f59e0b;\n  --danger: #ef4444;\n}`; }
+  function buildFontsCss(){ return `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');:root{--font-main:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif}html{font-size:16px}body{font-family:var(--font-main);line-height:1.5;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased}`; }
+  function buildAppJS(){ return `window.GEOFACTORY_CONFIG = window.GEOFACTORY_CONFIG || {};
+async function loadGeoFactoryConfig() {
   try {
-    generateZip(config, userCSS);
+    const res = await fetch('config.json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    window.GEOFACTORY_CONFIG = await res.json();
+    console.log('[GeoFactory] config.json cargado', window.GEOFACTORY_CONFIG);
   } catch (err) {
-    showStatus('Error generando ZIP: ' + err.message, 'err');
+    if (location.protocol === 'file:') {
+      console.warn('[GeoFactory] No se pudo cargar config.json en modo file://. Usa un servidor local para lectura completa.', err);
+    } else {
+      console.warn('[GeoFactory] No se pudo cargar config.json.', err);
+    }
   }
-});
-
-function generateZip(config, cssContent) {
-  var zip = new JSZip();
-  var folderName = sanitizeFolderName(config.nombre_sitio);
-  var root = zip.folder(folderName);
-
-  var indexHTML = buildIndexHTML(config);
-  var cardHTML  = buildCardHTML(config);
-  var configJSON = buildConfigJSON(config);
-  var indexCss   = buildIndexCss(config);
-  var cardCss    = buildCardCss(config);
-  var buttonsCss = buildButtonsCss(config);
-  var colorsCss  = buildColorsCss(config);
-  var fontsCss   = buildFontsCss(config);
-  var appJS    = buildAppJS(config);
-  var indexJS  = buildIndexJS(config);
-  var cardJS   = buildCardJS(config);
-  var readme   = buildReadme(config);
-
-  root.file('index.html', indexHTML);
-  root.file('card.html', cardHTML);
-  root.file('config.json', configJSON);
-  root.file('README.md', readme);
-
-  root.folder('capas').file('README.txt', 'Carpeta para capas geoespaciales.\nFormatos soportados: GeoJSON, KML, SHP.\n');
-  root.folder('css').file('index.css', indexCss);
-  root.folder('css').file('card.css', cardCss);
-  root.folder('css').file('buttons.css', buttonsCss);
-  root.folder('css').file('colors.css', colorsCss);
-  root.folder('css').file('fonts.css', fontsCss + (cssContent ? '\n\n/* USER CUSTOM CSS */\n' + cssContent : ''));
-  root.folder('js').file('app.js', appJS);
-  root.folder('js').file('index.js', indexJS);
-  root.folder('js').file('card.js', cardJS);
-  root.folder('assets').file('README.txt', 'Carpeta para assets del sitio.\nImágenes, íconos, logos.\n');
-
-  zip.generateAsync({ type: 'blob' }).then(function(blob) {
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = folderName + '.zip';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    showStatus('ZIP generado correctamente: ' + folderName + '.zip', 'ok');
-  });
+  return window.GEOFACTORY_CONFIG;
 }
-
-/* ============================================================
-   BUILDERS
-   ============================================================ */
-
-function buildConfigJSON(config) {
-  var obj = {
-    site: {
-      name: config.nombre_sitio,
-      title: config.titulo_html,
-      subtitle: config.site_subtitle,
-      color: config.color_base
-    },
-    index: {
-      searchPlaceholder: config.search_placeholder,
-      summaryName: config.summary_name,
-      panelTerritorial: true,
-      ribbonSites: ['GeoIPT', 'GeoEVA', 'GeoNEMO', 'GeoNOXA']
-    },
-    card: {
-      title: config.modal_title,
-      summary: config.modal_text,
-      poi: { lat: -33.45, lon: -70.66, format: 'decimal_demo' },
-      kpis: []
-    },
-    layers: {
-      folder: config.carpeta_capas,
-      summary: config.archivo_summary,
-      analysis: config.archivo_analisis
-    },
-    exports: {
-      pdf: config.pdf_activo,
-      kml: config.kml_activo
-    },
-    raw: config.raw
-  };
-  return JSON.stringify(obj, null, 2);
+function geoParam(path, fallback = '') {
+  const parts = String(path || '').split('.');
+  let cur = window.GEOFACTORY_CONFIG;
+  for (const p of parts) {
+    if (!cur || typeof cur !== 'object' || !(p in cur)) return fallback;
+    cur = cur[p];
+  }
+  return cur ?? fallback;
 }
+loadGeoFactoryConfig();`; }
+  function buildIndexJS(){ return `document.addEventListener('DOMContentLoaded',()=>{document.body.classList.add('ready');console.log('[GeoFactory] index.js inicializado');const map=document.getElementById('mapArea');if(map){map.addEventListener('click',()=>{location.href='card.html';});}});`; }
+  function buildCardJS(){ return `document.addEventListener('DOMContentLoaded',()=>{document.body.classList.add('ready');console.log('[GeoFactory] card.js inicializado');const pdf=document.getElementById('btnPdf');const kml=document.getElementById('btnKml');if(pdf)pdf.addEventListener('click',()=>{alert('Descarga PDF simulada');console.log('PDF simulado');});if(kml)kml.addEventListener('click',()=>{alert('Descarga KML simulada');console.log('KML simulado');});});`; }
+  function buildReadme(config){ return `# ${config.nombre_sitio}\n\nSitio generado por GeoFactoryEngine v0.1.\n\n## Uso rápido\n1. Abrir \`index.html\` en navegador (idealmente con servidor local).\n2. Usar la maqueta principal y hacer clic en mapa para abrir \`card.html\`.\n\n## Contenidos\n- \`card.html\`: ficha territorial profesional (demo).\n- \`config.json\`: configuración serial exportada del sitio.\n- \`/capas\`: carpeta para capas y recursos temáticos GIS.\n- \`/assets\`: carpeta para recursos estáticos de apoyo.\n\nEsta versión es una maqueta visual sin lógica GIS avanzada.`; }
 
-/* ---------- INDEX.HTML ---------- */
+  async function generateZip(config){
+    const zip=new JSZip(), root=zip.folder(normalizeName(config.nombre_sitio));
+    root.file('index.html',buildIndexHTML(config)); root.file('card.html',buildCardHTML(config)); root.file('config.json',buildConfigJSON(config)); root.file('README.md',buildReadme(config));
+    const css=root.folder('css'); css.file('index.css',buildIndexCss(config)); css.file('card.css',buildCardCss(config)); css.file('buttons.css',buildButtonsCss(config)); css.file('colors.css',buildColorsCss(config)); css.file('fonts.css',buildFontsCss(config));
+    const js=root.folder('js'); js.file('app.js',buildAppJS()); js.file('index.js',buildIndexJS()); js.file('card.js',buildCardJS());
+    root.folder('capas').file('README.txt','Coloca aquí capas geoespaciales y metadatos asociados.'); root.folder('assets').file('README.txt','Coloca aquí imágenes, iconos y archivos de apoyo.');
+    const blob=await zip.generateAsync({type:'blob'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${normalizeName(config.nombre_sitio)}.zip`; a.click(); URL.revokeObjectURL(a.href);
+  }
 
-function buildIndexHTML(config) {
-  var c = config;
-  var sites = Object.keys(matrixData);
-  var ribbonHTML = sites.map(function(s) {
-    var isActive = s === c.nombre_sitio;
-    var col = DEFAULT_COLORS[s] || FALLBACK_COLOR;
-    return `<span class="ribbon-item${isActive ? ' active' : ''}" style="--ri-color:${col}">${escHTML(s)}</span>`;
-  }).join('\n      ');
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${escHTML(c.titulo_html)}</title>
-<link rel="stylesheet" href="css/fonts.css">
-<link rel="stylesheet" href="css/colors.css">
-<link rel="stylesheet" href="css/buttons.css">
-<link rel="stylesheet" href="css/index.css">
-</head>
-<body>
-<header class="site-header"><div class="header-inner"><h1>${escHTML(c.h1_index)}</h1><h2>${escHTML(c.h2_index)}</h2><p class="subtitle">${escHTML(c.site_subtitle)}</p></div></header>
-<section class="summary-bar"><div class="summary-inner"><span class="summary-label">${escHTML(c.summary_name)}</span><div class="kpi-group"><div class="kpi"><span class="kpi-val">0</span><span class="kpi-name">TOTAL</span></div><div class="kpi"><span class="kpi-val">0</span><span class="kpi-name">ACTIVOS</span></div></div></div></section>
-<section class="controls-bar"><div class="controls-inner"><select class="ctrl-select" id="sel1"><option>${escHTML(c.selector1_nombre)}</option></select><select class="ctrl-select" id="sel2"><option>${escHTML(c.selector2_nombre)}</option></select><input class="ctrl-search" type="text" placeholder="${escHTML(c.search_placeholder)}"></div></section>
-<section class="map-viewport" id="mapArea"><div class="map-placeholder"><div class="map-icon">&#127758;</div><div class="map-label">MAPA / VIEWPORT</div><p class="map-hint">${escHTML(c.modal_text)}</p></div></section>
-<nav class="site-ribbon"><div class="ribbon-inner">${ribbonHTML}</div></nav>
-<script src="js/app.js"><\/script>
-<script src="js/index.js"><\/script>
-</body>
-</html>`;
-}
-
-/* ---------- CARD.HTML ---------- */
-
-function buildCardHTML(config) {
-  var c = config;
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${escHTML(c.nombre_sitio)} - Card</title>
-<link rel="stylesheet" href="css/fonts.css">
-<link rel="stylesheet" href="css/colors.css">
-<link rel="stylesheet" href="css/buttons.css">
-<link rel="stylesheet" href="css/card.css">
-</head>
-<body class="card-page">
-<header class="site-header card-header"><div class="header-inner"><h1>${escHTML(c.nombre_sitio)}</h1><h2>${escHTML(c.h2_index)}</h2></div></header>
-<section class="card-summary"><h3>${escHTML(c.modal_title)}</h3><p>${escHTML(c.modal_text)}</p></section>
-<section class="card-kpis"><div class="card-kpi"><span class="card-kpi-val">—</span><span class="card-kpi-label">KPI 01</span></div><div class="card-kpi"><span class="card-kpi-val">—</span><span class="card-kpi-label">KPI 02</span></div><div class="card-kpi"><span class="card-kpi-val">—</span><span class="card-kpi-label">KPI 03</span></div><div class="card-kpi"><span class="card-kpi-val">—</span><span class="card-kpi-label">KPI 04</span></div></section>
-<section class="card-main"><div class="card-col-left"><h3>Análisis Territorial</h3><table class="card-table"><tr><td>Atributo</td><td>Valor</td></tr><tr><td>Geometría</td><td>${escHTML(c.tipo_geometria_card)}</td></tr><tr><td>Fuente</td><td>${escHTML(c.archivo_analisis || 'Sin definir')}</td></tr><tr><td>Capa</td><td>${escHTML(c.carpeta_capas)}</td></tr><tr><td>Estado</td><td>Maqueta</td></tr></table></div><div class="card-col-right"><div class="card-map-placeholder"><div class="map-icon">&#128506;</div><div>Mapa del CARD</div></div></div></section>
-<section class="card-actions">${c.pdf_activo ? '<button class="btn-action btn-pdf">&#128196; Descarga PDF</button>' : ''}${c.kml_activo ? '<button class="btn-action btn-kml">&#127758; Descarga KML</button>' : ''}<a href="index.html" class="btn-action btn-back">&#8592; Volver al Index</a></section>
-<script src="js/app.js"><\/script>
-<script src="js/card.js"><\/script>
-</body>
-</html>`;
-}
-
-/* ---------- CSS ---------- */
-
-function buildIndexCss(config) { return buildFullCSS(config.color_base); }
-function buildCardCss(config) { return '/* Card styles are included in index.css for v0.1 */\n'; }
-function buildButtonsCss(config) { return '/* Button styles are included in index.css for v0.1 */\n'; }
-function buildColorsCss(config) { return ':root { --gf-primary: ' + config.color_base + '; }\n'; }
-function buildFontsCss(config) { return '@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");\n'; }
-
-function buildDefaultCSS(config) {
-  var color = config.color_base;
-  return buildFullCSS(color);
-}
-
-function buildOverrideCSS(config) {
-  var color = config.color_base;
-  var css = '\n:root { --gf-primary: ' + color + '; }\n.map-viewport { min-height: 50vh; }\n.map-placeholder { display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:50vh;cursor:pointer; }\n';
-  return css;
-}
-
-function buildFullCSS(color) {
-  var css = '/* GeoFactory Generated CSS */\n:root {\n  --gf-primary: ' + color + ';\n  --gf-bg: #0f172a;\n  --gf-surface: #1e293b;\n  --gf-surface2: #253346;\n  --gf-border: #334155;\n  --gf-text: #e2e8f0;\n  --gf-text2: #94a3b8;\n  --gf-radius: 8px;\n}\n\n*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }\nhtml { font-size: 15px; }\nbody {\n  font-family: "Inter", sans-serif;\n  background: var(--gf-bg);\n  color: var(--gf-text);\n  min-height: 100vh;\n  opacity: 0;\n  transition: opacity .3s;\n}\nbody.ready { opacity: 1; }\n\n/* HEADER */\n.site-header {\n  background: var(--gf-surface);\n  border-bottom: 3px solid var(--gf-primary);\n  padding: 1.8rem 2rem 1.4rem;\n}\n.header-inner { max-width: 1200px; margin: 0 auto; }\n.site-header h1 {\n  font-size: 1.6rem;\n  font-weight: 700;\n  color: var(--gf-primary);\n}\n.site-header h2 {\n  font-size: 1rem;\n  font-weight: 500;\n  color: var(--gf-text);\n  margin-top: .2rem;\n}\n.site-header .subtitle {\n  font-size: .85rem;\n  color: var(--gf-text2);\n  margin-top: .3rem;\n}\n\n/* SUMMARY BAR */\n.summary-bar {\n  background: var(--gf-surface2);\n  padding: .8rem 2rem;\n  border-bottom: 1px solid var(--gf-border);\n}\n.summary-inner {\n  max-width: 1200px;\n  margin: 0 auto;\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n}\n.summary-label {\n  font-weight: 600;\n  font-size: .95rem;\n}\n.kpi-group { display: flex; gap: 2rem; }\n.kpi { text-align: center; }\n.kpi-val {\n  display: block;\n  font-size: 1.3rem;\n  font-weight: 700;\n  color: var(--gf-primary);\n}\n.kpi-name {\n  font-size: .65rem;\n  text-transform: uppercase;\n  letter-spacing: .1em;\n  color: var(--gf-text2);\n}\n\n/* CONTROLS */\n.controls-bar {\n  padding: .8rem 2rem;\n  background: var(--gf-bg);\n  border-bottom: 1px solid var(--gf-border);\n}\n.controls-inner {\n  max-width: 1200px;\n  margin: 0 auto;\n  display: flex;\n  gap: .8rem;\n  flex-wrap: wrap;\n}\n.ctrl-select, .ctrl-search {\n  padding: .5rem .8rem;\n  background: var(--gf-surface);\n  border: 1px solid var(--gf-border);\n  border-radius: var(--gf-radius);\n  color: var(--gf-text);\n  font-family: inherit;\n  font-size: .85rem;\n  min-width: 180px;\n}\n.ctrl-search { flex: 1; min-width: 200px; }\n.ctrl-select:focus, .ctrl-search:focus { outline: none; border-color: var(--gf-primary); }\n\n/* MAP VIEWPORT */\n.map-viewport {\n  min-height: 55vh;\n  background: var(--gf-surface);\n  margin: 1rem 2rem;\n  border-radius: var(--gf-radius);\n  border: 1px solid var(--gf-border);\n  cursor: pointer;\n  position: relative;\n  overflow: hidden;\n  background-image:\n    radial-gradient(circle at 30% 40%, rgba(255,255,255,.02) 0%, transparent 50%),\n    radial-gradient(circle at 70% 60%, rgba(255,255,255,.015) 0%, transparent 50%);\n}\n.map-placeholder {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  justify-content: center;\n  height: 100%;\n  min-height: 55vh;\n}\n.map-icon { font-size: 3rem; margin-bottom: .5rem; opacity: .4; }\n.map-label {\n  font-size: 1.1rem;\n  font-weight: 600;\n  color: var(--gf-text2);\n  letter-spacing: .15em;\n  text-transform: uppercase;\n}\n.map-hint {\n  margin-top: .6rem;\n  font-size: .8rem;\n  color: var(--gf-text2);\n  opacity: .7;\n  max-width: 400px;\n  text-align: center;\n}\n\n/* RIBBON */\n.site-ribbon {\n  background: var(--gf-surface);\n  border-top: 1px solid var(--gf-border);\n  padding: .6rem 2rem;\n  position: fixed;\n  bottom: 0;\n  left: 0;\n  right: 0;\n  z-index: 100;\n}\n.ribbon-inner {\n  max-width: 1200px;\n  margin: 0 auto;\n  display: flex;\n  justify-content: center;\n  gap: 2rem;\n}\n.ribbon-item {\n  font-size: .8rem;\n  font-weight: 600;\n  color: var(--gf-text2);\n  padding: .3rem 0;\n  border-bottom: 2px solid transparent;\n  cursor: default;\n  transition: color .2s;\n}\n.ribbon-item.active {\n  color: var(--ri-color, var(--gf-primary));\n  border-bottom-color: var(--ri-color, var(--gf-primary));\n}\n\n/* ============ CARD PAGE ============ */\n.card-page { padding-bottom: 2rem; }\n.card-header { border-bottom-width: 3px; }\n\n.card-summary {\n  max-width: 1200px;\n  margin: 1.5rem auto;\n  padding: 0 2rem;\n}\n.card-summary h3 {\n  font-size: 1.1rem;\n  margin-bottom: .5rem;\n  color: var(--gf-primary);\n}\n.card-summary p {\n  color: var(--gf-text2);\n  font-size: .9rem;\n  line-height: 1.6;\n}\n\n.card-kpis {\n  max-width: 1200px;\n  margin: 1rem auto;\n  padding: 0 2rem;\n  display: grid;\n  grid-template-columns: repeat(4, 1fr);\n  gap: 1rem;\n}\n.card-kpi {\n  background: var(--gf-surface);\n  border: 1px solid var(--gf-border);\n  border-radius: var(--gf-radius);\n  padding: 1.2rem;\n  text-align: center;\n}\n.card-kpi-val {\n  display: block;\n  font-size: 1.5rem;\n  font-weight: 700;\n  color: var(--gf-primary);\n}\n.card-kpi-label {\n  font-size: .7rem;\n  text-transform: uppercase;\n  letter-spacing: .1em;\n  color: var(--gf-text2);\n  margin-top: .3rem;\n  display: block;\n}\n\n.card-main {\n  max-width: 1200px;\n  margin: 1.5rem auto;\n  padding: 0 2rem;\n  display: grid;\n  grid-template-columns: 1fr 1fr;\n  gap: 1.5rem;\n}\n.card-col-left h3 {\n  font-size: .95rem;\n  margin-bottom: .8rem;\n  color: var(--gf-primary);\n}\n.card-table {\n  width: 100%;\n  border-collapse: collapse;\n  font-size: .85rem;\n}\n.card-table td {\n  padding: .6rem .8rem;\n  border-bottom: 1px solid var(--gf-border);\n}\n.card-table tr:first-child td {\n  font-weight: 600;\n  color: var(--gf-text2);\n  font-size: .75rem;\n  text-transform: uppercase;\n  letter-spacing: .08em;\n}\n\n.card-map-placeholder {\n  background: var(--gf-surface);\n  border: 1px solid var(--gf-border);\n  border-radius: var(--gf-radius);\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  justify-content: center;\n  min-height: 300px;\n  color: var(--gf-text2);\n  font-size: .9rem;\n}\n\n.card-actions {\n  max-width: 1200px;\n  margin: 2rem auto;\n  padding: 0 2rem;\n  display: flex;\n  gap: .8rem;\n  flex-wrap: wrap;\n}\n.btn-action {\n  display: inline-flex;\n  align-items: center;\n  gap: .4rem;\n  padding: .6rem 1.2rem;\n  border: 1px solid var(--gf-border);\n  border-radius: var(--gf-radius);\n  background: var(--gf-surface);\n  color: var(--gf-text);\n  font-family: inherit;\n  font-size: .85rem;\n  font-weight: 500;\n  cursor: pointer;\n  text-decoration: none;\n  transition: all .2s;\n}\n.btn-action:hover {\n  border-color: var(--gf-primary);\n  color: var(--gf-primary);\n}\n.btn-back {\n  margin-left: auto;\n  background: var(--gf-primary);\n  color: #000;\n  border-color: var(--gf-primary);\n  font-weight: 600;\n}\n.btn-back:hover { opacity: .85; color: #000; }\n\n@media (max-width: 768px) {\n  .card-kpis { grid-template-columns: repeat(2, 1fr); }\n  .card-main { grid-template-columns: 1fr; }\n  .controls-inner { flex-direction: column; }\n}\n';
-  return css;
-}
-
-/* ---------- JS FILES ---------- */
-
-function buildAppJS(config) {
-  var configStr = buildConfigJSON(config);
-  var js = '// GeoFactory Auto-Generated\nconst GEOFACTORY_CONFIG = ' + configStr + ';\nconsole.log("GeoFactory config cargado", GEOFACTORY_CONFIG);\n';
-  return js;
-}
-
-function buildIndexJS(config) {
-  var js = '// GeoFactory - Index\nconsole.log("Index cargado");\ndocument.body.classList.add("ready");\n\nvar mapArea = document.getElementById("mapArea");\nif (mapArea) {\n  mapArea.addEventListener("click", function() {\n    window.location.href = "card.html";\n  });\n}\n';
-  return js;
-}
-
-function buildCardJS(config) {
-  var js = '// GeoFactory - Card\nconsole.log("Card cargado");\ndocument.body.classList.add("ready");\n';
-  return js;
-}
-
-/* ---------- README ---------- */
-
-function buildReadme(config) {
-  var txt = '';
-  txt += '# ' + config.nombre_sitio + '\n\n';
-  txt += 'Sitio generado por GeoFactoryEngine v0.1.\n\n';
-  txt += '- Abre `index.html` para iniciar la exploración territorial.\n';
-  txt += '- `card.html` contiene la ficha de análisis territorial.\n';
-  txt += '- `config.json` centraliza la configuración serial del sitio.\n';
-  txt += '- `/capas` es para capas geoespaciales (resumen/análisis).\n';
-  txt += '- `/assets` es para imágenes, íconos y archivos auxiliares.\n\n';
-  txt += 'Esta versión corresponde a una maqueta visual sin lógica GIS avanzada.\n';
-  return txt;
-}
-
-/* ---------- HELPERS ---------- */
-
-function escHTML(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-
+  el('excelInput').addEventListener('change', async ev=>{ clearStatus(); const file=ev.target.files?.[0]; if(!file) return; el('excelName').textContent=file.name; try{ const data=await file.arrayBuffer(); const wb=XLSX.read(data,{type:'array'}); sites=parseWorkbook(wb); if(!sites.length) throw new Error('No se detectaron sitios válidos.'); populateSiteSelect(); showStatus(`Excel cargado: ${sites.length} sitio(s) detectado(s).`,'ok'); renderPreview(null);}catch(err){sites=[];populateSiteSelect();showStatus('Error al procesar Excel: '+err.message,'error');}});
+  el('cssInput').addEventListener('change', async ev=>{ const file=ev.target.files?.[0]; if(!file){cssExternal='';el('cssName').textContent='Sin archivo';return;} cssExternal=await file.text(); el('cssName').textContent=file.name; showStatus('CSS externo cargado y listo para usarse como index.css.','ok');});
+  el('siteSelect').addEventListener('change', ev=>{ const cfg=getSiteConfig(ev.target.value); renderPreview(cfg); const ok=cfg && validateConfig(cfg).valid; el('genBtn').disabled=!ok; if(cfg&&!ok) showStatus('El sitio seleccionado tiene campos obligatorios faltantes.','error'); if(ok) showStatus('Sitio listo para generar ZIP.','ok'); });
+  el('genBtn').addEventListener('click', async ()=>{ const cfg=getSiteConfig(el('siteSelect').value); if(!cfg) return showStatus('Selecciona un sitio válido.','error'); const v=validateConfig(cfg); if(!v.valid) return showStatus('Campos obligatorios faltantes: '+v.missing.join(', '),'error'); try{ await generateZip(cfg); showStatus('ZIP generado correctamente.','ok'); }catch(err){ showStatus('Error al generar ZIP: '+err.message,'error'); }});
+})();
 </script>
 </body>
 </html>
