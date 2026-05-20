@@ -610,17 +610,21 @@ function renderPreview(config) {
   html += '├── <span class="file">index.html</span>\n';
   html += '├── <span class="file">card.html</span>\n';
   html += '├── <span class="file">config.json</span>\n';
-  html += '├── <span class="file">README.txt</span>\n';
+  html += '├── <span class="file">README.md</span>\n';
   html += '├── <span class="folder">/capas</span>\n';
-  html += '│   └── <span class="file">README_capas.txt</span>\n';
+  html += '│   └── <span class="file">README.txt</span>\n';
   html += '├── <span class="folder">/css</span>\n';
-  html += '│   └── <span class="file">style.css</span>\n';
+  html += '│   ├── <span class="file">index.css</span>\n';
+  html += '│   ├── <span class="file">card.css</span>\n';
+  html += '│   ├── <span class="file">buttons.css</span>\n';
+  html += '│   ├── <span class="file">colors.css</span>\n';
+  html += '│   └── <span class="file">fonts.css</span>\n';
   html += '├── <span class="folder">/js</span>\n';
   html += '│   ├── <span class="file">app.js</span>\n';
   html += '│   ├── <span class="file">index.js</span>\n';
   html += '│   └── <span class="file">card.js</span>\n';
   html += '└── <span class="folder">/assets</span>\n';
-  html += '    └── <span class="file">README_assets.txt</span>';
+  html += '    └── <span class="file">README.txt</span>';
   html += '</pre></div>';
 
   previewContent.innerHTML = html;
@@ -651,7 +655,11 @@ function generateZip(config, cssContent) {
   var indexHTML = buildIndexHTML(config);
   var cardHTML  = buildCardHTML(config);
   var configJSON = buildConfigJSON(config);
-  var cssFile  = cssContent ? (cssContent + '\n\n/* ===============================\n   GEOFACTORY MOCKUP OVERRIDES\n   =============================== */\n' + buildOverrideCSS(config)) : buildDefaultCSS(config);
+  var indexCss   = buildIndexCss(config);
+  var cardCss    = buildCardCss(config);
+  var buttonsCss = buildButtonsCss(config);
+  var colorsCss  = buildColorsCss(config);
+  var fontsCss   = buildFontsCss(config);
   var appJS    = buildAppJS(config);
   var indexJS  = buildIndexJS(config);
   var cardJS   = buildCardJS(config);
@@ -663,7 +671,11 @@ function generateZip(config, cssContent) {
   root.file('README.md', readme);
 
   root.folder('capas').file('README.txt', 'Carpeta para capas geoespaciales.\nFormatos soportados: GeoJSON, KML, SHP.\n');
-  root.folder('css').file('style.css', cssFile);
+  root.folder('css').file('index.css', indexCss);
+  root.folder('css').file('card.css', cardCss);
+  root.folder('css').file('buttons.css', buttonsCss);
+  root.folder('css').file('colors.css', colorsCss);
+  root.folder('css').file('fonts.css', fontsCss + (cssContent ? '\n\n/* USER CUSTOM CSS */\n' + cssContent : ''));
   root.folder('js').file('app.js', appJS);
   root.folder('js').file('index.js', indexJS);
   root.folder('js').file('card.js', cardJS);
@@ -722,31 +734,69 @@ function buildConfigJSON(config) {
 
 function buildIndexHTML(config) {
   var c = config;
-  var color = c.color_base;
   var sites = Object.keys(matrixData);
-
   var ribbonHTML = sites.map(function(s) {
     var isActive = s === c.nombre_sitio;
     var col = DEFAULT_COLORS[s] || FALLBACK_COLOR;
-    return '<span class="ribbon-item' + (isActive ? ' active' : '') + '" style="--ri-color:' + col + '">' + s + '</span>';
-  }).join('\n          ');
-
-  var html = '<!DOCTYPE html>\n<html lang="es">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>' + escHTML(c.titulo_html) + '</title>\n<link rel="stylesheet" href="css/style.css">\n</head>\n<body>\n\n  <!-- HEADER -->\n  <header class="site-header">\n    <div class="header-inner">\n      <h1>' + escHTML(c.h1_index) + '</h1>\n      <h2>' + escHTML(c.h2_index) + '</h2>\n      <p class="subtitle">' + escHTML(c.site_subtitle) + '</p>\n    </div>\n  </header>\n\n  <!-- SUMMARY BAR -->\n  <section class="summary-bar">\n    <div class="summary-inner">\n      <span class="summary-label">' + escHTML(c.summary_name) + '</span>\n      <div class="kpi-group">\n        <div class="kpi"><span class="kpi-val">0</span><span class="kpi-name">TOTAL</span></div>\n        <div class="kpi"><span class="kpi-val">0</span><span class="kpi-name">ACTIVOS</span></div>\n      </div>\n    </div>\n  </section>\n\n  <!-- CONTROLS -->\n  <section class="controls-bar">\n    <div class="controls-inner">\n      <select class="ctrl-select" id="sel1"><option>' + escHTML(c.selector1_nombre) + '</option></select>\n      <select class="ctrl-select" id="sel2"><option>' + escHTML(c.selector2_nombre) + '</option></select>\n      <input class="ctrl-search" type="text" placeholder="' + escHTML(c.search_placeholder) + '">\n    </div>\n  </section>\n\n  <!-- MAP VIEWPORT -->\n  <section class="map-viewport" id="mapArea">\n    <div class="map-placeholder">\n      <div class="map-icon">&#127758;</div>\n      <div class="map-label">MAPA / VIEWPORT</div>\n      <p class="map-hint">' + escHTML(c.modal_text) + '</p>\n    </div>\n  </section>\n\n  <!-- RIBBON -->\n  <nav class="site-ribbon">\n    <div class="ribbon-inner">\n      ' + ribbonHTML + '\n    </div>\n  </nav>\n\n  <script src="js/app.js"><\/script>\n  <script src="js/index.js"><\/script>\n</body>\n</html>';
-
-  return html;
+    return `<span class="ribbon-item${isActive ? ' active' : ''}" style="--ri-color:${col}">${escHTML(s)}</span>`;
+  }).join('\n      ');
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escHTML(c.titulo_html)}</title>
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/colors.css">
+<link rel="stylesheet" href="css/buttons.css">
+<link rel="stylesheet" href="css/index.css">
+</head>
+<body>
+<header class="site-header"><div class="header-inner"><h1>${escHTML(c.h1_index)}</h1><h2>${escHTML(c.h2_index)}</h2><p class="subtitle">${escHTML(c.site_subtitle)}</p></div></header>
+<section class="summary-bar"><div class="summary-inner"><span class="summary-label">${escHTML(c.summary_name)}</span><div class="kpi-group"><div class="kpi"><span class="kpi-val">0</span><span class="kpi-name">TOTAL</span></div><div class="kpi"><span class="kpi-val">0</span><span class="kpi-name">ACTIVOS</span></div></div></div></section>
+<section class="controls-bar"><div class="controls-inner"><select class="ctrl-select" id="sel1"><option>${escHTML(c.selector1_nombre)}</option></select><select class="ctrl-select" id="sel2"><option>${escHTML(c.selector2_nombre)}</option></select><input class="ctrl-search" type="text" placeholder="${escHTML(c.search_placeholder)}"></div></section>
+<section class="map-viewport" id="mapArea"><div class="map-placeholder"><div class="map-icon">&#127758;</div><div class="map-label">MAPA / VIEWPORT</div><p class="map-hint">${escHTML(c.modal_text)}</p></div></section>
+<nav class="site-ribbon"><div class="ribbon-inner">${ribbonHTML}</div></nav>
+<script src="js/app.js"><\/script>
+<script src="js/index.js"><\/script>
+</body>
+</html>`;
 }
 
 /* ---------- CARD.HTML ---------- */
 
 function buildCardHTML(config) {
   var c = config;
-
-  var html = '<!DOCTYPE html>\n<html lang="es">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>' + escHTML(c.nombre_sitio) + ' - Card</title>\n<link rel="stylesheet" href="css/style.css">\n</head>\n<body class="card-page">\n\n  <!-- HEADER -->\n  <header class="site-header card-header">\n    <div class="header-inner">\n      <h1>' + escHTML(c.nombre_sitio) + '</h1>\n      <h2>' + escHTML(c.h2_index) + '</h2>\n    </div>\n  </header>\n\n  <!-- EXECUTIVE SUMMARY -->\n  <section class="card-summary">\n    <h3>' + escHTML(c.modal_title) + '</h3>\n    <p>' + escHTML(c.modal_text) + '</p>\n  </section>\n\n  <!-- KPIs -->\n  <section class="card-kpis">\n    <div class="card-kpi"><span class="card-kpi-val">—</span><span class="card-kpi-label">KPI 01</span></div>\n    <div class="card-kpi"><span class="card-kpi-val">—</span><span class="card-kpi-label">KPI 02</span></div>\n    <div class="card-kpi"><span class="card-kpi-val">—</span><span class="card-kpi-label">KPI 03</span></div>\n    <div class="card-kpi"><span class="card-kpi-val">—</span><span class="card-kpi-label">KPI 04</span></div>\n  </section>\n\n  <!-- MAIN PANEL -->\n  <section class="card-main">\n    <div class="card-col-left">\n      <h3>Análisis Territorial</h3>\n      <table class="card-table">\n        <tr><td>Atributo</td><td>Valor</td></tr>\n        <tr><td>Geometría</td><td>' + escHTML(c.tipo_geometria_card) + '</td></tr>\n        <tr><td>Fuente</td><td>' + escHTML(c.archivo_analisis || 'Sin definir') + '</td></tr>\n        <tr><td>Capa</td><td>' + escHTML(c.carpeta_capas) + '</td></tr>\n        <tr><td>Estado</td><td>Maqueta</td></tr>\n      </table>\n    </div>\n    <div class="card-col-right">\n      <div class="card-map-placeholder">\n        <div class="map-icon">&#128506;</div>\n        <div>Mapa del CARD</div>\n      </div>\n    </div>\n  </section>\n\n  <!-- ACTIONS -->\n  <section class="card-actions">\n    ' + (c.pdf_activo ? '<button class="btn-action btn-pdf">&#128196; Descarga PDF</button>' : '') + '\n    ' + (c.kml_activo ? '<button class="btn-action btn-kml">&#127758; Descarga KML</button>' : '') + '\n    <a href="index.html" class="btn-action btn-back">&#8592; Volver al Index</a>\n  </section>\n\n  <script src="js/app.js"><\/script>\n  <script src="js/card.js"><\/script>\n</body>\n</html>';
-
-  return html;
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escHTML(c.nombre_sitio)} - Card</title>
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/colors.css">
+<link rel="stylesheet" href="css/buttons.css">
+<link rel="stylesheet" href="css/card.css">
+</head>
+<body class="card-page">
+<header class="site-header card-header"><div class="header-inner"><h1>${escHTML(c.nombre_sitio)}</h1><h2>${escHTML(c.h2_index)}</h2></div></header>
+<section class="card-summary"><h3>${escHTML(c.modal_title)}</h3><p>${escHTML(c.modal_text)}</p></section>
+<section class="card-kpis"><div class="card-kpi"><span class="card-kpi-val">—</span><span class="card-kpi-label">KPI 01</span></div><div class="card-kpi"><span class="card-kpi-val">—</span><span class="card-kpi-label">KPI 02</span></div><div class="card-kpi"><span class="card-kpi-val">—</span><span class="card-kpi-label">KPI 03</span></div><div class="card-kpi"><span class="card-kpi-val">—</span><span class="card-kpi-label">KPI 04</span></div></section>
+<section class="card-main"><div class="card-col-left"><h3>Análisis Territorial</h3><table class="card-table"><tr><td>Atributo</td><td>Valor</td></tr><tr><td>Geometría</td><td>${escHTML(c.tipo_geometria_card)}</td></tr><tr><td>Fuente</td><td>${escHTML(c.archivo_analisis || 'Sin definir')}</td></tr><tr><td>Capa</td><td>${escHTML(c.carpeta_capas)}</td></tr><tr><td>Estado</td><td>Maqueta</td></tr></table></div><div class="card-col-right"><div class="card-map-placeholder"><div class="map-icon">&#128506;</div><div>Mapa del CARD</div></div></div></section>
+<section class="card-actions">${c.pdf_activo ? '<button class="btn-action btn-pdf">&#128196; Descarga PDF</button>' : ''}${c.kml_activo ? '<button class="btn-action btn-kml">&#127758; Descarga KML</button>' : ''}<a href="index.html" class="btn-action btn-back">&#8592; Volver al Index</a></section>
+<script src="js/app.js"><\/script>
+<script src="js/card.js"><\/script>
+</body>
+</html>`;
 }
 
 /* ---------- CSS ---------- */
+
+function buildIndexCss(config) { return buildFullCSS(config.color_base); }
+function buildCardCss(config) { return '/* Card styles are included in index.css for v0.1 */\n'; }
+function buildButtonsCss(config) { return '/* Button styles are included in index.css for v0.1 */\n'; }
+function buildColorsCss(config) { return ':root { --gf-primary: ' + config.color_base + '; }\n'; }
+function buildFontsCss(config) { return '@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");\n'; }
 
 function buildDefaultCSS(config) {
   var color = config.color_base;
@@ -760,7 +810,7 @@ function buildOverrideCSS(config) {
 }
 
 function buildFullCSS(color) {
-  var css = '/* GeoFactory Generated CSS */\n@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");\n\n:root {\n  --gf-primary: ' + color + ';\n  --gf-bg: #0f172a;\n  --gf-surface: #1e293b;\n  --gf-surface2: #253346;\n  --gf-border: #334155;\n  --gf-text: #e2e8f0;\n  --gf-text2: #94a3b8;\n  --gf-radius: 8px;\n}\n\n*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }\nhtml { font-size: 15px; }\nbody {\n  font-family: "Inter", sans-serif;\n  background: var(--gf-bg);\n  color: var(--gf-text);\n  min-height: 100vh;\n  opacity: 0;\n  transition: opacity .3s;\n}\nbody.ready { opacity: 1; }\n\n/* HEADER */\n.site-header {\n  background: var(--gf-surface);\n  border-bottom: 3px solid var(--gf-primary);\n  padding: 1.8rem 2rem 1.4rem;\n}\n.header-inner { max-width: 1200px; margin: 0 auto; }\n.site-header h1 {\n  font-size: 1.6rem;\n  font-weight: 700;\n  color: var(--gf-primary);\n}\n.site-header h2 {\n  font-size: 1rem;\n  font-weight: 500;\n  color: var(--gf-text);\n  margin-top: .2rem;\n}\n.site-header .subtitle {\n  font-size: .85rem;\n  color: var(--gf-text2);\n  margin-top: .3rem;\n}\n\n/* SUMMARY BAR */\n.summary-bar {\n  background: var(--gf-surface2);\n  padding: .8rem 2rem;\n  border-bottom: 1px solid var(--gf-border);\n}\n.summary-inner {\n  max-width: 1200px;\n  margin: 0 auto;\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n}\n.summary-label {\n  font-weight: 600;\n  font-size: .95rem;\n}\n.kpi-group { display: flex; gap: 2rem; }\n.kpi { text-align: center; }\n.kpi-val {\n  display: block;\n  font-size: 1.3rem;\n  font-weight: 700;\n  color: var(--gf-primary);\n}\n.kpi-name {\n  font-size: .65rem;\n  text-transform: uppercase;\n  letter-spacing: .1em;\n  color: var(--gf-text2);\n}\n\n/* CONTROLS */\n.controls-bar {\n  padding: .8rem 2rem;\n  background: var(--gf-bg);\n  border-bottom: 1px solid var(--gf-border);\n}\n.controls-inner {\n  max-width: 1200px;\n  margin: 0 auto;\n  display: flex;\n  gap: .8rem;\n  flex-wrap: wrap;\n}\n.ctrl-select, .ctrl-search {\n  padding: .5rem .8rem;\n  background: var(--gf-surface);\n  border: 1px solid var(--gf-border);\n  border-radius: var(--gf-radius);\n  color: var(--gf-text);\n  font-family: inherit;\n  font-size: .85rem;\n  min-width: 180px;\n}\n.ctrl-search { flex: 1; min-width: 200px; }\n.ctrl-select:focus, .ctrl-search:focus { outline: none; border-color: var(--gf-primary); }\n\n/* MAP VIEWPORT */\n.map-viewport {\n  min-height: 55vh;\n  background: var(--gf-surface);\n  margin: 1rem 2rem;\n  border-radius: var(--gf-radius);\n  border: 1px solid var(--gf-border);\n  cursor: pointer;\n  position: relative;\n  overflow: hidden;\n  background-image:\n    radial-gradient(circle at 30% 40%, rgba(255,255,255,.02) 0%, transparent 50%),\n    radial-gradient(circle at 70% 60%, rgba(255,255,255,.015) 0%, transparent 50%);\n}\n.map-placeholder {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  justify-content: center;\n  height: 100%;\n  min-height: 55vh;\n}\n.map-icon { font-size: 3rem; margin-bottom: .5rem; opacity: .4; }\n.map-label {\n  font-size: 1.1rem;\n  font-weight: 600;\n  color: var(--gf-text2);\n  letter-spacing: .15em;\n  text-transform: uppercase;\n}\n.map-hint {\n  margin-top: .6rem;\n  font-size: .8rem;\n  color: var(--gf-text2);\n  opacity: .7;\n  max-width: 400px;\n  text-align: center;\n}\n\n/* RIBBON */\n.site-ribbon {\n  background: var(--gf-surface);\n  border-top: 1px solid var(--gf-border);\n  padding: .6rem 2rem;\n  position: fixed;\n  bottom: 0;\n  left: 0;\n  right: 0;\n  z-index: 100;\n}\n.ribbon-inner {\n  max-width: 1200px;\n  margin: 0 auto;\n  display: flex;\n  justify-content: center;\n  gap: 2rem;\n}\n.ribbon-item {\n  font-size: .8rem;\n  font-weight: 600;\n  color: var(--gf-text2);\n  padding: .3rem 0;\n  border-bottom: 2px solid transparent;\n  cursor: default;\n  transition: color .2s;\n}\n.ribbon-item.active {\n  color: var(--ri-color, var(--gf-primary));\n  border-bottom-color: var(--ri-color, var(--gf-primary));\n}\n\n/* ============ CARD PAGE ============ */\n.card-page { padding-bottom: 2rem; }\n.card-header { border-bottom-width: 3px; }\n\n.card-summary {\n  max-width: 1200px;\n  margin: 1.5rem auto;\n  padding: 0 2rem;\n}\n.card-summary h3 {\n  font-size: 1.1rem;\n  margin-bottom: .5rem;\n  color: var(--gf-primary);\n}\n.card-summary p {\n  color: var(--gf-text2);\n  font-size: .9rem;\n  line-height: 1.6;\n}\n\n.card-kpis {\n  max-width: 1200px;\n  margin: 1rem auto;\n  padding: 0 2rem;\n  display: grid;\n  grid-template-columns: repeat(4, 1fr);\n  gap: 1rem;\n}\n.card-kpi {\n  background: var(--gf-surface);\n  border: 1px solid var(--gf-border);\n  border-radius: var(--gf-radius);\n  padding: 1.2rem;\n  text-align: center;\n}\n.card-kpi-val {\n  display: block;\n  font-size: 1.5rem;\n  font-weight: 700;\n  color: var(--gf-primary);\n}\n.card-kpi-label {\n  font-size: .7rem;\n  text-transform: uppercase;\n  letter-spacing: .1em;\n  color: var(--gf-text2);\n  margin-top: .3rem;\n  display: block;\n}\n\n.card-main {\n  max-width: 1200px;\n  margin: 1.5rem auto;\n  padding: 0 2rem;\n  display: grid;\n  grid-template-columns: 1fr 1fr;\n  gap: 1.5rem;\n}\n.card-col-left h3 {\n  font-size: .95rem;\n  margin-bottom: .8rem;\n  color: var(--gf-primary);\n}\n.card-table {\n  width: 100%;\n  border-collapse: collapse;\n  font-size: .85rem;\n}\n.card-table td {\n  padding: .6rem .8rem;\n  border-bottom: 1px solid var(--gf-border);\n}\n.card-table tr:first-child td {\n  font-weight: 600;\n  color: var(--gf-text2);\n  font-size: .75rem;\n  text-transform: uppercase;\n  letter-spacing: .08em;\n}\n\n.card-map-placeholder {\n  background: var(--gf-surface);\n  border: 1px solid var(--gf-border);\n  border-radius: var(--gf-radius);\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  justify-content: center;\n  min-height: 300px;\n  color: var(--gf-text2);\n  font-size: .9rem;\n}\n\n.card-actions {\n  max-width: 1200px;\n  margin: 2rem auto;\n  padding: 0 2rem;\n  display: flex;\n  gap: .8rem;\n  flex-wrap: wrap;\n}\n.btn-action {\n  display: inline-flex;\n  align-items: center;\n  gap: .4rem;\n  padding: .6rem 1.2rem;\n  border: 1px solid var(--gf-border);\n  border-radius: var(--gf-radius);\n  background: var(--gf-surface);\n  color: var(--gf-text);\n  font-family: inherit;\n  font-size: .85rem;\n  font-weight: 500;\n  cursor: pointer;\n  text-decoration: none;\n  transition: all .2s;\n}\n.btn-action:hover {\n  border-color: var(--gf-primary);\n  color: var(--gf-primary);\n}\n.btn-back {\n  margin-left: auto;\n  background: var(--gf-primary);\n  color: #000;\n  border-color: var(--gf-primary);\n  font-weight: 600;\n}\n.btn-back:hover { opacity: .85; color: #000; }\n\n@media (max-width: 768px) {\n  .card-kpis { grid-template-columns: repeat(2, 1fr); }\n  .card-main { grid-template-columns: 1fr; }\n  .controls-inner { flex-direction: column; }\n}\n';
+  var css = '/* GeoFactory Generated CSS */\n:root {\n  --gf-primary: ' + color + ';\n  --gf-bg: #0f172a;\n  --gf-surface: #1e293b;\n  --gf-surface2: #253346;\n  --gf-border: #334155;\n  --gf-text: #e2e8f0;\n  --gf-text2: #94a3b8;\n  --gf-radius: 8px;\n}\n\n*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }\nhtml { font-size: 15px; }\nbody {\n  font-family: "Inter", sans-serif;\n  background: var(--gf-bg);\n  color: var(--gf-text);\n  min-height: 100vh;\n  opacity: 0;\n  transition: opacity .3s;\n}\nbody.ready { opacity: 1; }\n\n/* HEADER */\n.site-header {\n  background: var(--gf-surface);\n  border-bottom: 3px solid var(--gf-primary);\n  padding: 1.8rem 2rem 1.4rem;\n}\n.header-inner { max-width: 1200px; margin: 0 auto; }\n.site-header h1 {\n  font-size: 1.6rem;\n  font-weight: 700;\n  color: var(--gf-primary);\n}\n.site-header h2 {\n  font-size: 1rem;\n  font-weight: 500;\n  color: var(--gf-text);\n  margin-top: .2rem;\n}\n.site-header .subtitle {\n  font-size: .85rem;\n  color: var(--gf-text2);\n  margin-top: .3rem;\n}\n\n/* SUMMARY BAR */\n.summary-bar {\n  background: var(--gf-surface2);\n  padding: .8rem 2rem;\n  border-bottom: 1px solid var(--gf-border);\n}\n.summary-inner {\n  max-width: 1200px;\n  margin: 0 auto;\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n}\n.summary-label {\n  font-weight: 600;\n  font-size: .95rem;\n}\n.kpi-group { display: flex; gap: 2rem; }\n.kpi { text-align: center; }\n.kpi-val {\n  display: block;\n  font-size: 1.3rem;\n  font-weight: 700;\n  color: var(--gf-primary);\n}\n.kpi-name {\n  font-size: .65rem;\n  text-transform: uppercase;\n  letter-spacing: .1em;\n  color: var(--gf-text2);\n}\n\n/* CONTROLS */\n.controls-bar {\n  padding: .8rem 2rem;\n  background: var(--gf-bg);\n  border-bottom: 1px solid var(--gf-border);\n}\n.controls-inner {\n  max-width: 1200px;\n  margin: 0 auto;\n  display: flex;\n  gap: .8rem;\n  flex-wrap: wrap;\n}\n.ctrl-select, .ctrl-search {\n  padding: .5rem .8rem;\n  background: var(--gf-surface);\n  border: 1px solid var(--gf-border);\n  border-radius: var(--gf-radius);\n  color: var(--gf-text);\n  font-family: inherit;\n  font-size: .85rem;\n  min-width: 180px;\n}\n.ctrl-search { flex: 1; min-width: 200px; }\n.ctrl-select:focus, .ctrl-search:focus { outline: none; border-color: var(--gf-primary); }\n\n/* MAP VIEWPORT */\n.map-viewport {\n  min-height: 55vh;\n  background: var(--gf-surface);\n  margin: 1rem 2rem;\n  border-radius: var(--gf-radius);\n  border: 1px solid var(--gf-border);\n  cursor: pointer;\n  position: relative;\n  overflow: hidden;\n  background-image:\n    radial-gradient(circle at 30% 40%, rgba(255,255,255,.02) 0%, transparent 50%),\n    radial-gradient(circle at 70% 60%, rgba(255,255,255,.015) 0%, transparent 50%);\n}\n.map-placeholder {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  justify-content: center;\n  height: 100%;\n  min-height: 55vh;\n}\n.map-icon { font-size: 3rem; margin-bottom: .5rem; opacity: .4; }\n.map-label {\n  font-size: 1.1rem;\n  font-weight: 600;\n  color: var(--gf-text2);\n  letter-spacing: .15em;\n  text-transform: uppercase;\n}\n.map-hint {\n  margin-top: .6rem;\n  font-size: .8rem;\n  color: var(--gf-text2);\n  opacity: .7;\n  max-width: 400px;\n  text-align: center;\n}\n\n/* RIBBON */\n.site-ribbon {\n  background: var(--gf-surface);\n  border-top: 1px solid var(--gf-border);\n  padding: .6rem 2rem;\n  position: fixed;\n  bottom: 0;\n  left: 0;\n  right: 0;\n  z-index: 100;\n}\n.ribbon-inner {\n  max-width: 1200px;\n  margin: 0 auto;\n  display: flex;\n  justify-content: center;\n  gap: 2rem;\n}\n.ribbon-item {\n  font-size: .8rem;\n  font-weight: 600;\n  color: var(--gf-text2);\n  padding: .3rem 0;\n  border-bottom: 2px solid transparent;\n  cursor: default;\n  transition: color .2s;\n}\n.ribbon-item.active {\n  color: var(--ri-color, var(--gf-primary));\n  border-bottom-color: var(--ri-color, var(--gf-primary));\n}\n\n/* ============ CARD PAGE ============ */\n.card-page { padding-bottom: 2rem; }\n.card-header { border-bottom-width: 3px; }\n\n.card-summary {\n  max-width: 1200px;\n  margin: 1.5rem auto;\n  padding: 0 2rem;\n}\n.card-summary h3 {\n  font-size: 1.1rem;\n  margin-bottom: .5rem;\n  color: var(--gf-primary);\n}\n.card-summary p {\n  color: var(--gf-text2);\n  font-size: .9rem;\n  line-height: 1.6;\n}\n\n.card-kpis {\n  max-width: 1200px;\n  margin: 1rem auto;\n  padding: 0 2rem;\n  display: grid;\n  grid-template-columns: repeat(4, 1fr);\n  gap: 1rem;\n}\n.card-kpi {\n  background: var(--gf-surface);\n  border: 1px solid var(--gf-border);\n  border-radius: var(--gf-radius);\n  padding: 1.2rem;\n  text-align: center;\n}\n.card-kpi-val {\n  display: block;\n  font-size: 1.5rem;\n  font-weight: 700;\n  color: var(--gf-primary);\n}\n.card-kpi-label {\n  font-size: .7rem;\n  text-transform: uppercase;\n  letter-spacing: .1em;\n  color: var(--gf-text2);\n  margin-top: .3rem;\n  display: block;\n}\n\n.card-main {\n  max-width: 1200px;\n  margin: 1.5rem auto;\n  padding: 0 2rem;\n  display: grid;\n  grid-template-columns: 1fr 1fr;\n  gap: 1.5rem;\n}\n.card-col-left h3 {\n  font-size: .95rem;\n  margin-bottom: .8rem;\n  color: var(--gf-primary);\n}\n.card-table {\n  width: 100%;\n  border-collapse: collapse;\n  font-size: .85rem;\n}\n.card-table td {\n  padding: .6rem .8rem;\n  border-bottom: 1px solid var(--gf-border);\n}\n.card-table tr:first-child td {\n  font-weight: 600;\n  color: var(--gf-text2);\n  font-size: .75rem;\n  text-transform: uppercase;\n  letter-spacing: .08em;\n}\n\n.card-map-placeholder {\n  background: var(--gf-surface);\n  border: 1px solid var(--gf-border);\n  border-radius: var(--gf-radius);\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  justify-content: center;\n  min-height: 300px;\n  color: var(--gf-text2);\n  font-size: .9rem;\n}\n\n.card-actions {\n  max-width: 1200px;\n  margin: 2rem auto;\n  padding: 0 2rem;\n  display: flex;\n  gap: .8rem;\n  flex-wrap: wrap;\n}\n.btn-action {\n  display: inline-flex;\n  align-items: center;\n  gap: .4rem;\n  padding: .6rem 1.2rem;\n  border: 1px solid var(--gf-border);\n  border-radius: var(--gf-radius);\n  background: var(--gf-surface);\n  color: var(--gf-text);\n  font-family: inherit;\n  font-size: .85rem;\n  font-weight: 500;\n  cursor: pointer;\n  text-decoration: none;\n  transition: all .2s;\n}\n.btn-action:hover {\n  border-color: var(--gf-primary);\n  color: var(--gf-primary);\n}\n.btn-back {\n  margin-left: auto;\n  background: var(--gf-primary);\n  color: #000;\n  border-color: var(--gf-primary);\n  font-weight: 600;\n}\n.btn-back:hover { opacity: .85; color: #000; }\n\n@media (max-width: 768px) {\n  .card-kpis { grid-template-columns: repeat(2, 1fr); }\n  .card-main { grid-template-columns: 1fr; }\n  .controls-inner { flex-direction: column; }\n}\n';
   return css;
 }
 
@@ -801,7 +851,7 @@ function buildReadme(config) {
 
 function escHTML(str) {
   if (!str) return '';
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 </script>
